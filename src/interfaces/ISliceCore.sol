@@ -10,11 +10,11 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
     /* Emitted when a new slice token is created */
     event SliceTokenCreated(address indexed token);
     /* Emitted when the underlying assets of a Slice token are purchased during a Slice token mint */
-    event UnderlyingAssetsPurchased(address indexed token, uint256 indexed amount, address indexed owner);
+    event UnderlyingAssetsPurchased(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
     /* Emitted when the Slice token creator successfully rebalances a Slice token's positions */
     event UnderlyingAssetsRebalanced(address indexed token);
     /* Emitted when the underlying assets in a Slice token are redeemed by a Slice token owner */
-    event UnderlyingAssetsRedeemed(address indexed token, uint256 indexed amount, address indexed owner);
+    event UnderlyingAssetsRedeemed(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
 
     /**
      * @dev Deploys a new Slice token contract. Can only be called by verified addresses.
@@ -30,21 +30,25 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
 
     /**
      * @dev Purchases the underlying assets for a given slice token (msg.sender).
-     * @param _sliceTokenAmount The amount of slice tokens to purchase the underlying assets for
+     * @param _mintID The ID that uniquely identifies this mint transaction within the sysem
+     * @param _sliceTokenQuantity The quantity of slice tokens to purchase the underlying assets for
+     * @param _maxEstimatedPrice The maximum estimated price of all the underlying assets combined. In USDC (6 decimals)
      */
-    function purchaseUnderlyingAssets(uint256 _sliceTokenAmount) external;
+    function purchaseUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity, uint256 _maxEstimatedPrice) external;
 
     /**
      * @dev Sells/buy the Slice token (msg.sender) underlying assets to rebalance to the new positions
+     * @param _rebalanceID The ID that uniquely identifies this transaction within the system
      * @param _positions The new positions to rebalance to
      */
-    function rebalanceUnderlying(Position[] calldata _positions) external;
+    function rebalanceUnderlying(bytes32 _rebalanceID, Position[] calldata _positions) external;
 
     /**
      * @dev Transfers out the underlying assets for a given Slice token to the given user.
+     * @param _redeemID The ID that uniquely identifies this transaction within the system
      * @param _redeemInfo The details of the underlying asset redeeming.
      */
-    function redeemUnderlying(RedeemInfo memory _redeemInfo) external;
+    function redeemUnderlying(bytes32 _redeemID, RedeemInfo memory _redeemInfo) external;
 
     /**
      * @dev Enables/disables the creation of new Slice tokens. Can only be called by contract owner.
