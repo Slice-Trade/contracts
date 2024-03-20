@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity ^0.8.22;
 
 struct Chain {
     uint256 chainId;
@@ -11,4 +11,10 @@ struct Position {
     uint256 chainId; // The chain ID where the token is deployed
     address token; // The address of the token in the Position
     uint256 units; // The amount of the given token in the Slice token (i.e. 0.5 wETH)
+}
+
+struct RedeemInfo {
+    address sliceToken;
+    address user;
+    bytes data;
 }
