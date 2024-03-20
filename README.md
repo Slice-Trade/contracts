@@ -26,7 +26,7 @@ A position contains:
 
 The result of the create step is a new SliceToken.sol contract deployed on the main blockchain.
 
-![Slice Smart Contract Architecture.jpg](https://prod-files-secure.s3.us-west-2.amazonaws.com/8728f3de-9ecb-4ce4-a784-e13a0a405e31/c3af7b9d-3d2f-4280-aa65-8e4320bbdf71/Slice_Smart_Contract_Architecture.jpg)
+![Slice Smart Contract Architecture](https://github.com/Slice-Trade/contracts/assets/44027725/da210997-63bf-4078-9191-9f493c7b8bad)
 
 ## Mint
 
@@ -45,7 +45,7 @@ The mint steps are as follows:
 
 The result of the mint step is a new Slice token in the user's wallet on the main blockchain.
 
-![Slice Smart Contract Architecture (1).jpg](https://prod-files-secure.s3.us-west-2.amazonaws.com/8728f3de-9ecb-4ce4-a784-e13a0a405e31/7129e03f-721e-4b2e-982b-e1846d4471f3/Slice_Smart_Contract_Architecture_(1).jpg)
+![Slice Smart Contract Architecture (1)](https://github.com/Slice-Trade/contracts/assets/44027725/d952116a-4ab7-4a9f-8754-c28fd377ef45)
 
 ## Rebalance
 
@@ -67,7 +67,7 @@ After the rebalance, the  new distribution will be 48% ETH and 52% SOL. This reb
 
 When and whether such a rebalance is necessary will be entirely up to the discretion of the team. (Just to give an example, in Index Coop on-chain ETFs "rebalances occur monthly based on Scalara criteria" and is applied to all tokens automatically).
 
-![Slice Smart Contract Architecture (2).jpg](https://prod-files-secure.s3.us-west-2.amazonaws.com/8728f3de-9ecb-4ce4-a784-e13a0a405e31/c0f1de3b-2669-4854-b741-3e4eb41fed62/Slice_Smart_Contract_Architecture_(2).jpg)
+![Slice Smart Contract Architecture (2)](https://github.com/Slice-Trade/contracts/assets/44027725/8b1682b4-3087-4fc5-9e55-c1f46c4e55fe)
 
 ## Redeem
 
@@ -80,4 +80,4 @@ The redeem steps are as follows:
 - all the underlying assets are transferred to the user’s wallet
 - when all redeem successful notifications are received, the token is burned
 
-![Slice Smart Contract Architecture (3).jpg](https://prod-files-secure.s3.us-west-2.amazonaws.com/8728f3de-9ecb-4ce4-a784-e13a0a405e31/0d3a7d6a-75c2-4b7e-a1c4-ac5c49b1fdbe/Slice_Smart_Contract_Architecture_(3).jpg)
+![Slice Smart Contract Architecture (3)](https://github.com/Slice-Trade/contracts/assets/44027725/ddb78d4a-4227-43c1-a24c-7277e121d925)
