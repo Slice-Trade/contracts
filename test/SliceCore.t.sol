@@ -35,6 +35,10 @@ contract SliceCoreTest is Test, Helper {
 
     }
 
+    function testCannotPurchaseUnderlyingAssets_NotEnoughMoney() public {
+        
+    }
+
     /* =========================================================== */
     /*   =============    rebalanceUnderlying   ===============    */
     /* =========================================================== */
@@ -69,6 +73,6 @@ contract SliceCoreTest is Test, Helper {
     }
 
     function testCannotChangeSliceTokenCreationEnabled_NotAuthorized() public {
-        
+
     }
 }
