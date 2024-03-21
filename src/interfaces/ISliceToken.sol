@@ -39,7 +39,7 @@ interface ISliceToken is IERC20 {
 
     /**
      * @dev Redeems the underlying assets in a Slice token and burns the Slice token.
-     * @param _sliceTokenQuantity The quantity of slice tokens to purchase
+     * @param _sliceTokenQuantity The quantity of slice tokens to redeem
      */
     function redeem(uint256 _sliceTokenQuantity) external;
 

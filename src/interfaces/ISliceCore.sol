@@ -66,5 +66,4 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
      * @param _token The address to check
      */
     function isSliceTokenRegistered(address _token) external view returns (bool);
-
 }
