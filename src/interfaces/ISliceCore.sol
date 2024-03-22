@@ -57,6 +57,13 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
     function changeSliceTokenCreationEnabled(bool _isEnabled) external;
 
     /**
+     * @dev Adds or removes an address from the list of addresses that can create new Slice tokens
+     * @param _user The address to approve/remove
+     * @param _isApproved Whether to approve/disapprove 
+     */
+    function changeApprovedSliceTokenCreator(address _user, bool _isApproved) external;
+
+    /**
      * @dev Returns the number of Slice tokens registered (created) in the contract.
      */
     function getRegisteredSliceTokensCount() external view returns (uint256);

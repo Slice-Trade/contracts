@@ -4,8 +4,8 @@ pragma solidity ^0.8.10;
 import "./IRouteProcessor.sol";
 import "./ISushiXSwapV2Adapter.sol";
 import "./IWETH.sol";
-import "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import "openzeppelin-contracts/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface ISushiXSwapV2 {
     struct BridgeParams {

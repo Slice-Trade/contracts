@@ -29,6 +29,11 @@ contract SliceCore is ISliceCore {
         // TODO
     }
 
+    /** @dev See ISliceCore - changeApprovedSliceTokenCreator */
+    function changeApprovedSliceTokenCreator(address _user, bool _isApproved) external {
+
+    }
+
     /** @dev See ISliceCore - canCreateSlice */
     function canCreateSlice(address _user) external view returns (bool) {
         // TODO
