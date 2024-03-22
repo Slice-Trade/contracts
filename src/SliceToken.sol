@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./interfaces/ISliceToken.sol";
 
 contract SliceToken is ISliceToken, ERC20 {
-    constructor(string memory _name, string memory _symbol) ERC20(_name, _symbol) {}
+    constructor(string memory _name, string memory _symbol, Position[] memory _positions) ERC20(_name, _symbol) {}
 
     /** @dev See ISliceToken - mint */
     function mint(uint256 _sliceTokenQuantity, uint256 _maxEstimatedPrice) external {

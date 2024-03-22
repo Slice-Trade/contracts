@@ -20,6 +20,12 @@ contract SliceCoreTest is Helper {
 
     Position[] public positions;
 
+    uint256 constant MAX_ESTIMATED_PRICE = 1355000000; // 1355 USDC
+
+    uint256 public wethUnits = 100000000000000000; // 0.1 wETH
+    uint256 public wbtcUnits = 10000000000000000; // 0.01 wBTC
+    uint256 public linkUnits = 20000000000000000000; // 20 LINK
+
     /* =========================================================== */
     /*    ==================      setup     ===================    */
     /* =========================================================== */
@@ -31,13 +37,43 @@ contract SliceCoreTest is Helper {
         wbtc = IERC20(constants.getAddress("mainnet.wbtc"));
         link = IERC20(constants.getAddress("mainnet.link"));
 
-        vm.startPrank(dev);
-
-        core = new SliceCore();
-        token = new SliceToken("Slice Token", "SC");
-
         // mint user some USDC
         deal(address(usdc), address(dev), 1 ether);
+
+        vm.startPrank(dev);
+
+        // enable slice token creation
+        core.changeSliceTokenCreationEnabled(true);
+        // approve address as Slice token creator
+        core.changeApprovedSliceTokenCreator(dev, true);
+
+        // create positions       
+        Position memory wethPosition = Position(
+            1, // mainnet
+            address(weth), // wrapped ETH
+            wethUnits // 0.1 wETH
+        );
+
+        Position memory wbtcPosition = Position(
+            1, // mainnet
+            address(wbtc), // wrapped BTC
+            wbtcUnits // 0.01 wBTC
+        );
+
+        Position memory linkPosition = Position(
+            1, // mainnet
+            address(link), // chainlink
+            linkUnits // 20 LINK
+        );
+
+        positions.push(wethPosition);
+        positions.push(wbtcPosition);
+        positions.push(linkPosition);
+
+        core = new SliceCore();
+        address tokenAddr = core.createSlice("Slice Token", "SC", positions);
+        token = SliceToken(tokenAddr);
+
         vm.stopPrank();
     }
 
@@ -46,34 +82,8 @@ contract SliceCoreTest is Helper {
     /* =========================================================== */
     function testCreateSlice() public {
         vm.startPrank(dev);
-        // enable slice token creation
-        core.changeSliceTokenCreationEnabled(true);
         // approve address as Slice token creator
         core.changeApprovedSliceTokenCreator(users[1], true);
-
-        // create positions       
-        Position memory wethPosition = Position(
-            1, // mainnet
-            address(weth), // wrapped ETH
-            100000000000000000 // 0.1 wETH
-        );
-
-        Position memory wbtcPosition = Position(
-            1, // mainnet
-            address(wbtc), // wrapped BTC
-            10000000000000000 // 0.01 wBTC
-        );
-
-        Position memory linkPosition = Position(
-            1, // mainnet
-            address(link), // chainlink
-            20000000000000000000 // 20 LINK
-        );
-
-        positions.push(wethPosition);
-        positions.push(wbtcPosition);
-        positions.push(linkPosition);
-
 
         // call create Slice token from that address
         vm.stopPrank();
@@ -84,7 +94,6 @@ contract SliceCoreTest is Helper {
         emit ISliceCore.SliceTokenCreated(address(0)); // TODO
 
         address sliceTokenAddress = core.createSlice("Test Token", "TT", positions);
-        
 
         // verify that the Slice token is deployed
         SliceToken deployedSliceToken = SliceToken(sliceTokenAddress);
@@ -115,30 +124,50 @@ contract SliceCoreTest is Helper {
         core.createSlice("Test Token", "TT", positions);
     }
 
+    function testCannotCreateSlice_CreationNotEnabled() public {
+        vm.startPrank(dev);
+        // enable slice token creation
+        core.changeSliceTokenCreationEnabled(false);
+        vm.expectRevert("SliceCore: Slice token creation disabled");
+        core.createSlice("Test Token", "TT", positions);
+        vm.stopPrank();
+    }
+
     /* =========================================================== */
     /*   ===========   purchaseUnderlyingAssets   =============    */
     /* =========================================================== */
     function testPurchaseUnderlyingAssets() public {
-        // create a mock Slice token 
-
+        vm.startPrank(dev);
         // call mint -> call purchase underlying assets
+        vm.expectEmit(true, true, true, false);
+        // verify that event is emitted
+        emit ISliceCore.UnderlyingAssetsPurchased(address(token), 1, dev);
+
+        token.mint(1, MAX_ESTIMATED_PRICE);
 
         // verify that the assets are purhased
+        uint256 wethBalance = weth.balanceOf(address(token));
+        uint256 wbtcBalance = wbtc.balanceOf(address(token));
+        uint256 linkBalance = link.balanceOf(address(token));
 
-        // verify that event is emitted
-
+        assertEq(wethUnits, wethBalance);
+        assertEq(wbtcUnits, wbtcBalance);
+        assertEq(linkUnits, linkBalance);
     }
 
     function testCannotPurchaseUnderlyingAssets_NotRegistedSliceToken() public {
-        // call purchaseUnderlying from a non-registered address
-
         // verify that it reverts with the correct revert msg
+        vm.expectRevert("SliceCore: Only registered Slice token can call");
+        // call purchaseUnderlying from a non-registered address
+        core.purchaseUnderlyingAssets(bytes32(0), 1, 1 ether);
     }
 
     function testCannotPurchaseUnderlyingAssets_NotEnoughMoney() public {
-        // call purchase underlying from address with no payment token
-
+        // call purchase underlying with wrong expected amount
+        vm.startPrank(dev);
         // verify that it reverts with the correct revert msg
+        vm.expectRevert("SliceCore: Max estimated price lower than required");
+        token.mint(1, 1000000);
     }
 
     /* =========================================================== */
