@@ -12,22 +12,23 @@ contract SliceCoreTest is Helper {
     SliceCore core;
     SliceToken token;
 
+    IERC20 public usdc;
+
     /* =========================================================== */
     /*    ==================      setup     ===================    */
     /* =========================================================== */
     function setUp() public {
-        // fork mainnet
         forkMainnet();
+
+        usdc = IERC20(constants.getAddress("mainnet.usdc"));
 
         vm.startPrank(dev);
 
         core = new SliceCore();
         token = new SliceToken("Slice Token", "SC");
 
-
-        // Create dummy payment token
-
-        // mint user money
+        // mint user some USDC
+        deal(address(usdc), address(dev), 1 ether);
     }
 
     /* =========================================================== */
