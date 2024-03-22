@@ -153,6 +153,11 @@ contract SliceCoreTest is Helper {
         assertEq(wethUnits, wethBalance);
         assertEq(wbtcUnits, wbtcBalance);
         assertEq(linkUnits, linkBalance);
+        vm.stopPrank();
+    }
+
+    function testPurchaseUnderlyingAssets_Multichain() public {
+        // TODO
     }
 
     function testCannotPurchaseUnderlyingAssets_NotRegistedSliceToken() public {
@@ -164,7 +169,7 @@ contract SliceCoreTest is Helper {
 
     function testCannotPurchaseUnderlyingAssets_NotEnoughMoney() public {
         // call purchase underlying with wrong expected amount
-        vm.startPrank(dev);
+        vm.prank(dev);
         // verify that it reverts with the correct revert msg
         vm.expectRevert("SliceCore: Max estimated price lower than required");
         token.mint(1, 1000000);
@@ -174,36 +179,113 @@ contract SliceCoreTest is Helper {
     /*   =============    rebalanceUnderlying   ===============    */
     /* =========================================================== */
     function testRebalanceUnderlying() public {
+        // mint some tokens
+        vm.startPrank(dev);
+        token.mint(2, MAX_ESTIMATED_PRICE * 2);
 
+        // rebalance
+        positions[0].units = 130346080000000000; // increase by a hundred bucks
+        positions[1].units = 8415120000000000; // decrease by a hundred bucks
+
+        // verify that event has been emitted
+        vm.expectEmit(true, false, false, false);
+        emit ISliceCore.UnderlyingAssetsRebalanced(address(token));
+        token.rebalance(positions);
+
+        // verify that positions info is updated
+        Position[] memory newPositions = token.getPositions();
+        assertEq(130346080000000000, newPositions[0].units);
+        assertEq(8415120000000000, newPositions[1].units);
+
+        // verify that underlying assets have been sold/bought correctly
+        uint256 wethBalance = weth.balanceOf(address(token));
+        uint256 wbtcBalance = wbtc.balanceOf(address(token));
+        assertEq(wethBalance, newPositions[0].units * 2);
+        assertEq(wbtcBalance, newPositions[1].units * 2);
+        vm.stopPrank();
     }
 
     function testCannotRebalanceUnderlying_NotAuthorized() public {
-
+        // verify that it reverts with correct reason
+        vm.expectRevert("SliceCore: Only registered Slice token can call");
+        // call rebalance from non-owner address
+        core.rebalanceUnderlying(bytes32(0), positions);
     }
 
     function testCannotRebalanceUnderlying_InvalidUnits() public {
-
+        vm.startPrank(dev);
+        // call rebalance with invalid values (can't sell enough to buy the other)
+        positions[0].units = 2000000000000000000;
+        positions[1].units = 2000000000000000000;
+        // verify that it reverts with the correct reason
+        vm.expectRevert("SliceCore: Invalid positions after rebalance");
+        token.rebalance(positions);
+        vm.stopPrank();
     }
 
     /* =========================================================== */
-    /*   =============    rebalanceUnderlying   ===============    */
+    /*   ==============    redeemUnderlying    ================    */
     /* =========================================================== */
     function testRedeemUnderlying() public {
+        // mint some slice tokens
+        vm.startPrank(dev);
+        token.mint(2, MAX_ESTIMATED_PRICE * 2);
 
+        // call redeem underlying
+        token.redeem(2);
+
+        // verify that the assets are in the user's wallet and gone from the slice token
+        uint256 wethBalance = weth.balanceOf(address(dev));
+        uint256 wbtcBalance = wbtc.balanceOf(address(dev));
+        assertEq(wethBalance, positions[0].units);
+        assertEq(wbtcBalance, positions[1].units);
+
+        uint256 sliceBalance = token.balanceOf(address(dev));
+        assertEq(0, sliceBalance);
+        vm.stopPrank();
     }
 
     function testCannotRedeemUnderlying_NotAuthorized() public {
-
+        // verify that it reverts with the correct reason
+        vm.expectRevert("SliceCore: Only registered Slice token can call");
+        // call redeem from not registered slice token
+        core.redeemUnderlying(bytes32(0), RedeemInfo(address(0),0,address(0),bytes("")));
     }
 
     /* =========================================================== */
     /*  =========   changeSliceTokenCreationEnabled   ===========  */
     /* =========================================================== */
     function testChangeSliceTokenCreationEnabled() public {
+        vm.startPrank(dev);
+        // enable slice token creation
+        core.changeSliceTokenCreationEnabled(true);
 
+        // verify that we can create slice tokens
+        address newSliceToken = core.createSlice("New Test Token", "NTT", positions);
+        bool isRegistered = core.isSliceTokenRegistered(newSliceToken);
+        assertTrue(isRegistered);
+
+        Position[] memory newTokenPositions = SliceToken(newSliceToken).getPositions();
+        for (uint256 i = 0; i < newTokenPositions.length; i++) {
+            assertEq(positions[i].chainId, newTokenPositions[i].chainId);
+            assertEq(positions[i].token, newTokenPositions[i].token);
+            assertEq(positions[i].units, newTokenPositions[i].units);
+        }
+
+        // disable slice token creation
+        core.changeSliceTokenCreationEnabled(false);
+
+        vm.expectRevert("SliceCore: Slice token creation is disabled");
+        // verify that we cannot create slice tokens 
+        core.createSlice("New Test Token", "NTT", positions);
+        vm.stopPrank();
     }
 
     function testCannotChangeSliceTokenCreationEnabled_NotAuthorized() public {
-
+        vm.prank(users[2]);
+        // verify that it reverts with the correct revert msg
+        vm.expectRevert("SliceToken: Unauthorized");
+        // try changing enable/disable with non-owner address
+        core.changeSliceTokenCreationEnabled(false);
     }
 }
