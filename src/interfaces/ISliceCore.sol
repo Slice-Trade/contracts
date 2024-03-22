@@ -20,7 +20,7 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
      * @dev Deploys a new Slice token contract. Can only be called by verified addresses.
      * @param _positions The Slice token's underlying positions 
      */
-    function createSlice(Position[] calldata _positions) external;
+    function createSlice(string calldata _name, string calldata _symbol, Position[] calldata _positions) external returns (address);
 
     /**
      * @dev Returns whether a given address is authorized to create a Slice token.

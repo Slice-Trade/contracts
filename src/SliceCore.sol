@@ -5,7 +5,7 @@ import "./interfaces/ISliceCore.sol";
 
 contract SliceCore is ISliceCore {
     /** @dev See ISliceCore - createSlice */
-    function createSlice(Position[] calldata _positions) external {
+    function createSlice(string calldata _name, string calldata _symbol, Position[] calldata _positions) external returns (address) {
         // TODO
     }
 
