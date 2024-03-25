@@ -39,7 +39,7 @@ interface ISliceToken is IERC20 {
 
     /**
      * @dev Redeems the underlying assets in a Slice token and burns the Slice token.
-     * @param _sliceTokenQuantity The quantity of slice tokens to purchase
+     * @param _sliceTokenQuantity The quantity of slice tokens to redeem
      */
     function redeem(uint256 _sliceTokenQuantity) external;
 
@@ -53,4 +53,22 @@ interface ISliceToken is IERC20 {
      * @dev Returns the Slice token's underlying positions
      */
     function getPositions() external view returns (Position[] memory);
+
+    /**
+     * @dev Returns the mint ID for the given index in the mintIds array
+     * @param _idx The index in the mintIds array
+     */
+    function getMintId(uint256 _idx) external view returns (bytes32);
+
+    /**
+     * @dev Returns the rebalance ID for the given index in the rebalanceIds array
+     * @param _idx The index in the rebalanceIds array
+     */
+    function getRebalanceId(uint256 _idx) external view returns (bytes32);
+
+    /**
+     * @dev Returns the redeem ID for the given index in the redeemIds array
+     * @param _idx The index in the redeemIds array
+     */
+    function getRedeemId(uint256 _idx) external view returns (bytes32);
 }

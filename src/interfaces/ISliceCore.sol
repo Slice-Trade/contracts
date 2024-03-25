@@ -20,7 +20,7 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
      * @dev Deploys a new Slice token contract. Can only be called by verified addresses.
      * @param _positions The Slice token's underlying positions 
      */
-    function createSlice(Position[] calldata _positions) external;
+    function createSlice(string calldata _name, string calldata _symbol, Position[] calldata _positions) external returns (address);
 
     /**
      * @dev Returns whether a given address is authorized to create a Slice token.
@@ -57,6 +57,13 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
     function changeSliceTokenCreationEnabled(bool _isEnabled) external;
 
     /**
+     * @dev Adds or removes an address from the list of addresses that can create new Slice tokens
+     * @param _user The address to approve/remove
+     * @param _isApproved Whether to approve/disapprove 
+     */
+    function changeApprovedSliceTokenCreator(address _user, bool _isApproved) external;
+
+    /**
      * @dev Returns the number of Slice tokens registered (created) in the contract.
      */
     function getRegisteredSliceTokensCount() external view returns (uint256);
@@ -66,5 +73,4 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
      * @param _token The address to check
      */
     function isSliceTokenRegistered(address _token) external view returns (bool);
-
 }
