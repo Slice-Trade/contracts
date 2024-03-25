@@ -88,9 +88,6 @@ contract SliceTokenTest is Helper {
         // verify that purchase event in Core contract is emitted
         vm.expectEmit(true, true, true, false);
         emit ISliceCore.UnderlyingAssetsPurchased(address(token), 2, dev);
-        // verify that mint event is emitted
-        vm.expectEmit(true, true, false, false);
-        emit ISliceToken.SliceMinted(dev, 2);
         // call mint
         token.mint(2, MAX_ESTIMATED_PRICE * 2);
 
@@ -130,23 +127,73 @@ contract SliceTokenTest is Helper {
         // verify that user Slice balance has not been increased
         uint256 sliceTokenBalance = token.balanceOf(users[1]);
         assertEq(0, sliceTokenBalance);
+        vm.stopPrank();
     }
 
     /* =========================================================== */
     /*   =================    mintComplete   ==================    */
     /* =========================================================== */
-    function testMintComplete() public {}
+    function testMintComplete() public {
+        vm.startPrank(dev);
+        // create a new Slice token
+        // set the core address as dev address
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, dev);
+        // call mint
+        sliceToken.mint(2, MAX_ESTIMATED_PRICE * 2);
 
-    function testCannotMintComplete_NotAuthorized() public {}
+        // verify that SliceMinted event emitted
+        vm.expectEmit(true, true, false, false);
+        emit ISliceToken.SliceMinted(dev, 2);
 
-    function testCannotMintComplete_InvalidMintID() public {}
+        // from dev address call mintComplete on sliceToken
+        bytes32 mintId = sliceToken.getMintId(0);
+        token.mintComplete(mintId);
+
+        // verify that slice token balance of user is increased
+        uint256 sliceTokenBalance = sliceToken.balanceOf(dev);
+        assertEq(1, sliceTokenBalance);
+        vm.stopPrank();
+    }
+
+    function testCannotMintComplete_NotAuthorized() public {
+        // create a new Slice token
+        vm.startPrank(dev);
+        // create a new Slice token
+        // set the core address as dev address
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, dev);
+        // call mint
+        sliceToken.mint(2, MAX_ESTIMATED_PRICE * 2);
+        vm.stopPrank();
+
+        vm.startPrank(users[1]);
+        vm.expectRevert("SliceToken: Only Slice Core can call");
+        // verify that mintComplete fails from non dev address
+        bytes32 mintId = sliceToken.getMintId(0);
+        token.mintComplete(mintId);
+        vm.stopPrank();
+    }
+
+    function testCannotMintComplete_InvalidMintID() public {
+        vm.startPrank(dev);
+        // create a new Slice token
+        // set the core address as dev address
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, dev);
+
+        // verify that mintComplete fails with invalid mint ID
+        vm.expectRevert("SliceToken: Invalid mint ID");
+        sliceToken.mintComplete(bytes32(0));
+    }
 
     /* =========================================================== */
     /*    ==================    rebalance   ===================    */
     /* =========================================================== */
-    function testRebalance() public {}
+    function testRebalance() public {
 
-    function testCannotRebalance_NotAuthorized() public {}
+    }
+
+    function testCannotRebalance_NotAuthorized() public {
+
+    }
 
     /* =========================================================== */
     /*  ================   rebalanceComplete   =================   */
