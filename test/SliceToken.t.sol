@@ -33,20 +33,15 @@ contract SliceTokenTest is Helper {
     function setUp() public {
         forkMainnet();
 
-        usdc = IERC20(constants.getAddress("mainnet.usdc"));
-        weth = IWETH(constants.getAddress("mainnet.weth"));
-        wbtc = IERC20(constants.getAddress("mainnet.wbtc"));
-        link = IERC20(constants.getAddress("mainnet.link"));
+        usdc = IERC20(getAddress("mainnet.usdc"));
+        weth = IWETH(getAddress("mainnet.weth"));
+        wbtc = IERC20(getAddress("mainnet.wbtc"));
+        link = IERC20(getAddress("mainnet.link"));
 
         // mint user some USDC
         deal(address(usdc), address(dev), 1 ether);
 
         vm.startPrank(dev);
-
-        // enable slice token creation
-        core.changeSliceTokenCreationEnabled(true);
-        // approve address as Slice token creator
-        core.changeApprovedSliceTokenCreator(dev, true);
 
         // create positions
         Position memory wethPosition = Position(
@@ -72,6 +67,12 @@ contract SliceTokenTest is Helper {
         positions.push(linkPosition);
 
         core = new SliceCore();
+        
+        // enable slice token creation
+        core.changeSliceTokenCreationEnabled(true);
+        // approve address as Slice token creator
+        core.changeApprovedSliceTokenCreator(dev, true);
+
         address tokenAddr = core.createSlice("Slice Token", "SC", positions);
         token = SliceToken(tokenAddr);
 

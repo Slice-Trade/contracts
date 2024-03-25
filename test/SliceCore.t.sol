@@ -29,23 +29,18 @@ contract SliceCoreTest is Helper {
     /* =========================================================== */
     /*    ==================      setup     ===================    */
     /* =========================================================== */
-    function setUp() public {
+    function setUp() public {        
         forkMainnet();
 
-        usdc = IERC20(constants.getAddress("mainnet.usdc"));
-        weth = IWETH(constants.getAddress("mainnet.weth"));
-        wbtc = IERC20(constants.getAddress("mainnet.wbtc"));
-        link = IERC20(constants.getAddress("mainnet.link"));
+        usdc = IERC20(getAddress("mainnet.usdc"));
+        wbtc = IERC20(getAddress("mainnet.wbtc"));
+        link = IERC20(getAddress("mainnet.link"));
+        weth = IWETH(getAddress("mainnet.weth"));
 
         // mint user some USDC
         deal(address(usdc), address(dev), 1 ether);
 
         vm.startPrank(dev);
-
-        // enable slice token creation
-        core.changeSliceTokenCreationEnabled(true);
-        // approve address as Slice token creator
-        core.changeApprovedSliceTokenCreator(dev, true);
 
         // create positions       
         Position memory wethPosition = Position(
@@ -71,6 +66,11 @@ contract SliceCoreTest is Helper {
         positions.push(linkPosition);
 
         core = new SliceCore();
+        // enable slice token creation
+        core.changeSliceTokenCreationEnabled(true);
+        // approve address as Slice token creator
+        core.changeApprovedSliceTokenCreator(dev, true);
+        
         address tokenAddr = core.createSlice("Slice Token", "SC", positions);
         token = SliceToken(tokenAddr);
 
@@ -93,10 +93,10 @@ contract SliceCoreTest is Helper {
         vm.prank(users[1]);
         // verify that create Slice event emitted
         vm.expectEmit(true, false, false, false);
-        emit ISliceCore.SliceTokenCreated(address(0)); // TODO
+        emit ISliceCore.SliceTokenCreated(0xe761f4677AD65b78d5A2519B9E0641375ecaa1E9);
 
         address sliceTokenAddress = core.createSlice("Test Token", "TT", positions);
-
+        console.log(sliceTokenAddress);
         // verify that the Slice token is deployed
         SliceToken deployedSliceToken = SliceToken(sliceTokenAddress);
         assertEq("Test Token", deployedSliceToken.name());

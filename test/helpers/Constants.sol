@@ -2,13 +2,14 @@
 pragma solidity >=0.8.0;
 
 import "forge-std/src/Vm.sol";
+import "forge-std/src/console.sol";
 
 contract Constants {
-  mapping(string => address) private addressMap;
-  mapping(string => bytes32) private pairCodeHash;
+  mapping(string => address) public addressMap;
+  mapping(string => bytes32) public pairCodeHash;
   //byteCodeHash for trident pairs
 
-  string[] private addressKeys;
+  string[] public addressKeys;
 
   constructor() {
     // Mainnet
@@ -52,7 +53,7 @@ contract Constants {
     addressKeys.push(key);
   }
 
-  function getAddress(string calldata key) public view returns (address) {
+  function getAddress(string memory key) public view returns (address) {
     require(addressMap[key] != address(0), string(bytes.concat("address not found: ", bytes(key))));
     return addressMap[key];
   }

@@ -4,9 +4,7 @@ pragma solidity ^0.8.22;
 import "forge-std/src/Test.sol";
 import "./Constants.sol";
 
-abstract contract Helper is Test {
-    Constants internal constants;
-
+abstract contract Helper is Test, Constants {
     address payable dev;
     address payable[] users;
 
