@@ -188,11 +188,19 @@ contract SliceTokenTest is Helper {
     /*    ==================    rebalance   ===================    */
     /* =========================================================== */
     function testRebalance() public {
+        // mint some slice tokens
 
+        // call rebalance from token creator address
+
+        // verify that positions info is updated in token
+
+        // verify that underlying positions have been bought/sold correctly
     }
 
     function testCannotRebalance_NotAuthorized() public {
+        // try to call rebalance from non dev address
 
+        // verify that reverts with correct msg
     }
 
     /* =========================================================== */

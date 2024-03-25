@@ -54,5 +54,9 @@ interface ISliceToken is IERC20 {
      */
     function getPositions() external view returns (Position[] memory);
 
+    /**
+     * @dev Returns the mint ID for the given index in the mintIds array
+     * @param _idx The index in the mintIds array
+     */
     function getMintId(uint256 _idx) external view returns (bytes32);
 }
