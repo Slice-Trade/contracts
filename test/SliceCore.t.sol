@@ -169,6 +169,8 @@ contract SliceCoreTest is Helper {
         core.purchaseUnderlyingAssets(bytes32(0), 1, 1 ether);
     }
 
+    // TODO: cannot purchase - invalid mint id
+
     function testCannotPurchaseUnderlyingAssets_NotEnoughMoney() public {
         // call purchase underlying with wrong expected amount
         vm.prank(dev);

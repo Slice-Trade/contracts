@@ -99,4 +99,16 @@ contract SliceToken is ISliceToken, ERC20 {
     function getNumberOfPositions() external view returns (uint256) {
         return positions.length;
     }
+
+    function getMint(bytes32 _id) external view returns (SliceTransactionInfo memory) {
+        return mints[_id];
+    }
+
+    function getRedeem(bytes32 _id) external view returns (SliceTransactionInfo memory) {
+        return redeems[_id];
+    }
+
+    function getRebalance(bytes32 _id) external view returns (SliceTransactionInfo memory) {
+        return rebalances[_id];
+    }
 }

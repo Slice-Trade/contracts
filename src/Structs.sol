@@ -40,3 +40,8 @@ struct SliceTransactionInfo {
     address user;
     bytes data;
 }
+
+struct ReadySignal {
+    address token;
+    uint256 signals;
+}

@@ -56,4 +56,12 @@ interface ISliceToken is IERC20 {
      * @dev Returns the Slice token's underlying positions
      */
     function getPositions() external view returns (Position[] memory);
+
+    function getNumberOfPositions() external view returns (uint256);
+
+    function getMint(bytes32 _id) external view returns (SliceTransactionInfo memory);
+
+    function getRebalance(bytes32 _id) external view returns (SliceTransactionInfo memory);
+
+    function getRedeem(bytes32 _id) external view returns (SliceTransactionInfo memory);
 }
