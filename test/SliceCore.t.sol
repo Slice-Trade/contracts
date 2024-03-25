@@ -65,7 +65,7 @@ contract SliceCoreTest is Helper {
         positions.push(wbtcPosition);
         positions.push(linkPosition);
 
-        core = new SliceCore();
+        core = new SliceCore(address(usdc));
         // enable slice token creation
         core.changeSliceTokenCreationEnabled(true);
         // approve address as Slice token creator
@@ -256,7 +256,7 @@ contract SliceCoreTest is Helper {
         // verify that it reverts with the correct reason
         vm.expectRevert("SliceCore: Only registered Slice token can call");
         // call redeem from not registered slice token
-        core.redeemUnderlying(bytes32(0), RedeemInfo(address(0),0,address(0),bytes("")));
+        core.redeemUnderlying(bytes32(0), SliceTransactionInfo(bytes32(0), 0, address(0),bytes("")));
     }
 
     /* =========================================================== */

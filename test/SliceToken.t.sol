@@ -66,7 +66,7 @@ contract SliceTokenTest is Helper {
         positions.push(wbtcPosition);
         positions.push(linkPosition);
 
-        core = new SliceCore();
+        core = new SliceCore(address(usdc));
         
         // enable slice token creation
         core.changeSliceTokenCreationEnabled(true);
@@ -92,10 +92,9 @@ contract SliceTokenTest is Helper {
         vm.expectEmit(true, true, true, false);
         emit ISliceCore.UnderlyingAssetsPurchased(address(token), 2, dev);
         // call mint
-        token.mint(2, MAX_ESTIMATED_PRICE * 2);
+        bytes32 mintId = token.mint(2, MAX_ESTIMATED_PRICE * 2);
 
         // check that mint ID is properly recorded
-        bytes32 mintId = token.getMintId(0);
         assertNotEq(bytes32(0), mintId);
 
         // verify that USDC is taken from user account
@@ -130,16 +129,13 @@ contract SliceTokenTest is Helper {
         // create a new Slice token
         // set the core address as dev address
         SliceCoreMock coreMock = new SliceCoreMock();
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
         // call mint
-        sliceToken.mint(2, MAX_ESTIMATED_PRICE * 2);
+        bytes32 mintId = sliceToken.mint(2, MAX_ESTIMATED_PRICE * 2);
 
         // verify that SliceMinted event emitted
         vm.expectEmit(true, true, false, false);
         emit ISliceToken.SliceMinted(dev, 2);
-
-        // from dev address call mintComplete on sliceToken
-        bytes32 mintId = sliceToken.getMintId(0);
         
         coreMock.mintComplete(mintId, address(sliceToken));
 
@@ -163,15 +159,14 @@ contract SliceTokenTest is Helper {
         // create a new Slice token
         // set the core address as dev address
         SliceCoreMock coreMock = new SliceCoreMock();
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
         // call mint
-        sliceToken.mint(2, MAX_ESTIMATED_PRICE * 2);
+        bytes32 mintId = sliceToken.mint(2, MAX_ESTIMATED_PRICE * 2);
         vm.stopPrank();
 
         vm.startPrank(users[1]);
         vm.expectRevert("SliceToken: Only Slice Core can call");
         // verify that mintComplete fails from non dev address
-        bytes32 mintId = sliceToken.getMintId(0);
         coreMock.mintComplete(mintId, address(sliceToken));
         vm.stopPrank();
     }
@@ -181,7 +176,7 @@ contract SliceTokenTest is Helper {
         // create a new Slice token
         // set the core address as dev address
         SliceCoreMock coreMock = new SliceCoreMock();
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
 
         // verify that mintComplete fails with invalid mint ID
         vm.expectRevert("SliceToken: Invalid mint ID");
@@ -194,8 +189,7 @@ contract SliceTokenTest is Helper {
     /* =========================================================== */
     function testRebalance() public {
         vm.prank(dev);
-        token.rebalance(positions);
-        bytes32 rebalanceId = token.getRebalanceId(0);
+        bytes32 rebalanceId = token.rebalance(positions);
         assertNotEq(bytes32(0), rebalanceId);
     }
 
@@ -213,21 +207,19 @@ contract SliceTokenTest is Helper {
         vm.startPrank(dev);
 
         SliceCoreMock coreMock = new SliceCoreMock();
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
         // mint some slice tokens
         sliceToken.mint(2, MAX_ESTIMATED_PRICE * 2);
 
         positions[0].units = 130346080000000000; // increase by a hundred bucks
         positions[1].units = 8415120000000000; // decrease by a hundred bucks
         // call rebalance from token creator address
-        sliceToken.rebalance(positions);
+        bytes32 rebalanceId = sliceToken.rebalance(positions);
 
         // verify that positions only updates in rebalanceComplete call
         Position[] memory notUpdatedPositions = sliceToken.getPositions();
         assertEq(wethUnits, notUpdatedPositions[0].units);
         assertEq(wbtcUnits, notUpdatedPositions[1].units);
-
-        bytes32 rebalanceId = sliceToken.getRebalanceId(0);
 
         vm.expectEmit(true, false, false, false);
         emit ISliceToken.SliceRebalanced(address(sliceToken));
@@ -261,8 +253,7 @@ contract SliceTokenTest is Helper {
     function testRedeem() public {
         vm.startPrank(dev);
         token.mint(1, MAX_ESTIMATED_PRICE);
-        token.redeem(1);
-        bytes32 redeemId = token.getRedeemId(0);
+        bytes32 redeemId = token.redeem(1);
         assertNotEq(bytes32(0), redeemId);
         vm.stopPrank();
     }
@@ -280,14 +271,13 @@ contract SliceTokenTest is Helper {
         vm.startPrank(dev);
 
         SliceCoreMock coreMock = new SliceCoreMock();
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
 
         sliceToken.mint(2, MAX_ESTIMATED_PRICE * 2);
 
         // call redeem underlying
-        sliceToken.redeem(2);
+        bytes32 redeemId = sliceToken.redeem(2);
 
-        bytes32 redeemId = sliceToken.getRedeemId(0);
         vm.expectEmit(true, true, false, false);
         emit ISliceToken.SliceRedeemed(dev, 2);
 
@@ -316,7 +306,7 @@ contract SliceTokenTest is Helper {
 
     function testCannotRedeemComplete_InvalidRedeemID() public {
         vm.startPrank(dev);
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, dev);
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), dev);
         vm.expectRevert("SliceToken: Invalid redeem ID");
         sliceToken.redeemComplete(bytes32(0));
         vm.stopPrank();

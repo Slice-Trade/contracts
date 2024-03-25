@@ -28,15 +28,15 @@ struct Position {
 }
 
 /**
- * RedeemInfo is used by redeemUnderlying in the Slice Core contract.
- * @param sliceToken The slice token whose underlying assets the user is redeeming
- * @param amount The amount of slice tokens the user is redeeming
- * @param user Address of the user doing the redeeming
- * @param data Arbitrary data parameter. Initially empty, later can be used to pass in non-EVM user addresses.
+ * @dev Used for passing info to the Slice Core contract in mint,redeem,balance calls.
+ * @param id The mint/rebalance/redeem ID created by the token contract
+ * @param quantity The quantity of slice tokens being minted/redeemed (not used for rebalance)
+ * @param user Address of the user who initiated the transaction
+ * @param data Arbitrary data. Initially empty, later can be used to pass in non-EVM user addresses.
  */
-struct RedeemInfo {
-    address sliceToken;
-    uint256 amount;
+struct SliceTransactionInfo {
+    bytes32 id;
+    uint256 quantity;
     address user;
     bytes data;
 }

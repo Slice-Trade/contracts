@@ -16,7 +16,7 @@ contract SliceCoreMock {
     }
 
     /** @dev See ISliceCore - redeemUnderlying */
-    function redeemUnderlying(bytes32 _redeemID, RedeemInfo memory _redeemInfo) external {
+    function redeemUnderlying(bytes32 _redeemID, SliceTransactionInfo memory _txInfo) external {
         // TODO
     }
 

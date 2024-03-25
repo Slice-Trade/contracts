@@ -6,6 +6,8 @@ import "./interfaces/ISliceCore.sol";
 import "./SliceToken.sol";
 
 contract SliceCore is ISliceCore, Ownable {
+    address public paymentToken;
+
     mapping(address => bool) public approvedSliceTokenCreators;
 
     bool public isTokenCreationEnabled;
@@ -13,14 +15,16 @@ contract SliceCore is ISliceCore, Ownable {
     mapping(address => bool) public registeredSliceTokens;
     uint256 public registeredSliceTokensCount;
 
-    constructor() Ownable(msg.sender) {}
+    constructor(address _paymentToken) Ownable(msg.sender) {
+        paymentToken = _paymentToken;
+    }
     
     /** @dev See ISliceCore - createSlice */
     function createSlice(string calldata _name, string calldata _symbol, Position[] calldata _positions) external returns (address) {
         require(canCreateSlice(msg.sender), "SliceCore: Unauthorized caller");
         require(isTokenCreationEnabled, "SliceCore: Slice token creation disabled");
 
-        SliceToken token = new SliceToken(_name, _symbol, _positions, address(this));
+        SliceToken token = new SliceToken(_name, _symbol, _positions, paymentToken, address(this));
         registeredSliceTokens[address(token)] = true;
         registeredSliceTokensCount++;
 
@@ -40,7 +44,7 @@ contract SliceCore is ISliceCore, Ownable {
     }
 
     /** @dev See ISliceCore - redeemUnderlying */
-    function redeemUnderlying(bytes32 _redeemID, RedeemInfo memory _redeemInfo) external {
+    function redeemUnderlying(bytes32 _redeemID, SliceTransactionInfo memory _txInfo) external {
         // TODO
     }
 
