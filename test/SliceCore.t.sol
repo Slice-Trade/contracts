@@ -74,6 +74,8 @@ contract SliceCoreTest is Helper {
         address tokenAddr = core.createSlice("Slice Token", "SC", positions);
         token = SliceToken(tokenAddr);
 
+        usdc.approve(address(core), MAX_ESTIMATED_PRICE * 10);
+
         vm.stopPrank();
     }
 
