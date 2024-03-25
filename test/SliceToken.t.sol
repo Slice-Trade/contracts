@@ -8,6 +8,8 @@ import "../src/external/IWETH.sol";
 import "../src/SliceCore.sol";
 import "../src/SliceToken.sol";
 
+import "./mocks/SliceCoreMock.sol";
+
 contract SliceTokenTest is Helper {
     SliceCore core;
     SliceToken token;
@@ -137,7 +139,8 @@ contract SliceTokenTest is Helper {
         vm.startPrank(dev);
         // create a new Slice token
         // set the core address as dev address
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, dev);
+        SliceCoreMock coreMock = new SliceCoreMock();
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
         // call mint
         sliceToken.mint(2, MAX_ESTIMATED_PRICE * 2);
 
@@ -147,7 +150,8 @@ contract SliceTokenTest is Helper {
 
         // from dev address call mintComplete on sliceToken
         bytes32 mintId = sliceToken.getMintId(0);
-        token.mintComplete(mintId);
+        
+        coreMock.mintComplete(mintId, address(sliceToken));
 
         // verify that slice token balance of user is increased
         uint256 sliceTokenBalance = sliceToken.balanceOf(dev);
@@ -160,7 +164,8 @@ contract SliceTokenTest is Helper {
         vm.startPrank(dev);
         // create a new Slice token
         // set the core address as dev address
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, dev);
+        SliceCoreMock coreMock = new SliceCoreMock();
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
         // call mint
         sliceToken.mint(2, MAX_ESTIMATED_PRICE * 2);
         vm.stopPrank();
@@ -169,7 +174,7 @@ contract SliceTokenTest is Helper {
         vm.expectRevert("SliceToken: Only Slice Core can call");
         // verify that mintComplete fails from non dev address
         bytes32 mintId = sliceToken.getMintId(0);
-        token.mintComplete(mintId);
+        coreMock.mintComplete(mintId, address(sliceToken));
         vm.stopPrank();
     }
 
@@ -177,54 +182,104 @@ contract SliceTokenTest is Helper {
         vm.startPrank(dev);
         // create a new Slice token
         // set the core address as dev address
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, dev);
+        SliceCoreMock coreMock = new SliceCoreMock();
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
 
         // verify that mintComplete fails with invalid mint ID
         vm.expectRevert("SliceToken: Invalid mint ID");
         sliceToken.mintComplete(bytes32(0));
+        vm.stopPrank();
     }
 
     /* =========================================================== */
     /*    ==================    rebalance   ===================    */
     /* =========================================================== */
     function testRebalance() public {
-        // mint some slice tokens
-
-        // call rebalance from token creator address
-
-        // verify that positions info is updated in token
-
-        // verify that underlying positions have been bought/sold correctly
+        vm.prank(dev);
+        token.rebalance(positions);
+        bytes32 rebalanceId = token.getRebalanceId(0);
+        assertNotEq(bytes32(0), rebalanceId);
     }
 
     function testCannotRebalance_NotAuthorized() public {
-        // try to call rebalance from non dev address
-
         // verify that reverts with correct msg
+        vm.prank(users[1]);
+        vm.expectRevert("SliceToken: Only contract owner can call");
+        token.rebalance(positions);
     }
 
     /* =========================================================== */
     /*  ================   rebalanceComplete   =================   */
     /* =========================================================== */
-    function testRebalanceComplete() public {}
+    function testRebalanceComplete() public {
+        vm.startPrank(dev);
 
-    function testCannotRebalanceComplete_NotAuthorized() public {}
+        SliceCoreMock coreMock = new SliceCoreMock();
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
+        // mint some slice tokens
+        sliceToken.mint(2, MAX_ESTIMATED_PRICE * 2);
 
-    function testCannotRebalanceComplete_InvalidRebalanceID() public {}
+        positions[0].units = 130346080000000000; // increase by a hundred bucks
+        positions[1].units = 8415120000000000; // decrease by a hundred bucks
+        // call rebalance from token creator address
+        sliceToken.rebalance(positions);
+
+        // verify that positions only updates in rebalanceComplete call
+        Position[] memory notUpdatedPositions = sliceToken.getPositions();
+        assertEq(wethUnits, notUpdatedPositions[0].units);
+        assertEq(wbtcUnits, notUpdatedPositions[1].units);
+
+        bytes32 rebalanceId = sliceToken.getRebalanceId(0);
+
+        vm.expectEmit(true, false, false, false);
+        emit ISliceToken.SliceRebalanced(address(sliceToken));
+
+        coreMock.rebalanceComplete(rebalanceId, address(sliceToken));
+
+        // verify that positions info is updated in token
+        Position[] memory updatedPositions = sliceToken.getPositions();
+        assertEq(130346080000000000, updatedPositions[0].units);
+        assertEq(8415120000000000, updatedPositions[1].units);
+        
+        vm.stopPrank();
+    }
+
+    function testCannotRebalanceComplete_NotAuthorized() public {
+        vm.prank(users[1]);
+        vm.expectRevert("SliceToken: Only SliceCore can call");
+        // try to call rebalance from non registered address
+        token.rebalanceComplete(bytes32(0));
+    }
+
+    function testCannotRebalanceComplete_InvalidRebalanceID() public {
+        vm.prank(dev);
+        vm.expectRevert("SliceToken: Invalid rebalance ID");
+        token.rebalanceComplete(bytes32(0));
+    }
 
     /* =========================================================== */
     /*    ===================    redeem    ====================    */
     /* =========================================================== */
-    function testRedeem() public {}
+    function testRedeem() public {
 
-    function testCannotRedeem_InsufficientBalance() public {}
+    }
+
+    function testCannotRedeem_InsufficientBalance() public {
+
+    }
 
     /* =========================================================== */
     /*   ================    redeemComplete   =================    */
     /* =========================================================== */
-    function testRedeemComplete() public {}
+    function testRedeemComplete() public {
 
-    function testCannotRedeemComplete_NotAuthorized() public {}
+    }
 
-    function testCannotRedeemComplete_InvalidRedeemID() public {}
+    function testCannotRedeemComplete_NotAuthorized() public {
+
+    }
+
+    function testCannotRedeemComplete_InvalidRedeemID() public {
+
+    }
 }

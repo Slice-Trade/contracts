@@ -45,4 +45,12 @@ contract SliceToken is ISliceToken, ERC20 {
     function getMintId(uint256 _idx) external view returns (bytes32) {
         // TODO
     }
+
+    function getRebalanceId(uint256 _idx) external view returns (bytes32) {
+        // TODO
+    }
+
+    function getRedeemId(uint256 _idx) external view returns (bytes32) {
+        // TODO
+    }
 }

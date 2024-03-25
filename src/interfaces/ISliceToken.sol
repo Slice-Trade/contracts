@@ -59,4 +59,16 @@ interface ISliceToken is IERC20 {
      * @param _idx The index in the mintIds array
      */
     function getMintId(uint256 _idx) external view returns (bytes32);
+
+    /**
+     * @dev Returns the rebalance ID for the given index in the rebalanceIds array
+     * @param _idx The index in the rebalanceIds array
+     */
+    function getRebalanceId(uint256 _idx) external view returns (bytes32);
+
+    /**
+     * @dev Returns the redeem ID for the given index in the redeemIds array
+     * @param _idx The index in the redeemIds array
+     */
+    function getRedeemId(uint256 _idx) external view returns (bytes32);
 }
