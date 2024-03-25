@@ -242,6 +242,11 @@ contract SliceCoreTest is Helper {
         assertEq(wethBalance, positions[0].units);
         assertEq(wbtcBalance, positions[1].units);
 
+        uint256 wethTokenbalance = weth.balanceOf(address(token));
+        uint256 wbtcTokenbalance = wbtc.balanceOf(address(token));
+        assertEq(0, wethTokenbalance);
+        assertEq(0, wbtcTokenbalance);
+
         uint256 sliceBalance = token.balanceOf(address(dev));
         assertEq(0, sliceBalance);
         vm.stopPrank();

@@ -102,17 +102,6 @@ contract SliceTokenTest is Helper {
         uint256 expectedBalance = balanceBefore - (MAX_ESTIMATED_PRICE * 2);
         assertEq(expectedBalance, balanceAfter);
 
-        // verify that underlying assets are in the slice token
-        uint256 wethBalance = weth.balanceOf(address(token));
-        uint256 wbtcBalance = wbtc.balanceOf(address(token));
-        uint256 linkBalance = link.balanceOf(address(token));
-        assertEq(wethBalance, positions[0].units);
-        assertEq(wbtcBalance, positions[1].units);
-        assertEq(linkBalance, positions[2].units);
-
-        // verify that the slice token balance of user is incremented
-        uint256 sliceTokenBalance = token.balanceOf(dev);
-        assertEq(1, sliceTokenBalance);
         vm.stopPrank();
     }
 
@@ -152,6 +141,14 @@ contract SliceTokenTest is Helper {
         bytes32 mintId = sliceToken.getMintId(0);
         
         coreMock.mintComplete(mintId, address(sliceToken));
+
+        // verify that underlying assets are in the slice token
+        uint256 wethBalance = weth.balanceOf(address(sliceToken));
+        uint256 wbtcBalance = wbtc.balanceOf(address(sliceToken));
+        uint256 linkBalance = link.balanceOf(address(sliceToken));
+        assertEq(wethBalance, positions[0].units);
+        assertEq(wbtcBalance, positions[1].units);
+        assertEq(linkBalance, positions[2].units);
 
         // verify that slice token balance of user is increased
         uint256 sliceTokenBalance = sliceToken.balanceOf(dev);
@@ -261,25 +258,66 @@ contract SliceTokenTest is Helper {
     /*    ===================    redeem    ====================    */
     /* =========================================================== */
     function testRedeem() public {
-
+        vm.startPrank(dev);
+        token.mint(1, MAX_ESTIMATED_PRICE);
+        token.redeem(1);
+        bytes32 redeemId = token.getRedeemId(0);
+        assertNotEq(bytes32(0), redeemId);
+        vm.stopPrank();
     }
 
     function testCannotRedeem_InsufficientBalance() public {
-
+        vm.expectRevert("SliceToken: Trying to redeem more than token balance");
+        token.redeem(1);
     }
 
     /* =========================================================== */
     /*   ================    redeemComplete   =================    */
     /* =========================================================== */
     function testRedeemComplete() public {
+        // mint some slice tokens
+        vm.startPrank(dev);
 
+        SliceCoreMock coreMock = new SliceCoreMock();
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
+
+        sliceToken.mint(2, MAX_ESTIMATED_PRICE * 2);
+
+        // call redeem underlying
+        sliceToken.redeem(2);
+
+        bytes32 redeemId = sliceToken.getRedeemId(0);
+        vm.expectEmit(true, true, false, false);
+        emit ISliceToken.SliceRedeemed(dev, 2);
+
+        coreMock.redeemComplete(redeemId, address(sliceToken));
+
+        // verify that the assets are in the user's wallet and gone from the slice token
+        uint256 wethBalance = weth.balanceOf(address(dev));
+        uint256 wbtcBalance = wbtc.balanceOf(address(dev));
+        assertEq(wethBalance, positions[0].units);
+        assertEq(wbtcBalance, positions[1].units);
+
+        uint256 wethTokenbalance = weth.balanceOf(address(sliceToken));
+        uint256 wbtcTokenbalance = wbtc.balanceOf(address(sliceToken));
+        assertEq(0, wethTokenbalance);
+        assertEq(0, wbtcTokenbalance);
+
+        uint256 sliceBalance = sliceToken.balanceOf(address(dev));
+        assertEq(0, sliceBalance);
+        vm.stopPrank();
     }
 
     function testCannotRedeemComplete_NotAuthorized() public {
-
+        vm.expectRevert("SliceToken: Only Slice Core can call");
+        token.redeemComplete(bytes32(0));
     }
 
     function testCannotRedeemComplete_InvalidRedeemID() public {
-
+        vm.startPrank(dev);
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, dev);
+        vm.expectRevert("SliceToken: Invalid redeem ID");
+        sliceToken.redeemComplete(bytes32(0));
+        vm.stopPrank();
     }
 }
