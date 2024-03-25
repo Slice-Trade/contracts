@@ -1,12 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ISliceCore.sol";
+import "./SliceToken.sol";
 
-contract SliceCore is ISliceCore {
+contract SliceCore is ISliceCore, Ownable {
+    mapping(address => bool) public approvedSliceTokenCreators;
+
+    bool public isTokenCreationEnabled;
+
+    mapping(address => bool) public registeredSliceTokens;
+    uint256 public registeredSliceTokensCount;
+
+    constructor() Ownable(msg.sender) {}
+    
     /** @dev See ISliceCore - createSlice */
     function createSlice(string calldata _name, string calldata _symbol, Position[] calldata _positions) external returns (address) {
-        // TODO
+        require(canCreateSlice(msg.sender), "SliceCore: Unauthorized caller");
+        require(isTokenCreationEnabled, "SliceCore: Slice token creation disabled");
+
+        SliceToken token = new SliceToken(_name, _symbol, _positions, address(this));
+        registeredSliceTokens[address(token)] = true;
+        registeredSliceTokensCount++;
+
+        emit SliceTokenCreated(address(token));
+
+        return address(token);
     }
 
     /** @dev See ISliceCore - purchaseUnderlyingAssets */
@@ -25,28 +45,28 @@ contract SliceCore is ISliceCore {
     }
 
     /** @dev See ISliceCore - changeSliceTokenCreationEnabled */
-    function changeSliceTokenCreationEnabled(bool _isEnabled) external {
-        // TODO
+    function changeSliceTokenCreationEnabled(bool _isEnabled) external onlyOwner {
+        isTokenCreationEnabled = _isEnabled;
     }
 
     /** @dev See ISliceCore - changeApprovedSliceTokenCreator */
-    function changeApprovedSliceTokenCreator(address _user, bool _isApproved) external {
-
+    function changeApprovedSliceTokenCreator(address _user, bool _isApproved) external onlyOwner {
+        approvedSliceTokenCreators[_user] = _isApproved;
     }
 
     /** @dev See ISliceCore - canCreateSlice */
-    function canCreateSlice(address _user) external view returns (bool) {
-        // TODO
+    function canCreateSlice(address _user) public view returns (bool) {
+        return approvedSliceTokenCreators[_user];
     }
 
     /** @dev See ISliceCore - isSliceTokenRegistered */
     function isSliceTokenRegistered(address _token) external view returns (bool) {
-        // TODO
+        return registeredSliceTokens[_token];
     }
 
     /** @dev See ISliceCore - getRegisteredSliceTokensCount */
     function getRegisteredSliceTokensCount() external view returns (uint256) {
-        // TODO
+        return registeredSliceTokensCount;
     }
 
     /** @dev See IPayloadExecutor - onPayloadReceive */
