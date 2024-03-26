@@ -4,6 +4,7 @@ pragma solidity ^0.8.22;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./interfaces/ISliceToken.sol";
 import "./interfaces/ISliceCore.sol";
+import "./utils/Utils.sol";
 
 contract SliceToken is ISliceToken, ERC20 {
     IERC20 public paymentToken;
@@ -35,10 +36,13 @@ contract SliceToken is ISliceToken, ERC20 {
     /**
      * @dev See ISliceToken - mint
      */
-    function mint(uint256 _sliceTokenQuantity, uint256 _maxEstimatedPrice) external returns (bytes32) {
-        paymentToken.transferFrom(msg.sender, address(sliceCore), _maxEstimatedPrice);
+    function mint(uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes) external returns (bytes32) {
+        require(_sliceTokenQuantity > 0, "SliceToken: Slice token quantity can't be zero");
+
+        uint256 sumPrice = Utils.sumMaxEstimatedPrices(_maxEstimatedPrices);
+        paymentToken.transferFrom(msg.sender, address(sliceCore), sumPrice);
         
-        bytes32 mintId = keccak256(abi.encodePacked(msg.sender, address(this), _sliceTokenQuantity, _maxEstimatedPrice, block.timestamp));
+        bytes32 mintId = keccak256(abi.encodePacked(msg.sender, address(this), _sliceTokenQuantity, sumPrice, block.timestamp));
 
         SliceTransactionInfo memory txInfo = SliceTransactionInfo(
             mintId,
@@ -49,7 +53,7 @@ contract SliceToken is ISliceToken, ERC20 {
 
         mints[mintId] = txInfo;
 
-        ISliceCore(sliceCore).purchaseUnderlyingAssets(mintId, _sliceTokenQuantity, _maxEstimatedPrice);
+        ISliceCore(sliceCore).purchaseUnderlyingAssets(mintId, _sliceTokenQuantity, _maxEstimatedPrices, _routes);
 
         return mintId;
     }

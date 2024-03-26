@@ -20,6 +20,8 @@ contract Constants {
     setAddress("mainnet.wbtc", 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
     setAddress("mainnet.link", 0x514910771AF9Ca656af840dff83E8264EcF986CA);
 
+    setAddress("mainnet.sushiXSwap", 0x804b526e5bF4349819fe2Db65349d0825870F8Ee);
+
     setAddress("mainnet.routeProcessor", 0x827179dD56d07A7eeA32e3873493835da2866976);
     setAddress("mainnet.v2Factory", 0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac);
     setAddress("mainnet.v3Factory", 0xbACEB8eC6b9355Dfc0269C18bac9d6E2Bdc29C4F);

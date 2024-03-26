@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
+import "forge-std/src/console.sol";
+
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./external/ISushiXSwapV2.sol";
+import "./external/IRouteProcessor.sol";
 import "./interfaces/ISliceCore.sol";
+import "./utils/Route.sol";
+import "./utils/Utils.sol";
 import "./SliceToken.sol";
 
 contract SliceCore is ISliceCore, Ownable {
     address public paymentToken;
+
+    ISushiXSwapV2 public sushiXSwap;
 
     mapping(address => bool) public approvedSliceTokenCreators;
 
@@ -18,8 +26,9 @@ contract SliceCore is ISliceCore, Ownable {
 
     mapping(bytes32 => ReadySignal) private readySignals;
 
-    constructor(address _paymentToken) Ownable(msg.sender) {
+    constructor(address _paymentToken, address _sushiXSwap) Ownable(msg.sender) {
         paymentToken = _paymentToken;
+        sushiXSwap = ISushiXSwapV2(_sushiXSwap);
     }
 
     /**
@@ -44,11 +53,19 @@ contract SliceCore is ISliceCore, Ownable {
     /**
      * @dev See ISliceCore - purchaseUnderlyingAssets
      */
-    function purchaseUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity, uint256 _maxEstimatedPrice) external {
+    function purchaseUnderlyingAssets(
+        bytes32 _mintID,
+        uint256 _sliceTokenQuantity,
+        uint256[] memory _maxEstimatedPrices,
+        bytes[] memory _routes
+    ) external {
         // check that slice token (msg.sender) is registered
         require(registeredSliceTokens[msg.sender], "SliceCore: Only registered Slice token can call");
 
-        require(IERC20(paymentToken).balanceOf(address(this)) >= _maxEstimatedPrice, "SliceCore: Max estimated price not transferred to contract");
+        require(
+            IERC20(paymentToken).balanceOf(address(this)) >= Utils.sumMaxEstimatedPrices(_maxEstimatedPrices),
+            "SliceCore: Max estimated price not transferred to contract"
+        );
 
         SliceTransactionInfo memory txInfo = ISliceToken(msg.sender).getMint(_mintID);
         require(txInfo.id == _mintID, "SliceCore: Mint ID does not exist");
@@ -61,7 +78,7 @@ contract SliceCore is ISliceCore, Ownable {
         for (uint256 i = 0; i < positions.length; i++) {
             // if asset is local execute swap right away: (check block.chainid)
             if (isPositionLocal(positions[i])) {
-                bool success = executeLocalSwap();
+                bool success = executeLocalSwap(msg.sender, _sliceTokenQuantity, _maxEstimatedPrices[i], positions[i], _routes[i]);
                 // increase the ready signal after each local swap
                 if (success) {
                     readySignals[_mintID].signals++;
@@ -71,9 +88,9 @@ contract SliceCore is ISliceCore, Ownable {
             }
         }
 
-        // checks the signal count after each swap, in each callback
         // if all signals are in -> call mintComplete on token contract
         if (checkPendingTransactionCompleteSignals(_mintID)) {
+            emit UnderlyingAssetsPurchased(msg.sender, _sliceTokenQuantity, txInfo.user);
             SliceToken(msg.sender).mintComplete(_mintID);
         }
     }
@@ -151,8 +168,32 @@ contract SliceCore is ISliceCore, Ownable {
         return _position.chainId == block.chainid;
     }
 
-    function executeLocalSwap() internal returns (bool) {
+    function executeLocalSwap(
+        address _sliceToken,
+        uint256 _sliceTokenQuantity,
+        uint256 _maxEstimatedPrice,
+        Position memory _position,
+        bytes memory _route
+    ) internal returns (bool) {
+        IERC20(paymentToken).approve(address(sushiXSwap), 1000000000000000000000);
 
+        uint256 amountIn = _maxEstimatedPrice * _sliceTokenQuantity;
+
+        IRouteProcessor.RouteProcessorData memory rpd = IRouteProcessor.RouteProcessorData({
+            tokenIn: paymentToken,
+            amountIn: amountIn,
+            tokenOut: _position.token,
+            amountOutMin: 0,
+            to: _sliceToken,
+            route: _route
+        });
+
+        bytes memory rpd_encoded = abi.encode(rpd);
+
+        sushiXSwap.swap(rpd_encoded);
+
+        uint256 balanceAfterSwap = IERC20(_position.token).balanceOf(_sliceToken);
+        return balanceAfterSwap >= _position.units;
     }
 
     function executeCrossChainSwap() internal {
@@ -170,6 +211,7 @@ contract SliceCore is ISliceCore, Ownable {
         // if all signals in -> call mint complete on token contract
     }
 
+    // checks the signal count after each swap, in each callback
     function checkPendingTransactionCompleteSignals(bytes32 _id) internal view returns (bool) {
         ReadySignal memory _readySignal = readySignals[_id];
         uint256 _numOfPositions = ISliceToken(_readySignal.token).getNumberOfPositions();

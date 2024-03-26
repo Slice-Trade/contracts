@@ -32,9 +32,9 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
      * @dev Purchases the underlying assets for a given slice token (msg.sender).
      * @param _mintID The ID that uniquely identifies this mint transaction within the sysem
      * @param _sliceTokenQuantity The quantity of slice tokens to purchase the underlying assets for
-     * @param _maxEstimatedPrice The maximum estimated price of all the underlying assets combined. In USDC (6 decimals)
+     * @param _maxEstimatedPrices The maximum estimated price for each underlying asset. In USDC (6 decimals)
      */
-    function purchaseUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity, uint256 _maxEstimatedPrice) external;
+    function purchaseUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes) external;
 
     /**
      * @dev Sells/buy the Slice token (msg.sender) underlying assets to rebalance to the new positions
