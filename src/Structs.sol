@@ -8,11 +8,13 @@ pragma solidity ^0.8.22;
  * @param chainId The actual chain ID
  * @param axelarChainId Chain ID as represented within Axelar
  * @param stargateChainId Chain ID as represented within Stargate 
+ * @param lzEndpointId Layer Zero chain endpoint ID
  */
 struct Chain {
     uint256 chainId;
     bytes32 axelarChainId;
     uint16 stargateChainId;
+    uint32 lzEndpointId;
 }
 
 /**
@@ -41,7 +43,22 @@ struct SliceTransactionInfo {
     bytes data;
 }
 
-struct ReadySignal {
+struct TransactionCompleteSignals {
     address token;
     uint256 signals;
+    uint256 sliceTokenQuantity;
+    address user;
+}
+
+struct CrossChainSignal {
+    bytes32 mintID;
+    bool success;
+}
+
+struct SlicePayloadData {
+    uint256 srcChainId;
+    bytes32 mintID;
+    address tokenOut;
+    uint256 amountOutMin;
+    bytes data;
 }

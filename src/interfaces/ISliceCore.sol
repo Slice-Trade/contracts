@@ -2,7 +2,7 @@
 pragma solidity ^0.8.22;
 
 import "../external/IPayloadExecutor.sol";
-import "../external/lz/ILayerZeroReceiver.sol";
+import "@lz-oapp-v2/interfaces/ILayerZeroReceiver.sol";
 import "../Structs.sol";
 import "./ISliceToken.sol";
 
@@ -67,6 +67,17 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
      * @dev Returns the number of Slice tokens registered (created) in the contract.
      */
     function getRegisteredSliceTokensCount() external view returns (uint256);
+
+    /**
+     * @dev Returns all the registered Slice tokens.
+     */
+    function getRegisteredSliceTokens() external view returns (address[] memory);
+
+    /**
+     * @dev Returns a registered Slice token at the given index.
+     * @param _idx The index in the registeredSliceTokens array.
+     */
+    function getRegisteredSliceToken(uint256 _idx) external view returns (address);
 
     /**
      * @dev Returns whether a given address is a registered slice token or not.

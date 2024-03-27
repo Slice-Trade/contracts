@@ -20,25 +20,28 @@ contract SliceCoreTest is Helper {
 
     Position[] public positions;
 
-    uint256 maxEstWethPrice = 40000000000; // 400 usdc
-    uint256 maxEstWbtcPrice = 75000000000; // 750 usdc
-    uint256 maxEstLinkPrice = 45000000000; // 450 usdc
+    uint256 maxEstWethPrice = 40000000000; // 40000 usdc
+    uint256 maxEstWbtcPrice = 75000000000; // 75000 usdc
+    uint256 maxEstLinkPrice = 45000000000; // 45000 usdc
 
-    uint256 constant MAX_ESTIMATED_PRICE = 160000000000; // 1600 USDC
+    uint256 constant MAX_ESTIMATED_PRICE = 160000000000; // 160000 USDC
 
     uint256[] public maxEstimatedPrices;
 
-    uint256 public wethUnits = 10000000000000000000; // 0.1 wETH
-    uint256 public wbtcUnits = 100000000; // 0.01 wBTC (8 decimals)
-    uint256 public linkUnits = 2000000000000000000000; // 20 LINK
+    uint256 public wethUnits = 10000000000000000000; // 10 wETH
+    uint256 public wbtcUnits = 100000000; // 1 wBTC (8 decimals)
+    uint256 public linkUnits = 2000000000000000000000; // 2000 LINK
 
     uint256[] public wrongPrices;
 
     bytes[] public routes;
 
-    bytes public usdcWethRoute = hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001d75af2fbfd3bf4c10dee8226034c92f05350e643";
-    bytes public usdcWbtcRoute = hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a5800d75af2fbfd3bf4c10dee8226034c92f05350e643";
-    bytes public usdcLinkRoute = hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700d75af2fbfd3bf4c10dee8226034c92f05350e643";
+    bytes public usdcWethRoute =
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001cc7c3b08e2F11F2ad67A66EC5AF44A6e47Efb7F4";
+    bytes public usdcWbtcRoute =
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a5800cc7c3b08e2F11F2ad67A66EC5AF44A6e47Efb7F4";
+    bytes public usdcLinkRoute =
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700cc7c3b08e2F11F2ad67A66EC5AF44A6e47Efb7F4";
 
     /* =========================================================== */
     /*    ==================      setup     ===================    */
@@ -94,7 +97,12 @@ contract SliceCoreTest is Helper {
             address(weth)
         );
 
-        core = new SliceCore(address(usdc), getAddress("mainnet.sushiXSwap"), address(routeProcessorHelper));
+        core = new SliceCore(
+            address(usdc),
+            getAddress("mainnet.sushiXSwap"),
+            getAddress("mainnet.stargateAdapter"),
+            getAddress("mainnet.axelarAdapter")
+        );
         // enable slice token creation
         core.changeSliceTokenCreationEnabled(true);
         // approve address as Slice token creator
@@ -178,7 +186,6 @@ contract SliceCoreTest is Helper {
         // verify that event is emitted
         emit ISliceCore.UnderlyingAssetsPurchased(address(token), 1, dev);
 
-
         token.mint(1, maxEstimatedPrices, routes);
 
         // verify that the assets are purhased
@@ -189,6 +196,15 @@ contract SliceCoreTest is Helper {
         assertGe(wethBalance, wethUnits);
         assertGe(wbtcBalance, wbtcUnits);
         assertGe(linkBalance, linkUnits);
+
+        console.log("wETH Balance: ");
+        console.log(wethBalance);
+
+        console.log("wBTC Balance: ");
+        console.log(wbtcBalance);
+
+        console.log("Link balance: ");
+        console.log(linkBalance);
 
         vm.stopPrank();
     }

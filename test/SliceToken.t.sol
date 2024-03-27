@@ -93,7 +93,12 @@ contract SliceTokenTest is Helper {
             address(weth)
         );
 
-        core = new SliceCore(address(usdc), getAddress("mainnet.sushiXSwap"), address(routeProcessorHelper));
+        core = new SliceCore(
+            address(usdc),
+            getAddress("mainnet.sushiXSwap"),
+            getAddress("mainnet.stargateAdapter"),
+            getAddress("mainnet.axelarAdapter")
+        );
         
         // enable slice token creation
         core.changeSliceTokenCreationEnabled(true);
