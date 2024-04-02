@@ -327,7 +327,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
                 tokenIn: paymentToken,
                 amountIn: _maxEstimatedPrice,
                 to: partnerSliceCore, // TODO SliceCore deployed to all chains with same address!
-                adapterData: createAdapterData(dstChain.stargateChainId, _maxEstimatedPrice, 250000)
+                adapterData: createAdapterData(dstChain, _maxEstimatedPrice, 250000)
             }), // bridge params
             _txInfo.user, // refund address
             rpd_encoded_dst, // swap data
@@ -335,20 +335,20 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         );
     }
 
-    function createAdapterData(uint16 stargateChainId, uint256 _maxEstimatedPrice, uint256 gasForSwap)
+    function createAdapterData(Chain memory _dstChain, uint256 _maxEstimatedPrice, uint256 gasForSwap)
         private
         view
         returns (bytes memory _adapterData)
     {
         _adapterData = abi.encode(
-            stargateChainId, // dst chain id
+            _dstChain.chainId, // dst chain id
             paymentToken, // token in
             1, // src pool id - USDC
             1, // dst pool id - USDC
             _maxEstimatedPrice, // amount,
             0, // amountMin,
             0, // dust
-            stargateAdapter, // receiver
+            _dstChain.stargateAdapter, // receiver
             partnerSliceCore, // to
             gasForSwap // gas
         );
