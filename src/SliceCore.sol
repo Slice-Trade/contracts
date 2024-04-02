@@ -307,14 +307,14 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         IERC20(paymentToken).approve(address(sushiXSwap), _maxEstimatedPrice);
 
         uint256 amountOutMin = _position.units * _sliceTokenQuantity; // TODO
-        //uint256 amountOutMin = 0; // TODO
+
+        Chain memory dstChain = chainInfo.getChainInfo(_position.chainId);
 
         bytes memory rpd_encoded_dst =
-            createRouteProcessorDataEncoded(paymentToken, _position.token, amountOutMin, _sliceToken, _route);
+            createRouteProcessorDataEncoded(dstChain, _position.token, amountOutMin, _route);
 
         bytes memory payloadDataEncoded = createPayloadDataEncoded(_mintId, _position.token, amountOutMin, _txInfo.data);
 
-        Chain memory dstChain = chainInfo.getChainInfo(_position.chainId);
 
         uint256 gasNeeded = getGasNeeded(dstChain.stargateChainId, _sliceToken, rpd_encoded_dst, payloadDataEncoded);
 
@@ -355,19 +355,18 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     }
 
     function createRouteProcessorDataEncoded(
-        address _paymentToken,
+        Chain memory _chainInfo,
         address _token,
         uint256 amountOutMin,
-        address _sliceToken,
         bytes memory _route
-    ) private pure returns (bytes memory) {
+    ) private view returns (bytes memory) {
         return abi.encode(
             IRouteProcessor.RouteProcessorData({
-                tokenIn: _paymentToken,
+                tokenIn: _chainInfo.paymentToken,
                 amountIn: 0, // amount in doesnt matter since we use amount bridged
                 tokenOut: _token,
                 amountOutMin: amountOutMin,
-                to: _sliceToken,
+                to: partnerSliceCore,
                 route: _route
             })
         );

@@ -10,6 +10,7 @@ pragma solidity ^0.8.22;
  * @param stargateChainId Chain ID as represented within Stargate 
  * @param lzEndpointId Layer Zero chain endpoint ID
  * @param stargateAdapter The address of stargate adapter on the chain 
+ * @param paymentToken Payment token on the dst chain
  */
 struct Chain {
     uint256 chainId;
@@ -17,6 +18,7 @@ struct Chain {
     uint16 stargateChainId;
     uint32 lzEndpointId;
     address stargateAdapter;
+    address paymentToken;
 }
 
 /**
