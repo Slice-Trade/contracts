@@ -1,0 +1,300 @@
+{
+	"compiler": {
+		"version": "0.8.25+commit.b61c2a91"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"inputs": [],
+				"name": "InvalidStringLength",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					}
+				],
+				"name": "OwnableInvalidOwner",
+				"type": "error"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "account",
+						"type": "address"
+					}
+				],
+				"name": "OwnableUnauthorizedAccount",
+				"type": "error"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "previousOwner",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "OwnershipTransferred",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"components": [
+							{
+								"internalType": "uint256",
+								"name": "chainId",
+								"type": "uint256"
+							},
+							{
+								"internalType": "bytes32",
+								"name": "axelarChainId",
+								"type": "bytes32"
+							},
+							{
+								"internalType": "uint16",
+								"name": "stargateChainId",
+								"type": "uint16"
+							},
+							{
+								"internalType": "uint32",
+								"name": "lzEndpointId",
+								"type": "uint32"
+							}
+						],
+						"internalType": "struct Chain",
+						"name": "_chain",
+						"type": "tuple"
+					}
+				],
+				"name": "addChain",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "chains",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "chainId",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "axelarChainId",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "uint16",
+						"name": "stargateChainId",
+						"type": "uint16"
+					},
+					{
+						"internalType": "uint32",
+						"name": "lzEndpointId",
+						"type": "uint32"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_chainId",
+						"type": "uint256"
+					}
+				],
+				"name": "getChainInfo",
+				"outputs": [
+					{
+						"components": [
+							{
+								"internalType": "uint256",
+								"name": "chainId",
+								"type": "uint256"
+							},
+							{
+								"internalType": "bytes32",
+								"name": "axelarChainId",
+								"type": "bytes32"
+							},
+							{
+								"internalType": "uint16",
+								"name": "stargateChainId",
+								"type": "uint16"
+							},
+							{
+								"internalType": "uint32",
+								"name": "lzEndpointId",
+								"type": "uint32"
+							}
+						],
+						"internalType": "struct Chain",
+						"name": "",
+						"type": "tuple"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "owner",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "renounceOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "newOwner",
+						"type": "address"
+					}
+				],
+				"name": "transferOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"errors": {
+				"OwnableInvalidOwner(address)": [
+					{
+						"details": "The owner is not a valid owner account. (eg. `address(0)`)"
+					}
+				],
+				"OwnableUnauthorizedAccount(address)": [
+					{
+						"details": "The caller account is not authorized to perform an operation."
+					}
+				]
+			},
+			"kind": "dev",
+			"methods": {
+				"owner()": {
+					"details": "Returns the address of the current owner."
+				},
+				"renounceOwnership()": {
+					"details": "Leaves the contract without owner. It will not be possible to call `onlyOwner` functions. Can only be called by the current owner. NOTE: Renouncing ownership will leave the contract without an owner, thereby disabling any functionality that is only available to the owner."
+				},
+				"transferOwnership(address)": {
+					"details": "Transfers ownership of the contract to a new account (`newOwner`). Can only be called by the current owner."
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"src/utils/ChainInfoTestnet.sol": "ChainInfo"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": [
+			":@lz-oapp-v2/=lib/lz-oapp-v2/src/",
+			":@openzeppelin/=lib/openzeppelin-contracts/",
+			":ds-test/=lib/forge-std/lib/ds-test/src/",
+			":forge-std/=lib/forge-std/",
+			":forge-std/=lib/forge-std/src/"
+		]
+	},
+	"sources": {
+		"lib/openzeppelin-contracts/contracts/access/Ownable.sol": {
+			"keccak256": "0xff6d0bb2e285473e5311d9d3caacb525ae3538a80758c10649a4d61029b017bb",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://8ed324d3920bb545059d66ab97d43e43ee85fd3bd52e03e401f020afb0b120f6",
+				"dweb:/ipfs/QmfEckWLmZkDDcoWrkEvMWhms66xwTLff9DDhegYpvHo1a"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/utils/Context.sol": {
+			"keccak256": "0x493033a8d1b176a037b2cc6a04dad01a5c157722049bbecf632ca876224dd4b2",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://6a708e8a5bdb1011c2c381c9a5cfd8a9a956d7d0a9dc1bd8bcdaf52f76ef2f12",
+				"dweb:/ipfs/Qmax9WHBnVsZP46ZxEMNRQpLQnrdE4dK8LehML1Py8FowF"
+			]
+		},
+		"src/Structs.sol": {
+			"keccak256": "0xce8675e79c20dcb552fb332dc7c28cc9ded8756d86bf6e142cf71ccecf52da25",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://14c08f331b3c4eb0a12f4e73357a0f132aac89683eb2d7a89d4f21f6283e5cc5",
+				"dweb:/ipfs/QmPAo95wxTePXWbMZQPomoFSszJnaJTkxT7CRLUkDmh9ct"
+			]
+		},
+		"src/utils/Bytes32String.sol": {
+			"keccak256": "0x084731fc02dd5b1fc63b36f34bae6674d70b9c3e7997777b7d4b8fb55ca735ec",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://37556c80983d4dd0fdcb6d9916d24b63c459fe44a5f8dfa6ff7316e6b41d87ce",
+				"dweb:/ipfs/QmZQFGk4FkHM8nJHfuEkgzKg2tbobEbeQWkHqmhxVuNb5L"
+			]
+		},
+		"src/utils/ChainInfoTestnet.sol": {
+			"keccak256": "0x65dd80a285317ade645d75965e8a6e3f34adc40384da79ffb41debdc10c6760f",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://f7fda0e35bb06ecae530a65924615caf92cc68d52cf12649d157fde79fae313b",
+				"dweb:/ipfs/QmawwoEfCpLEbLsEAM6Zzq32kiZsxgHUHew9RqwxrsJGQs"
+			]
+		}
+	},
+	"version": 1
+}

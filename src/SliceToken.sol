@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
+import "forge-std/src/console.sol";
+
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./interfaces/ISliceToken.sol";
 import "./interfaces/ISliceCore.sol";
@@ -39,7 +41,10 @@ contract SliceToken is ISliceToken, ERC20 {
     function mint(uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes) external returns (bytes32) {
         require(_sliceTokenQuantity > 0, "SliceToken: Slice token quantity can't be zero");
 
+        require(_maxEstimatedPrices.length == _routes.length && _maxEstimatedPrices.length == positions.length, "SliceToken: Incorrect length for prices or routes");
+
         uint256 sumPrice = Utils.sumMaxEstimatedPrices(_maxEstimatedPrices);
+
         paymentToken.transferFrom(msg.sender, address(sliceCore), sumPrice);
         
         bytes32 mintId = keccak256(abi.encodePacked(msg.sender, address(this), _sliceTokenQuantity, sumPrice, block.timestamp));

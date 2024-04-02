@@ -93,11 +93,16 @@ contract SliceTokenTest is Helper {
             address(weth)
         );
 
+        ChainInfo chainInfo = new ChainInfo();
+
         core = new SliceCore(
             address(usdc),
             getAddress("mainnet.sushiXSwap"),
             getAddress("mainnet.stargateAdapter"),
-            getAddress("mainnet.axelarAdapter")
+            getAddress("mainnet.axelarAdapter"),
+            address(0),
+            address(0), // TODO
+            address(chainInfo)
         );
         
         // enable slice token creation

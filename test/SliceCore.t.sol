@@ -13,10 +13,14 @@ contract SliceCoreTest is Helper {
     SliceCore core;
     SliceToken token;
 
+    SliceToken ccToken;
+
     IWETH public weth;
     IERC20 public usdc;
     IERC20 public wbtc;
     IERC20 public link;
+
+    IERC20 public wmaticPolygon;
 
     Position[] public positions;
 
@@ -43,6 +47,16 @@ contract SliceCoreTest is Helper {
     bytes public usdcLinkRoute =
         hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700cc7c3b08e2F11F2ad67A66EC5AF44A6e47Efb7F4";
 
+    
+    /* CROSS_CHAIN */
+    uint256 maxWMaticPrice = 100000000; //100usdc
+    uint256 wmaticUnits = 95000000000000000000; // 95matic
+
+    uint256[] public maxEstCCPrices;
+    Position[] public ccPositions;
+    bytes[] public ccRoutes;
+    bytes public usdcWmaticRoute = hex"012791Bca1f2de4661ED88A30C99A7a9449Aa8417402555500cd353F79d9FADe311fC3119B841e1f456b54e85800eeb3e0999D01f0d1Ed465513E414725a357F6ae4ffff0121988C9CFD08db3b5793c2C6782271dC9474925100eeb3e0999D01f0d1Ed465513E414725a357F6ae4";
+    
     /* =========================================================== */
     /*    ==================      setup     ===================    */
     /* =========================================================== */
@@ -53,6 +67,8 @@ contract SliceCoreTest is Helper {
         wbtc = IERC20(getAddress("mainnet.wbtc"));
         link = IERC20(getAddress("mainnet.link"));
         weth = IWETH(getAddress("mainnet.weth"));
+
+        wmaticPolygon = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
         maxEstimatedPrices.push(maxEstWethPrice);
         maxEstimatedPrices.push(maxEstWbtcPrice);
@@ -97,11 +113,16 @@ contract SliceCoreTest is Helper {
             address(weth)
         );
 
+        ChainInfo chainInfo = new ChainInfo();
+
         core = new SliceCore(
             address(usdc),
             getAddress("mainnet.sushiXSwap"),
             getAddress("mainnet.stargateAdapter"),
-            getAddress("mainnet.axelarAdapter")
+            getAddress("mainnet.axelarAdapter"),
+            address(0),
+            address(0), // TODO
+            address(chainInfo)
         );
         // enable slice token creation
         core.changeSliceTokenCreationEnabled(true);
@@ -115,6 +136,23 @@ contract SliceCoreTest is Helper {
 
         usdc.approve(address(core), MAX_ESTIMATED_PRICE * 10);
         usdc.approve(address(token), MAX_ESTIMATED_PRICE * 10);
+
+        Position memory ccPos = Position(
+            137,
+            address(wmaticPolygon),
+            wmaticUnits
+        );
+
+        ccPositions.push(ccPos);
+
+        ccRoutes.push(usdcWmaticRoute);
+
+        maxEstCCPrices.push(maxWMaticPrice);
+
+        address ccTokenAddr = core.createSlice("CC Slice", "CC", ccPositions);
+
+        ccToken = SliceToken(ccTokenAddr);
+        usdc.approve(address(ccToken), MAX_ESTIMATED_PRICE * 10);
 
         vm.stopPrank();
     }
@@ -211,6 +249,17 @@ contract SliceCoreTest is Helper {
 
     function testPurchaseUnderlyingAssets_Multichain() public {
         // TODO
+        vm.startPrank(dev);
+
+        vm.deal(dev, 100 ether);
+
+        console.log(dev.balance);
+        (bool success, ) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+
+        ccToken.mint(1, maxEstCCPrices, ccRoutes);
+
+        vm.stopPrank();
     }
 
     function testCannotPurchaseUnderlyingAssets_NotRegistedSliceToken() public {
@@ -354,3 +403,22 @@ contract SliceCoreTest is Helper {
         core.changeSliceTokenCreationEnabled(false);
     }
 }
+
+
+/* 
+0x012791Bca1f2de4661ED88A30C99A7a9449Aa8417402555500cd353F79d9FADe311fC3119B841e1f456b54e85800eeb3e0999D01f0d1Ed465513E414725a357F6ae4ffff0121988C9CFD08db3b5793c2C6782271dC9474925100eeb3e0999D01f0d1Ed465513E414725a357F6ae4
+01
+2791Bca1f2de4661ED88A30C99A7a9449Aa84174
+02
+5555
+00
+cd353F79d9FADe311fC3119B841e1f456b54e858
+00
+eeb3e0999D01f0d1Ed465513E414725a357F6ae4
+
+ffff
+01
+21988C9CFD08db3b5793c2C6782271dC94749251
+00
+eeb3e0999D01f0d1Ed465513E414725a357F6ae4
+ */

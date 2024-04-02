@@ -9,12 +9,14 @@ pragma solidity ^0.8.22;
  * @param axelarChainId Chain ID as represented within Axelar
  * @param stargateChainId Chain ID as represented within Stargate 
  * @param lzEndpointId Layer Zero chain endpoint ID
+ * @param stargateAdapter The address of stargate adapter on the chain 
  */
 struct Chain {
     uint256 chainId;
     bytes32 axelarChainId;
     uint16 stargateChainId;
     uint32 lzEndpointId;
+    address stargateAdapter;
 }
 
 /**
