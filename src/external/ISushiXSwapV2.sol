@@ -29,6 +29,8 @@ interface ISushiXSwapV2 {
         address indexed adapter
     );
 
+    function rp() external view returns (IRouteProcessor);
+
     /// @notice Update Adapter status to enable or disable for use
     /// @param _adapter The address of the adapter to update
     /// @param _status The status to set the adapter to

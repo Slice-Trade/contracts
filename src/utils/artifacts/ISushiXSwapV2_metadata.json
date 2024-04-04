@@ -1,0 +1,361 @@
+{
+	"compiler": {
+		"version": "0.8.25+commit.b61c2a91"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes2",
+						"name": "refId",
+						"type": "bytes2"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "sender",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "adapter",
+						"type": "address"
+					}
+				],
+				"name": "BridgeOnSource",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes2",
+						"name": "refId",
+						"type": "bytes2"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "sender",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "adapter",
+						"type": "address"
+					}
+				],
+				"name": "SwapAndBridgeOnSource",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"components": [
+							{
+								"internalType": "bytes2",
+								"name": "refId",
+								"type": "bytes2"
+							},
+							{
+								"internalType": "address",
+								"name": "adapter",
+								"type": "address"
+							},
+							{
+								"internalType": "address",
+								"name": "tokenIn",
+								"type": "address"
+							},
+							{
+								"internalType": "uint256",
+								"name": "amountIn",
+								"type": "uint256"
+							},
+							{
+								"internalType": "address",
+								"name": "to",
+								"type": "address"
+							},
+							{
+								"internalType": "bytes",
+								"name": "adapterData",
+								"type": "bytes"
+							}
+						],
+						"internalType": "struct ISushiXSwapV2.BridgeParams",
+						"name": "_bridgeParams",
+						"type": "tuple"
+					},
+					{
+						"internalType": "address",
+						"name": "_refundAddress",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_swapPayload",
+						"type": "bytes"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_payloadData",
+						"type": "bytes"
+					}
+				],
+				"name": "bridge",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "rp",
+				"outputs": [
+					{
+						"internalType": "contract IRouteProcessor",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_adapter",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_adapterData",
+						"type": "bytes"
+					}
+				],
+				"name": "sendMessage",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes",
+						"name": "_swapData",
+						"type": "bytes"
+					}
+				],
+				"name": "swap",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"components": [
+							{
+								"internalType": "bytes2",
+								"name": "refId",
+								"type": "bytes2"
+							},
+							{
+								"internalType": "address",
+								"name": "adapter",
+								"type": "address"
+							},
+							{
+								"internalType": "address",
+								"name": "tokenIn",
+								"type": "address"
+							},
+							{
+								"internalType": "uint256",
+								"name": "amountIn",
+								"type": "uint256"
+							},
+							{
+								"internalType": "address",
+								"name": "to",
+								"type": "address"
+							},
+							{
+								"internalType": "bytes",
+								"name": "adapterData",
+								"type": "bytes"
+							}
+						],
+						"internalType": "struct ISushiXSwapV2.BridgeParams",
+						"name": "_bridgeParams",
+						"type": "tuple"
+					},
+					{
+						"internalType": "address",
+						"name": "_refundAddress",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_swapData",
+						"type": "bytes"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_swapPayload",
+						"type": "bytes"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_payloadData",
+						"type": "bytes"
+					}
+				],
+				"name": "swapAndBridge",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_adapter",
+						"type": "address"
+					},
+					{
+						"internalType": "bool",
+						"name": "_status",
+						"type": "bool"
+					}
+				],
+				"name": "updateAdapterStatus",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "newRouteProcessor",
+						"type": "address"
+					}
+				],
+				"name": "updateRouteProcessor",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {
+				"bridge((bytes2,address,address,uint256,address,bytes),address,bytes,bytes)": {
+					"params": {
+						"_bridgeParams": "The bridge data for the function call",
+						"_payloadData": "The payload data to pass to adapter",
+						"_refundAddress": "The address to refund excess funds to",
+						"_swapPayload": "The swap data payload to pass to adapter"
+					}
+				},
+				"sendMessage(address,bytes)": {
+					"params": {
+						"_adapter": "The address of the adapter to send the message through",
+						"_adapterData": "The data to pass to the adapter"
+					}
+				},
+				"swap(bytes)": {
+					"params": {
+						"_swapData": "The data to pass to RouteProcessor"
+					}
+				},
+				"swapAndBridge((bytes2,address,address,uint256,address,bytes),address,bytes,bytes,bytes)": {
+					"params": {
+						"_bridgeParams": "The bridge data for the function call",
+						"_payloadData": "The payload data to pass to adapter",
+						"_refundAddress": "The address to refund excess funds to",
+						"_swapData": "The swap data to pass to RouteProcessor",
+						"_swapPayload": "The swap data payload to pass to adapter"
+					}
+				},
+				"updateAdapterStatus(address,bool)": {
+					"params": {
+						"_adapter": "The address of the adapter to update",
+						"_status": "The status to set the adapter to"
+					}
+				},
+				"updateRouteProcessor(address)": {
+					"params": {
+						"newRouteProcessor": "The address of the new RouteProcessor contract"
+					}
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"bridge((bytes2,address,address,uint256,address,bytes),address,bytes,bytes)": {
+					"notice": "Perform a bridge through passed adapter in _bridgeParams"
+				},
+				"sendMessage(address,bytes)": {
+					"notice": "Send a message through passed _adapter address"
+				},
+				"swap(bytes)": {
+					"notice": "Execute a swap using _swapData with RouteProcessor"
+				},
+				"swapAndBridge((bytes2,address,address,uint256,address,bytes),address,bytes,bytes,bytes)": {
+					"notice": "Perform a swap then bridge through passed adapter in _bridgeParams"
+				},
+				"updateAdapterStatus(address,bool)": {
+					"notice": "Update Adapter status to enable or disable for use"
+				},
+				"updateRouteProcessor(address)": {
+					"notice": "Update the RouteProcessor contract that is used"
+				}
+			},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"src/utils/TenderlyUpload.sol": "ISushiXSwapV2"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": [
+			":@lz-oapp-v2/=lib/lz-oapp-v2/src/",
+			":@openzeppelin/=lib/openzeppelin-contracts/",
+			":ds-test/=lib/forge-std/lib/ds-test/src/",
+			":forge-std/=lib/forge-std/",
+			":forge-std/=lib/forge-std/src/"
+		]
+	},
+	"sources": {
+		"src/utils/TenderlyUpload.sol": {
+			"keccak256": "0x61b3e52626ca290f3586b9bc9f0eb4ce2d9f304aba59d6d0fd245deb534ad76f",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://9bb42cb7f75a12dedd7d9023e79c6f7dd7a14ae51179c98f3277b817d0b4456e",
+				"dweb:/ipfs/QmePRtbEURJFgVQxNvcwhP4yj3hEdFPSGZJJM9LoLGQ4Mw"
+			]
+		}
+	},
+	"version": 1
+}

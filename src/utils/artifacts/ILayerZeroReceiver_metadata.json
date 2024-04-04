@@ -1,0 +1,162 @@
+{
+	"compiler": {
+		"version": "0.8.25+commit.b61c2a91"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"components": [
+							{
+								"internalType": "uint32",
+								"name": "srcEid",
+								"type": "uint32"
+							},
+							{
+								"internalType": "bytes32",
+								"name": "sender",
+								"type": "bytes32"
+							},
+							{
+								"internalType": "uint64",
+								"name": "nonce",
+								"type": "uint64"
+							}
+						],
+						"internalType": "struct Origin",
+						"name": "_origin",
+						"type": "tuple"
+					}
+				],
+				"name": "allowInitializePath",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"components": [
+							{
+								"internalType": "uint32",
+								"name": "srcEid",
+								"type": "uint32"
+							},
+							{
+								"internalType": "bytes32",
+								"name": "sender",
+								"type": "bytes32"
+							},
+							{
+								"internalType": "uint64",
+								"name": "nonce",
+								"type": "uint64"
+							}
+						],
+						"internalType": "struct Origin",
+						"name": "_origin",
+						"type": "tuple"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "_guid",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_message",
+						"type": "bytes"
+					},
+					{
+						"internalType": "address",
+						"name": "_executor",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_extraData",
+						"type": "bytes"
+					}
+				],
+				"name": "lzReceive",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint32",
+						"name": "_eid",
+						"type": "uint32"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "_sender",
+						"type": "bytes32"
+					}
+				],
+				"name": "nextNonce",
+				"outputs": [
+					{
+						"internalType": "uint64",
+						"name": "",
+						"type": "uint64"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"src/utils/TenderlyUpload.sol": "ILayerZeroReceiver"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": [
+			":@lz-oapp-v2/=lib/lz-oapp-v2/src/",
+			":@openzeppelin/=lib/openzeppelin-contracts/",
+			":ds-test/=lib/forge-std/lib/ds-test/src/",
+			":forge-std/=lib/forge-std/",
+			":forge-std/=lib/forge-std/src/"
+		]
+	},
+	"sources": {
+		"src/utils/TenderlyUpload.sol": {
+			"keccak256": "0x61b3e52626ca290f3586b9bc9f0eb4ce2d9f304aba59d6d0fd245deb534ad76f",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://9bb42cb7f75a12dedd7d9023e79c6f7dd7a14ae51179c98f3277b817d0b4456e",
+				"dweb:/ipfs/QmePRtbEURJFgVQxNvcwhP4yj3hEdFPSGZJJM9LoLGQ4Mw"
+			]
+		}
+	},
+	"version": 1
+}

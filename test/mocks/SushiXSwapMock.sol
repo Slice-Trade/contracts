@@ -8,6 +8,10 @@ contract SushiXSwapMock is ISushiXSwapV2 {
     // Will deal some of the given token to the given address when the correct SushiXSwap function is called
     uint256 constant MAX_ESTIMATED_PRICE = 1355000000;
 
+    function rp() external view returns (IRouteProcessor) {
+        // TODO
+    }
+
     function swap(bytes memory _swapData) external payable {
         // TODO
     }

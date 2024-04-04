@@ -80,4 +80,38 @@ The redeem steps are as follows:
 - all the underlying assets are transferred to the user’s wallet
 - when all redeem successful notifications are received, the token is burned
 
-![Slice Smart Contract Architecture (3)](https://github.com/Slice-Trade/contracts/assets/44027725/ddb78d4a-4227-43c1-a24c-7277e121d925)
+![Slice Smart Contract Architecture (3)](https://github.com/Slice-Trade/contracts/assets/44027725/ddb78d4a-4227-43c1-a24c-7277e121d925)     
+
+
+## Testnet addresses:
+
+SEPOLIA:    
+Routerporcessor: 0xF4514d34db7BE65a195C05791B2e954bE006b5DF    
+
+SushiXSwap: 0x32F34391965A8e9322194edA50013af19b866227    
+
+Stargateadapter: 0xC2216FCdf9bb3a40D20eD2E17632fe5AdFd4aB63    
+
+ChainInfo: 0x3187F6AC207c6c58031Abc018d74399c0a8860AC    
+
+SliceCore: 0xb9Ab7c5661f03852e899D3b78C32325F0da4030f    
+
+Pool: 0xa810997Ed1A090137EdBa4805998b5BBb0A72275    
+
+USDC: 0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590    
+
+     
+OP SEPOLIA:    
+Routeprocessor: 0xd5Cc9D2EB25667a7A6d5c34da08A7E55B17729F4    
+
+SushiXSwap: 0x6C1aeA2C4933f040007a43Bc5683B0e068452c46    
+
+Stargateadapter: 0x2B798E5a0cE8018EDd5532fF4899E2f241271ab0    
+
+Chain info: 0xB1c883daf4ed666aa7caDC3f8dD0180addE0C3ba    
+
+SliceCore: 0xA2264f1AE4aB3D1E23809735be08fAc307Da3f31    
+
+SliceToken: 0x78C192f53307e0180E8dd23e291a145F422884A1    
+
+USDC: 0x488327236B65C61A6c083e8d811a4E0D3d1D4268    

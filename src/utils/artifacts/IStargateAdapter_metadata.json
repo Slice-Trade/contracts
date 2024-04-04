@@ -1,0 +1,116 @@
+{
+	"compiler": {
+		"version": "0.8.25+commit.b61c2a91"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "uint16",
+						"name": "_dstChainId",
+						"type": "uint16"
+					},
+					{
+						"internalType": "uint8",
+						"name": "_functionType",
+						"type": "uint8"
+					},
+					{
+						"internalType": "address",
+						"name": "_receiver",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_gas",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_dustAmount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_payload",
+						"type": "bytes"
+					}
+				],
+				"name": "getFee",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "a",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "b",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {
+				"getFee(uint16,uint8,address,uint256,uint256,bytes)": {
+					"params": {
+						"_dstChainId": "stargate dst chainId",
+						"_dustAmount": "dust amount to be received at the dst chain",
+						"_functionType": "stargate Function type 1 for swap. See more at https://stargateprotocol.gitbook.io/stargate/developers/function-types",
+						"_gas": "extra gas being sent",
+						"_payload": "payload being sent at the dst chain",
+						"_receiver": "receiver on the dst chain"
+					}
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"getFee(uint16,uint8,address,uint256,uint256,bytes)": {
+					"notice": "Get the fees to be paid in native token for the swap"
+				}
+			},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"src/utils/TenderlyUpload.sol": "IStargateAdapter"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": [
+			":@lz-oapp-v2/=lib/lz-oapp-v2/src/",
+			":@openzeppelin/=lib/openzeppelin-contracts/",
+			":ds-test/=lib/forge-std/lib/ds-test/src/",
+			":forge-std/=lib/forge-std/",
+			":forge-std/=lib/forge-std/src/"
+		]
+	},
+	"sources": {
+		"src/utils/TenderlyUpload.sol": {
+			"keccak256": "0x61b3e52626ca290f3586b9bc9f0eb4ce2d9f304aba59d6d0fd245deb534ad76f",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://9bb42cb7f75a12dedd7d9023e79c6f7dd7a14ae51179c98f3277b817d0b4456e",
+				"dweb:/ipfs/QmePRtbEURJFgVQxNvcwhP4yj3hEdFPSGZJJM9LoLGQ4Mw"
+			]
+		}
+	},
+	"version": 1
+}

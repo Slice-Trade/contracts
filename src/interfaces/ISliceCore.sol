@@ -2,7 +2,7 @@
 pragma solidity ^0.8.22;
 
 import "../external/IPayloadExecutor.sol";
-import "../external/lz/ILayerZeroReceiver.sol";
+import "@lz-oapp-v2/interfaces/ILayerZeroReceiver.sol";
 import "../Structs.sol";
 import "./ISliceToken.sol";
 
@@ -32,9 +32,9 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
      * @dev Purchases the underlying assets for a given slice token (msg.sender).
      * @param _mintID The ID that uniquely identifies this mint transaction within the sysem
      * @param _sliceTokenQuantity The quantity of slice tokens to purchase the underlying assets for
-     * @param _maxEstimatedPrice The maximum estimated price of all the underlying assets combined. In USDC (6 decimals)
+     * @param _maxEstimatedPrices The maximum estimated price for each underlying asset. In USDC (6 decimals)
      */
-    function purchaseUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity, uint256 _maxEstimatedPrice) external;
+    function purchaseUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes) external payable;
 
     /**
      * @dev Sells/buy the Slice token (msg.sender) underlying assets to rebalance to the new positions
@@ -46,9 +46,9 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
     /**
      * @dev Transfers out the underlying assets for a given Slice token to the given user.
      * @param _redeemID The ID that uniquely identifies this transaction within the system
-     * @param _redeemInfo The details of the underlying asset redeeming.
+     * @param _txInfo The details of the underlying asset redeeming.
      */
-    function redeemUnderlying(bytes32 _redeemID, RedeemInfo memory _redeemInfo) external;
+    function redeemUnderlying(bytes32 _redeemID, SliceTransactionInfo memory _txInfo) external;
 
     /**
      * @dev Enables/disables the creation of new Slice tokens. Can only be called by contract owner.
@@ -67,6 +67,17 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
      * @dev Returns the number of Slice tokens registered (created) in the contract.
      */
     function getRegisteredSliceTokensCount() external view returns (uint256);
+
+    /**
+     * @dev Returns all the registered Slice tokens.
+     */
+    function getRegisteredSliceTokens() external view returns (address[] memory);
+
+    /**
+     * @dev Returns a registered Slice token at the given index.
+     * @param _idx The index in the registeredSliceTokens array.
+     */
+    function getRegisteredSliceToken(uint256 _idx) external view returns (address);
 
     /**
      * @dev Returns whether a given address is a registered slice token or not.
