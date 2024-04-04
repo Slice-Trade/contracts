@@ -63,7 +63,7 @@
 			"onPayloadReceive(bytes)": "a6ac3db6",
 			"purchaseUnderlyingAssets(bytes32,uint256,uint256[],bytes[])": "3a135554",
 			"rebalanceUnderlying(bytes32,(uint256,address,uint256)[])": "0993035c",
-			"redeemUnderlying(bytes32,(bytes32,uint256,address,bytes))": "952159fb"
+			"redeemUnderlying(bytes32,(bytes32,uint256,address,uint8,bytes))": "82c325d2"
 		}
 	},
 	"abi": [
@@ -512,6 +512,11 @@
 							"internalType": "address",
 							"name": "user",
 							"type": "address"
+						},
+						{
+							"internalType": "enum TransactionState",
+							"name": "state",
+							"type": "uint8"
 						},
 						{
 							"internalType": "bytes",

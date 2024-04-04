@@ -45,7 +45,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
     uint256 lzSendMsgValue = 758353551570386; // TODO: Do estimation for msg send value
 
-    bytes public lzSendOpts; // TODO: Generate programatically 0x000301002101000000000000000000000000000186a000000000000000000001c6bf52634000
+    bytes public lzSendOpts; // TODO: Generate programatically 0x00030100210100000000000000000000000000030d4000000000000000000001c6bf52634000
 
     constructor(
         address _paymentToken,

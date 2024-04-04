@@ -47,33 +47,6 @@
 				"type": "constructor"
 			},
 			{
-				"inputs": [
-					{
-						"internalType": "address",
-						"name": "target",
-						"type": "address"
-					}
-				],
-				"name": "AddressEmptyCode",
-				"type": "error"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "address",
-						"name": "account",
-						"type": "address"
-					}
-				],
-				"name": "AddressInsufficientBalance",
-				"type": "error"
-			},
-			{
-				"inputs": [],
-				"name": "FailedInnerCall",
-				"type": "error"
-			},
-			{
 				"inputs": [],
 				"name": "InvalidDelegate",
 				"type": "error"
@@ -157,17 +130,6 @@
 					}
 				],
 				"name": "OwnableUnauthorizedAccount",
-				"type": "error"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "address",
-						"name": "token",
-						"type": "address"
-					}
-				],
-				"name": "SafeERC20FailedOperation",
 				"type": "error"
 			},
 			{
@@ -628,6 +590,19 @@
 				"type": "function"
 			},
 			{
+				"inputs": [],
+				"name": "lzSendOpts",
+				"outputs": [
+					{
+						"internalType": "bytes",
+						"name": "",
+						"type": "bytes"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
 				"inputs": [
 					{
 						"internalType": "uint32",
@@ -710,6 +685,19 @@
 			},
 			{
 				"inputs": [],
+				"name": "payloadGas",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
 				"name": "paymentToken",
 				"outputs": [
 					{
@@ -765,7 +753,7 @@
 				],
 				"name": "purchaseUnderlyingAssets",
 				"outputs": [],
-				"stateMutability": "nonpayable",
+				"stateMutability": "payable",
 				"type": "function"
 			},
 			{
@@ -826,6 +814,11 @@
 								"internalType": "address",
 								"name": "user",
 								"type": "address"
+							},
+							{
+								"internalType": "enum TransactionState",
+								"name": "state",
+								"type": "uint8"
 							},
 							{
 								"internalType": "bytes",
@@ -917,12 +910,38 @@
 			{
 				"inputs": [
 					{
+						"internalType": "bytes",
+						"name": "_opts",
+						"type": "bytes"
+					}
+				],
+				"name": "setLzSendOpts",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
 						"internalType": "address",
 						"name": "_partner",
 						"type": "address"
 					}
 				],
 				"name": "setPartner",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_payloadGas",
+						"type": "uint256"
+					}
+				],
+				"name": "setPayloadGas",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -991,21 +1010,6 @@
 		],
 		"devdoc": {
 			"errors": {
-				"AddressEmptyCode(address)": [
-					{
-						"details": "There's no code at `target` (it is not a contract)."
-					}
-				],
-				"AddressInsufficientBalance(address)": [
-					{
-						"details": "The ETH balance of the account is not enough to perform the operation."
-					}
-				],
-				"FailedInnerCall()": [
-					{
-						"details": "A call to an address target failed. The target may have reverted."
-					}
-				],
 				"OwnableInvalidOwner(address)": [
 					{
 						"details": "The owner is not a valid owner account. (eg. `address(0)`)"
@@ -1014,11 +1018,6 @@
 				"OwnableUnauthorizedAccount(address)": [
 					{
 						"details": "The caller account is not authorized to perform an operation."
-					}
-				],
-				"SafeERC20FailedOperation(address)": [
-					{
-						"details": "An operation with an ERC20 token failed."
 					}
 				]
 			},
@@ -1097,7 +1096,7 @@
 				"rebalanceUnderlying(bytes32,(uint256,address,uint256)[])": {
 					"details": "See ISliceCore - rebalanceUnderlying"
 				},
-				"redeemUnderlying(bytes32,(bytes32,uint256,address,bytes))": {
+				"redeemUnderlying(bytes32,(bytes32,uint256,address,uint8,bytes))": {
 					"details": "See ISliceCore - redeemUnderlying"
 				},
 				"renounceOwnership()": {
@@ -1352,27 +1351,27 @@
 			]
 		},
 		"src/SliceCore.sol": {
-			"keccak256": "0x6a9522fa5994bd8606debf4868a3873e547deadc7de3d2c7770e7da9a35f7c48",
+			"keccak256": "0xd6dd6ef02cc823fb950f4a568d5f2ff2a23385d54f721af918314af3ab8c2536",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://fe446357453ab28c742332ae1c724cd689dd20ec5180ce06df48d59c4ac10652",
-				"dweb:/ipfs/QmWkCJQZRtob3kREVbPcrRWWkZvcm1LYM4D54nCRLTKwVK"
+				"bzz-raw://9bb8f8958e62dff962fbcf07b4aed8e0ff7683c97aff4105430b5277ff8856fe",
+				"dweb:/ipfs/QmZ1asyZv3uBTd16KAiFxvtNiXS99Kd9zsnWJVX3aTXZa9"
 			]
 		},
 		"src/SliceToken.sol": {
-			"keccak256": "0xc46ce9185a689dde961f647122ff50d2001a54c2cd8be0c0f3d190810b955ca7",
+			"keccak256": "0xf9fdd73c03c15c7963a0437fd591648b3f6a4612e049533cf7dc95e5a7feea32",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://85cb4d64e6b8db64b6cdc4d8d668648db0127469d40018b827fe1bd3f86df3a1",
-				"dweb:/ipfs/QmTUacnFJwzpDiuMm7vvqjhyuAMGiwKgfayy2Z3Y2Dd4fK"
+				"bzz-raw://ab7d19ea8ed471278f86582b816628ab11e279eb9bfc22e8230ba794a2d73192",
+				"dweb:/ipfs/QmRLM4ZWPs3bSWDhyr6LXSNuQxzeU5JJwq8TNErQQAVRdS"
 			]
 		},
 		"src/Structs.sol": {
-			"keccak256": "0xba9a6547267c81abfcf20a0c67a6d7c7ad810a0f457aa37a450f158a124c10b7",
+			"keccak256": "0x632d21ad7bdfd44c50a9b9451f285d5ed5fba7de3b2728400243447e0fb887ea",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://8358b890c5fad6176bce3b1079ce51a62cd41b5adb21105bbd5ca0312e44fb58",
-				"dweb:/ipfs/QmRsvJeeTvJ1L5fpzjo7xFxKF8DNXUT2dVHzyGDXXdzvCm"
+				"bzz-raw://68f6c541d31c50da8c0c6ae9a6153748b4f2140535af96a1e3cb6c51193e311d",
+				"dweb:/ipfs/QmWs85g5mn97ufQkAvbEigtFu7jUPhGZi5CLXwB7LdPxUZ"
 			]
 		},
 		"src/external/IPayloadExecutor.sol": {
@@ -1432,19 +1431,19 @@
 			]
 		},
 		"src/interfaces/ISliceCore.sol": {
-			"keccak256": "0xdb66422d3c8aa391b1cd791c8569c70c22d808e9c752026bafee709a2e7e8b97",
+			"keccak256": "0xbb7bfb945a55369d614638ea7aa39db235aae79706454da3d6f5276cdb8ad448",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://524634b2d094e49866a6afc403a37035ef1a5522d04a75eca97b50c6d197fe77",
-				"dweb:/ipfs/QmPsvy2U71oU6eVzJPGNxQrqHYarbUPfBNu3PeWY8tF7rU"
+				"bzz-raw://52ca4e5d3d7a1caa95bbef43b453c284a364537badcae0eb0d4d9801b79a7639",
+				"dweb:/ipfs/QmYtVQBdq1584uAEc38KasqibZkggPLs5xsEimSopjCFtQ"
 			]
 		},
 		"src/interfaces/ISliceToken.sol": {
-			"keccak256": "0x6ee6ca0fe628c8a8ce030ac6b1637ef5cef8fe12922bc06d7ef0a5120c0fb656",
+			"keccak256": "0x0435fa9cb4d722eda6a3ae443ea825a067dc3d25e29920cfa816b157f49fd659",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://034dfdfa3f4fd9a73d3f9e8a97683f5677e6753ae798f907021acaf7438dea3c",
-				"dweb:/ipfs/QmYyVBxF1CojHkvDQ93YY2fkenn1opNhGMqR8UtvXRBZdf"
+				"bzz-raw://cc2bff9ee2f97a0561b8467cbb7056dda4f4f8617e1bfb283d9ff370ec0f1f6a",
+				"dweb:/ipfs/QmSSzgAzCtFZdsLHyR5nyazRpDnVxw4rGgi3y6egfykAGX"
 			]
 		},
 		"src/utils/Utils.sol": {
