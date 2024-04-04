@@ -240,9 +240,6 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         address, /* _executor */ // the Executor address.
         bytes calldata /* _extraData */ // arbitrary data appended by the Executor
     ) internal override {
-        // in main chain contract implement lzReceive to handle cross chain msg --> verify msg and increment ok signals
-        // if all signals in -> call mint complete on token contract
-
         // verify that it was sent by the correct layer zero endpoint
         require(msg.sender == lzEndpoint, "SliceCore: lzReceive not called by endpoint");
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
+import "forge-std/src/console.sol";
 import "forge-std/src/Test.sol";
 import "./helpers/Helper.sol";
 import "../src/external/IWETH.sol";
@@ -38,9 +39,12 @@ contract SliceTokenTest is Helper {
 
     bytes[] public routes;
 
-    bytes public usdcWethRoute = hex"02A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001eeb3e0999D01f0d1Ed465513E414725a357F6ae4000bb8";
-    bytes public usdcWbtcRoute = hex"02A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a58000bb804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a5800eeb3e0999D01f0d1Ed465513E414725a357F6ae4000bb8";
-    bytes public usdcLinkRoute = hex"02A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da967000bb804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700eeb3e0999D01f0d1Ed465513E414725a357F6ae4000bb8";
+    bytes public usdcWethRoute =
+        hex"02A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001eeb3e0999D01f0d1Ed465513E414725a357F6ae4000bb8";
+    bytes public usdcWbtcRoute =
+        hex"02A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a58000bb804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a5800eeb3e0999D01f0d1Ed465513E414725a357F6ae4000bb8";
+    bytes public usdcLinkRoute =
+        hex"02A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da967000bb804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700eeb3e0999D01f0d1Ed465513E414725a357F6ae4000bb8";
 
     /* =========================================================== */
     /*    ==================      setup     ===================    */
@@ -104,10 +108,10 @@ contract SliceTokenTest is Helper {
             getAddress("mainnet.stargateAdapter"),
             getAddress("mainnet.axelarAdapter"),
             address(0),
-            address(0), // TODO
+            getAddress("mainnet.layerZeroEndpoint"),
             address(chainInfo)
         );
-        
+
         // enable slice token creation
         core.changeSliceTokenCreationEnabled(true);
         // approve address as Slice token creator
@@ -133,7 +137,7 @@ contract SliceTokenTest is Helper {
         uint256 balanceBefore = usdc.balanceOf(dev);
         // TODO:
         // verify that purchase event in Core contract is emitted
- /*        vm.expectEmit(true, true, true, false);
+        /*        vm.expectEmit(true, true, true, false);
         emit ISliceCore.UnderlyingAssetsPurchased(address(token), 2, dev); */
 
         // call mint
@@ -173,15 +177,23 @@ contract SliceTokenTest is Helper {
         vm.startPrank(dev);
         // create a new Slice token
         // set the core address as dev address
-        SliceCoreMock coreMock = new SliceCoreMock();
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+
+        deal(address(weth), address(coreMock), wethUnits * 2);
+        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
+        deal(address(link), address(coreMock), linkUnits * 2);
+
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+        
+        coreMock.setToken(address(sliceToken));
+        usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
         // call mint
         bytes32 mintId = sliceToken.mint(2, maxEstimatedPrices, routes);
 
         // verify that SliceMinted event emitted
         vm.expectEmit(true, true, false, false);
         emit ISliceToken.SliceMinted(dev, 2);
-        
+
         coreMock.mintComplete(mintId, address(sliceToken));
 
         // verify that underlying assets are in the slice token
@@ -194,7 +206,7 @@ contract SliceTokenTest is Helper {
 
         // verify that slice token balance of user is increased
         uint256 sliceTokenBalance = sliceToken.balanceOf(dev);
-        assertEq(1, sliceTokenBalance);
+        assertEq(2, sliceTokenBalance);
         vm.stopPrank();
     }
 
@@ -203,8 +215,17 @@ contract SliceTokenTest is Helper {
         vm.startPrank(dev);
         // create a new Slice token
         // set the core address as dev address
-        SliceCoreMock coreMock = new SliceCoreMock();
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+
+        deal(address(weth), address(coreMock), wethUnits * 2);
+        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
+        deal(address(link), address(coreMock), linkUnits * 2);
+
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+
+        coreMock.setToken(address(sliceToken));
+        usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
+
         // call mint
         bytes32 mintId = sliceToken.mint(2, maxEstimatedPrices, routes);
         vm.stopPrank();
@@ -212,20 +233,49 @@ contract SliceTokenTest is Helper {
         vm.startPrank(users[1]);
         vm.expectRevert("SliceToken: Only Slice Core can call");
         // verify that mintComplete fails from non dev address
-        coreMock.mintComplete(mintId, address(sliceToken));
+        sliceToken.mintComplete(mintId);
         vm.stopPrank();
+    }
+
+    function testCannotMintComplete_NotOpen() public {
+        vm.startPrank(dev);
+
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+
+        deal(address(weth), address(coreMock), wethUnits * 2);
+        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
+        deal(address(link), address(coreMock), linkUnits * 2);
+
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+
+        coreMock.setToken(address(sliceToken));
+        usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
+
+        bytes32 mintId = sliceToken.mint(2, maxEstimatedPrices, routes);
+
+        coreMock.mintComplete(mintId, address(sliceToken));
+
+        vm.expectRevert("SliceToken: Transaction state is not open");
+        coreMock.mintComplete(mintId, address(sliceToken));
     }
 
     function testCannotMintComplete_InvalidMintID() public {
         vm.startPrank(dev);
         // create a new Slice token
         // set the core address as dev address
-        SliceCoreMock coreMock = new SliceCoreMock();
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+        deal(address(weth), address(coreMock), wethUnits * 2);
+        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
+        deal(address(link), address(coreMock), linkUnits * 2);
+
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+
+        coreMock.setToken(address(sliceToken));
+        usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
 
         // verify that mintComplete fails with invalid mint ID
         vm.expectRevert("SliceToken: Invalid mint ID");
-        sliceToken.mintComplete(bytes32(0));
+        coreMock.mintComplete(bytes32(0), address(sliceToken));
         vm.stopPrank();
     }
 
@@ -251,8 +301,16 @@ contract SliceTokenTest is Helper {
     function testRebalanceComplete() public {
         vm.startPrank(dev);
 
-        SliceCoreMock coreMock = new SliceCoreMock();
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+
+        deal(address(weth), address(coreMock), wethUnits * 2);
+        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
+        deal(address(link), address(coreMock), linkUnits * 2);
+
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+
+        coreMock.setToken(address(sliceToken));
+
         // mint some slice tokens
         sliceToken.mint(2, maxEstimatedPrices, routes);
 
@@ -275,7 +333,7 @@ contract SliceTokenTest is Helper {
         Position[] memory updatedPositions = sliceToken.getPositions();
         assertEq(130346080000000000, updatedPositions[0].units);
         assertEq(8415120000000000, updatedPositions[1].units);
-        
+
         vm.stopPrank();
     }
 
@@ -315,8 +373,15 @@ contract SliceTokenTest is Helper {
         // mint some slice tokens
         vm.startPrank(dev);
 
-        SliceCoreMock coreMock = new SliceCoreMock();
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+
+        deal(address(weth), address(coreMock), wethUnits * 2);
+        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
+        deal(address(link), address(coreMock), linkUnits * 2);
+
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+
+        coreMock.setToken(address(sliceToken));
 
         sliceToken.mint(2, maxEstimatedPrices, routes);
 

@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
+enum TransactionState {
+    UNREGISTERED,
+    OPEN,
+    FULFILLED
+}
+
 /**
  * @dev Axelar and Stargate have different internal nomenclature for the blockchain chain IDs.
  *      We store these and use the real chain ID for internal recording.
@@ -44,6 +50,7 @@ struct SliceTransactionInfo {
     bytes32 id;
     uint256 quantity;
     address user;
+    TransactionState state;
     bytes data;
 }
 

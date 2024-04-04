@@ -22,6 +22,8 @@ contract Constants {
 
     setAddress("mainnet.sushiXSwap", 0x804b526e5bF4349819fe2Db65349d0825870F8Ee);
 
+    setAddress("mainnet.layerZeroEndpoint", 0x1a44076050125825900e736c501f859c50fE728c);
+
     setAddress("mainnet.stargateAdapter", 0xbF3B71decBCEFABB3210B9D8f18eC22e0556f5F0);
     setAddress("mainnet.axelarAdapter", 0x5AbEdAc449A8301467c3e124B98e7151641F1e56);
     

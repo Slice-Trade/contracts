@@ -53,6 +53,7 @@ contract SliceToken is ISliceToken, ERC20 {
             mintId,
             _sliceTokenQuantity,
             msg.sender,
+            TransactionState.OPEN,
             bytes("")
         );
 
@@ -66,8 +67,24 @@ contract SliceToken is ISliceToken, ERC20 {
     /**
      * @dev See ISliceToken - mintComplete
      */
-    function mintComplete(bytes32 _mintID) external {
-        // TODO
+    function mintComplete(bytes32 _mintID) external onlySliceCore {
+        // get transaction info
+        SliceTransactionInfo memory _txInfo = mints[_mintID];
+
+        // check that mint ID is valid
+        require(_txInfo.id != bytes32(0), "SliceToken: Invalid mint ID");
+
+        // check that state is open
+        require(_txInfo.state == TransactionState.OPEN, "SliceToken: Transaction state is not open");
+
+        // change transaction state to fulfilled
+        mints[_mintID].state = TransactionState.FULFILLED;
+
+        // mint X quantity of tokens to user
+        _mint(_txInfo.user, _txInfo.quantity);
+
+        // emit event
+        emit SliceMinted(_txInfo.user, _txInfo.quantity);
     }
 
     /**
