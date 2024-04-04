@@ -34,7 +34,7 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
      * @param _sliceTokenQuantity The quantity of slice tokens to purchase the underlying assets for
      * @param _maxEstimatedPrices The maximum estimated price for each underlying asset. In USDC (6 decimals)
      */
-    function purchaseUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes) external;
+    function purchaseUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes) external payable;
 
     /**
      * @dev Sells/buy the Slice token (msg.sender) underlying assets to rebalance to the new positions

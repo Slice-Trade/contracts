@@ -1,0 +1,185 @@
+{
+	"compiler": {
+		"version": "0.8.25+commit.b61c2a91"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "bytes",
+						"name": "_adapterData",
+						"type": "bytes"
+					},
+					{
+						"internalType": "address",
+						"name": "_refundAddress",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_swapDataPayload",
+						"type": "bytes"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_payloadData",
+						"type": "bytes"
+					}
+				],
+				"name": "adapterBridge",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_amountBridged",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_payloadData",
+						"type": "bytes"
+					},
+					{
+						"internalType": "address",
+						"name": "_token",
+						"type": "address"
+					}
+				],
+				"name": "executePayload",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes",
+						"name": "_adapterData",
+						"type": "bytes"
+					}
+				],
+				"name": "sendMessage",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_amountBridged",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_swapData",
+						"type": "bytes"
+					},
+					{
+						"internalType": "address",
+						"name": "_token",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_payloadData",
+						"type": "bytes"
+					}
+				],
+				"name": "swap",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {
+				"adapterBridge(bytes,address,bytes,bytes)": {
+					"params": {
+						"_adapterData": "The adapter data to pass to adapter",
+						"_payloadData": "The payload data to pass to pass through bridge",
+						"_swapDataPayload": "The swap data payload to pass through bridge"
+					}
+				},
+				"executePayload(uint256,bytes,address)": {
+					"params": {
+						"_amountBridged": "The amount of tokens bridged",
+						"_payloadData": "The payload data to pass to payload executor",
+						"_token": "The address of the token to swap"
+					}
+				},
+				"sendMessage(bytes)": {
+					"params": {
+						"_adapterData": "The adapter data to pass to adapter"
+					}
+				},
+				"swap(uint256,bytes,address,bytes)": {
+					"params": {
+						"_amountBridged": "The amount of tokens bridged",
+						"_payloadData": "The payload data to pass to payload executor",
+						"_swapData": "The swap data to pass to RouteProcessor",
+						"_token": "The address of the token to swap"
+					}
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"adapterBridge(bytes,address,bytes,bytes)": {
+					"notice": "Where the actual bridging is executed from on adapter"
+				},
+				"executePayload(uint256,bytes,address)": {
+					"notice": "Execute a payload after bridging - w/o pre-swapping"
+				},
+				"sendMessage(bytes)": {
+					"notice": "Where the actual messaging is executed from on adapter"
+				},
+				"swap(uint256,bytes,address,bytes)": {
+					"notice": "Perform a swap after post bridging"
+				}
+			},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"src/utils/TenderlyUpload.sol": "ISushiXSwapV2Adapter"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": [
+			":@lz-oapp-v2/=lib/lz-oapp-v2/src/",
+			":@openzeppelin/=lib/openzeppelin-contracts/",
+			":ds-test/=lib/forge-std/lib/ds-test/src/",
+			":forge-std/=lib/forge-std/",
+			":forge-std/=lib/forge-std/src/"
+		]
+	},
+	"sources": {
+		"src/utils/TenderlyUpload.sol": {
+			"keccak256": "0x61b3e52626ca290f3586b9bc9f0eb4ce2d9f304aba59d6d0fd245deb534ad76f",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://9bb42cb7f75a12dedd7d9023e79c6f7dd7a14ae51179c98f3277b817d0b4456e",
+				"dweb:/ipfs/QmePRtbEURJFgVQxNvcwhP4yj3hEdFPSGZJJM9LoLGQ4Mw"
+			]
+		}
+	},
+	"version": 1
+}

@@ -38,7 +38,7 @@ contract SliceToken is ISliceToken, ERC20 {
     /**
      * @dev See ISliceToken - mint
      */
-    function mint(uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes) external returns (bytes32) {
+    function mint(uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes) external payable returns (bytes32) {
         require(_sliceTokenQuantity > 0, "SliceToken: Slice token quantity can't be zero");
 
         require(_maxEstimatedPrices.length == _routes.length && _maxEstimatedPrices.length == positions.length, "SliceToken: Incorrect length for prices or routes");
@@ -58,7 +58,7 @@ contract SliceToken is ISliceToken, ERC20 {
 
         mints[mintId] = txInfo;
 
-        ISliceCore(sliceCore).purchaseUnderlyingAssets(mintId, _sliceTokenQuantity, _maxEstimatedPrices, _routes);
+        ISliceCore(sliceCore).purchaseUnderlyingAssets{value: msg.value}(mintId, _sliceTokenQuantity, _maxEstimatedPrices, _routes);
 
         return mintId;
     }

@@ -1,0 +1,291 @@
+{
+	"deploy": {
+		"VM:-": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"main:1": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"ropsten:3": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"rinkeby:4": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"kovan:42": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"goerli:5": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"Custom": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		}
+	},
+	"data": {
+		"bytecode": {
+			"functionDebugData": {},
+			"generatedSources": [],
+			"linkReferences": {},
+			"object": "",
+			"opcodes": "",
+			"sourceMap": ""
+		},
+		"deployedBytecode": {
+			"functionDebugData": {},
+			"generatedSources": [],
+			"immutableReferences": {},
+			"linkReferences": {},
+			"object": "",
+			"opcodes": "",
+			"sourceMap": ""
+		},
+		"gasEstimates": null,
+		"methodIdentifiers": {
+			"endpoint()": "5e280f11",
+			"oAppVersion()": "17442b70",
+			"owner()": "8da5cb5b",
+			"peers(uint32)": "bb0b6a53",
+			"renounceOwnership()": "715018a6",
+			"setDelegate(address)": "ca5eb5e1",
+			"setPeer(uint32,bytes32)": "3400288b",
+			"transferOwnership(address)": "f2fde38b"
+		}
+	},
+	"abi": [
+		{
+			"inputs": [],
+			"name": "InvalidDelegate",
+			"type": "error"
+		},
+		{
+			"inputs": [],
+			"name": "InvalidEndpointCall",
+			"type": "error"
+		},
+		{
+			"inputs": [],
+			"name": "LzTokenUnavailable",
+			"type": "error"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint32",
+					"name": "eid",
+					"type": "uint32"
+				}
+			],
+			"name": "NoPeer",
+			"type": "error"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint256",
+					"name": "msgValue",
+					"type": "uint256"
+				}
+			],
+			"name": "NotEnoughNative",
+			"type": "error"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint32",
+					"name": "eid",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bytes32",
+					"name": "sender",
+					"type": "bytes32"
+				}
+			],
+			"name": "OnlyPeer",
+			"type": "error"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "owner",
+					"type": "address"
+				}
+			],
+			"name": "OwnableInvalidOwner",
+			"type": "error"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "account",
+					"type": "address"
+				}
+			],
+			"name": "OwnableUnauthorizedAccount",
+			"type": "error"
+		},
+		{
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": true,
+					"internalType": "address",
+					"name": "previousOwner",
+					"type": "address"
+				},
+				{
+					"indexed": true,
+					"internalType": "address",
+					"name": "newOwner",
+					"type": "address"
+				}
+			],
+			"name": "OwnershipTransferred",
+			"type": "event"
+		},
+		{
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": false,
+					"internalType": "uint32",
+					"name": "eid",
+					"type": "uint32"
+				},
+				{
+					"indexed": false,
+					"internalType": "bytes32",
+					"name": "peer",
+					"type": "bytes32"
+				}
+			],
+			"name": "PeerSet",
+			"type": "event"
+		},
+		{
+			"inputs": [],
+			"name": "endpoint",
+			"outputs": [
+				{
+					"internalType": "contract ILayerZeroEndpointV2",
+					"name": "",
+					"type": "address"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "oAppVersion",
+			"outputs": [
+				{
+					"internalType": "uint64",
+					"name": "senderVersion",
+					"type": "uint64"
+				},
+				{
+					"internalType": "uint64",
+					"name": "receiverVersion",
+					"type": "uint64"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "owner",
+			"outputs": [
+				{
+					"internalType": "address",
+					"name": "",
+					"type": "address"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint32",
+					"name": "eid",
+					"type": "uint32"
+				}
+			],
+			"name": "peers",
+			"outputs": [
+				{
+					"internalType": "bytes32",
+					"name": "peer",
+					"type": "bytes32"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "renounceOwnership",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "_delegate",
+					"type": "address"
+				}
+			],
+			"name": "setDelegate",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "uint32",
+					"name": "_eid",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bytes32",
+					"name": "_peer",
+					"type": "bytes32"
+				}
+			],
+			"name": "setPeer",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "newOwner",
+					"type": "address"
+				}
+			],
+			"name": "transferOwnership",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]
+}

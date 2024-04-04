@@ -1,0 +1,427 @@
+{
+	"deploy": {
+		"VM:-": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"main:1": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"ropsten:3": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"rinkeby:4": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"kovan:42": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"goerli:5": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		},
+		"Custom": {
+			"linkReferences": {},
+			"autoDeployLib": true
+		}
+	},
+	"data": {
+		"bytecode": {
+			"functionDebugData": {},
+			"generatedSources": [],
+			"linkReferences": {},
+			"object": "",
+			"opcodes": "",
+			"sourceMap": ""
+		},
+		"deployedBytecode": {
+			"functionDebugData": {},
+			"generatedSources": [],
+			"immutableReferences": {},
+			"linkReferences": {},
+			"object": "",
+			"opcodes": "",
+			"sourceMap": ""
+		},
+		"gasEstimates": null,
+		"methodIdentifiers": {
+			"burn(address,uint32,bytes32,uint64,bytes32)": "40f80683",
+			"eid()": "416ecebf",
+			"inboundNonce(address,uint32,bytes32)": "a0dd43fc",
+			"inboundPayloadHash(address,uint32,bytes32,uint64)": "c9fc7bcd",
+			"lazyInboundNonce(address,uint32,bytes32)": "5b17bb70",
+			"nextGuid(address,uint32,bytes32)": "aafe5e07",
+			"nilify(address,uint32,bytes32,uint64,bytes32)": "2e80fbf3",
+			"outboundNonce(address,uint32,bytes32)": "9c6d7340",
+			"skip(address,uint32,bytes32,uint64)": "d70b8902"
+		}
+	},
+	"abi": [
+		{
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": false,
+					"internalType": "uint32",
+					"name": "srcEid",
+					"type": "uint32"
+				},
+				{
+					"indexed": false,
+					"internalType": "bytes32",
+					"name": "sender",
+					"type": "bytes32"
+				},
+				{
+					"indexed": false,
+					"internalType": "address",
+					"name": "receiver",
+					"type": "address"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint64",
+					"name": "nonce",
+					"type": "uint64"
+				}
+			],
+			"name": "InboundNonceSkipped",
+			"type": "event"
+		},
+		{
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": false,
+					"internalType": "uint32",
+					"name": "srcEid",
+					"type": "uint32"
+				},
+				{
+					"indexed": false,
+					"internalType": "bytes32",
+					"name": "sender",
+					"type": "bytes32"
+				},
+				{
+					"indexed": false,
+					"internalType": "address",
+					"name": "receiver",
+					"type": "address"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint64",
+					"name": "nonce",
+					"type": "uint64"
+				},
+				{
+					"indexed": false,
+					"internalType": "bytes32",
+					"name": "payloadHash",
+					"type": "bytes32"
+				}
+			],
+			"name": "PacketBurnt",
+			"type": "event"
+		},
+		{
+			"anonymous": false,
+			"inputs": [
+				{
+					"indexed": false,
+					"internalType": "uint32",
+					"name": "srcEid",
+					"type": "uint32"
+				},
+				{
+					"indexed": false,
+					"internalType": "bytes32",
+					"name": "sender",
+					"type": "bytes32"
+				},
+				{
+					"indexed": false,
+					"internalType": "address",
+					"name": "receiver",
+					"type": "address"
+				},
+				{
+					"indexed": false,
+					"internalType": "uint64",
+					"name": "nonce",
+					"type": "uint64"
+				},
+				{
+					"indexed": false,
+					"internalType": "bytes32",
+					"name": "payloadHash",
+					"type": "bytes32"
+				}
+			],
+			"name": "PacketNilified",
+			"type": "event"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "_oapp",
+					"type": "address"
+				},
+				{
+					"internalType": "uint32",
+					"name": "_srcEid",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bytes32",
+					"name": "_sender",
+					"type": "bytes32"
+				},
+				{
+					"internalType": "uint64",
+					"name": "_nonce",
+					"type": "uint64"
+				},
+				{
+					"internalType": "bytes32",
+					"name": "_payloadHash",
+					"type": "bytes32"
+				}
+			],
+			"name": "burn",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [],
+			"name": "eid",
+			"outputs": [
+				{
+					"internalType": "uint32",
+					"name": "",
+					"type": "uint32"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "_receiver",
+					"type": "address"
+				},
+				{
+					"internalType": "uint32",
+					"name": "_srcEid",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bytes32",
+					"name": "_sender",
+					"type": "bytes32"
+				}
+			],
+			"name": "inboundNonce",
+			"outputs": [
+				{
+					"internalType": "uint64",
+					"name": "",
+					"type": "uint64"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "_receiver",
+					"type": "address"
+				},
+				{
+					"internalType": "uint32",
+					"name": "_srcEid",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bytes32",
+					"name": "_sender",
+					"type": "bytes32"
+				},
+				{
+					"internalType": "uint64",
+					"name": "_nonce",
+					"type": "uint64"
+				}
+			],
+			"name": "inboundPayloadHash",
+			"outputs": [
+				{
+					"internalType": "bytes32",
+					"name": "",
+					"type": "bytes32"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "_receiver",
+					"type": "address"
+				},
+				{
+					"internalType": "uint32",
+					"name": "_srcEid",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bytes32",
+					"name": "_sender",
+					"type": "bytes32"
+				}
+			],
+			"name": "lazyInboundNonce",
+			"outputs": [
+				{
+					"internalType": "uint64",
+					"name": "",
+					"type": "uint64"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "_sender",
+					"type": "address"
+				},
+				{
+					"internalType": "uint32",
+					"name": "_dstEid",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bytes32",
+					"name": "_receiver",
+					"type": "bytes32"
+				}
+			],
+			"name": "nextGuid",
+			"outputs": [
+				{
+					"internalType": "bytes32",
+					"name": "",
+					"type": "bytes32"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "_oapp",
+					"type": "address"
+				},
+				{
+					"internalType": "uint32",
+					"name": "_srcEid",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bytes32",
+					"name": "_sender",
+					"type": "bytes32"
+				},
+				{
+					"internalType": "uint64",
+					"name": "_nonce",
+					"type": "uint64"
+				},
+				{
+					"internalType": "bytes32",
+					"name": "_payloadHash",
+					"type": "bytes32"
+				}
+			],
+			"name": "nilify",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "_sender",
+					"type": "address"
+				},
+				{
+					"internalType": "uint32",
+					"name": "_dstEid",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bytes32",
+					"name": "_receiver",
+					"type": "bytes32"
+				}
+			],
+			"name": "outboundNonce",
+			"outputs": [
+				{
+					"internalType": "uint64",
+					"name": "",
+					"type": "uint64"
+				}
+			],
+			"stateMutability": "view",
+			"type": "function"
+		},
+		{
+			"inputs": [
+				{
+					"internalType": "address",
+					"name": "_oapp",
+					"type": "address"
+				},
+				{
+					"internalType": "uint32",
+					"name": "_srcEid",
+					"type": "uint32"
+				},
+				{
+					"internalType": "bytes32",
+					"name": "_sender",
+					"type": "bytes32"
+				},
+				{
+					"internalType": "uint64",
+					"name": "_nonce",
+					"type": "uint64"
+				}
+			],
+			"name": "skip",
+			"outputs": [],
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}
+	]
+}

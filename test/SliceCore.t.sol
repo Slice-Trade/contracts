@@ -6,6 +6,10 @@ import "forge-std/src/console.sol";
 import "./helpers/Helper.sol";
 import "../src/external/IWETH.sol";
 
+import "../src/utils/Route.sol";
+import "../src/utils/ChainInfo.sol";
+
+
 import "../src/SliceCore.sol";
 import "../src/SliceToken.sol";
 
