@@ -348,6 +348,11 @@
 								"type": "address"
 							},
 							{
+								"internalType": "enum TransactionState",
+								"name": "state",
+								"type": "uint8"
+							},
+							{
 								"internalType": "bytes",
 								"name": "data",
 								"type": "bytes"
@@ -432,6 +437,11 @@
 								"type": "address"
 							},
 							{
+								"internalType": "enum TransactionState",
+								"name": "state",
+								"type": "uint8"
+							},
+							{
 								"internalType": "bytes",
 								"name": "data",
 								"type": "bytes"
@@ -471,6 +481,11 @@
 								"internalType": "address",
 								"name": "user",
 								"type": "address"
+							},
+							{
+								"internalType": "enum TransactionState",
+								"name": "state",
+								"type": "uint8"
 							},
 							{
 								"internalType": "bytes",
@@ -552,6 +567,11 @@
 						"internalType": "address",
 						"name": "user",
 						"type": "address"
+					},
+					{
+						"internalType": "enum TransactionState",
+						"name": "state",
+						"type": "uint8"
 					},
 					{
 						"internalType": "bytes",
@@ -692,6 +712,11 @@
 						"type": "address"
 					},
 					{
+						"internalType": "enum TransactionState",
+						"name": "state",
+						"type": "uint8"
+					},
+					{
 						"internalType": "bytes",
 						"name": "data",
 						"type": "bytes"
@@ -756,6 +781,11 @@
 						"internalType": "address",
 						"name": "user",
 						"type": "address"
+					},
+					{
+						"internalType": "enum TransactionState",
+						"name": "state",
+						"type": "uint8"
 					},
 					{
 						"internalType": "bytes",
@@ -1100,19 +1130,19 @@
 			]
 		},
 		"src/SliceToken.sol": {
-			"keccak256": "0x388db2aafd980111f246083e362d46e3cb965e6370e7fe1509f0ff3dc25b73ec",
+			"keccak256": "0xf9fdd73c03c15c7963a0437fd591648b3f6a4612e049533cf7dc95e5a7feea32",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://c134ec01c1ea1b98ad693f1c678ff97346807d40f9cd00cd09730930d0ca0a7f",
-				"dweb:/ipfs/QmUg9QJfgLjJjCJ8YkSMpkwZghsXRDimvdJykkK9giU9qx"
+				"bzz-raw://ab7d19ea8ed471278f86582b816628ab11e279eb9bfc22e8230ba794a2d73192",
+				"dweb:/ipfs/QmRLM4ZWPs3bSWDhyr6LXSNuQxzeU5JJwq8TNErQQAVRdS"
 			]
 		},
 		"src/Structs.sol": {
-			"keccak256": "0xba9a6547267c81abfcf20a0c67a6d7c7ad810a0f457aa37a450f158a124c10b7",
+			"keccak256": "0x632d21ad7bdfd44c50a9b9451f285d5ed5fba7de3b2728400243447e0fb887ea",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://8358b890c5fad6176bce3b1079ce51a62cd41b5adb21105bbd5ca0312e44fb58",
-				"dweb:/ipfs/QmRsvJeeTvJ1L5fpzjo7xFxKF8DNXUT2dVHzyGDXXdzvCm"
+				"bzz-raw://68f6c541d31c50da8c0c6ae9a6153748b4f2140535af96a1e3cb6c51193e311d",
+				"dweb:/ipfs/QmWs85g5mn97ufQkAvbEigtFu7jUPhGZi5CLXwB7LdPxUZ"
 			]
 		},
 		"src/external/IPayloadExecutor.sol": {

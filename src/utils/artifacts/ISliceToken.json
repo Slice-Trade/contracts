@@ -265,6 +265,11 @@
 							"type": "address"
 						},
 						{
+							"internalType": "enum TransactionState",
+							"name": "state",
+							"type": "uint8"
+						},
+						{
 							"internalType": "bytes",
 							"name": "data",
 							"type": "bytes"
@@ -349,6 +354,11 @@
 							"type": "address"
 						},
 						{
+							"internalType": "enum TransactionState",
+							"name": "state",
+							"type": "uint8"
+						},
+						{
 							"internalType": "bytes",
 							"name": "data",
 							"type": "bytes"
@@ -388,6 +398,11 @@
 							"internalType": "address",
 							"name": "user",
 							"type": "address"
+						},
+						{
+							"internalType": "enum TransactionState",
+							"name": "state",
+							"type": "uint8"
 						},
 						{
 							"internalType": "bytes",

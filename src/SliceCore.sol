@@ -45,7 +45,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
     uint256 lzSendMsgValue = 758353551570386; // TODO: Do estimation for msg send value
 
-    bytes public lzSendOpts; // TODO: Generate programatically 0x000301002101000000000000000000000000000186a000000000000000000001c6bf52634000
+    bytes public lzSendOpts; // TODO: Generate programatically 0x00030100210100000000000000000000000000030d4000000000000000000001c6bf52634000
 
     constructor(
         address _paymentToken,
@@ -240,9 +240,6 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         address, /* _executor */ // the Executor address.
         bytes calldata /* _extraData */ // arbitrary data appended by the Executor
     ) internal override {
-        // in main chain contract implement lzReceive to handle cross chain msg --> verify msg and increment ok signals
-        // if all signals in -> call mint complete on token contract
-
         // verify that it was sent by the correct layer zero endpoint
         require(msg.sender == lzEndpoint, "SliceCore: lzReceive not called by endpoint");
 
