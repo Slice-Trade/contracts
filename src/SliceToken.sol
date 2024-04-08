@@ -14,6 +14,9 @@ contract SliceToken is ISliceToken, ERC20 {
     address public sliceCore;
     Position[] public positions;
 
+    string public category;
+    string public description;
+
     mapping(bytes32 => SliceTransactionInfo) public mints;
     mapping(bytes32 => SliceTransactionInfo) public rebalances;
     mapping(bytes32 => SliceTransactionInfo) public redeems;
@@ -33,6 +36,11 @@ contract SliceToken is ISliceToken, ERC20 {
         for (uint256 i = 0; i < _positions.length; i++) {
             positions.push(_positions[i]);
         }
+    }
+
+    function setCategoryAndDescription(string calldata _category, string calldata _description) external {
+        category = _category;
+        description = _description;
     }
 
     /**

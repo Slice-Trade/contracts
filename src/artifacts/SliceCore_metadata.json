@@ -993,6 +993,40 @@
 			{
 				"inputs": [
 					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					}
+				],
+				"name": "transactionCompleteSignals",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "signals",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "sliceTokenQuantity",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "user",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
 						"internalType": "address",
 						"name": "newOwner",
 						"type": "address"
@@ -1351,19 +1385,19 @@
 			]
 		},
 		"src/SliceCore.sol": {
-			"keccak256": "0xd6dd6ef02cc823fb950f4a568d5f2ff2a23385d54f721af918314af3ab8c2536",
+			"keccak256": "0x48acca9f353d05d374ee4e853268e6a9b446d68db90b85601bbf7deeafa6e171",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://9bb8f8958e62dff962fbcf07b4aed8e0ff7683c97aff4105430b5277ff8856fe",
-				"dweb:/ipfs/QmZ1asyZv3uBTd16KAiFxvtNiXS99Kd9zsnWJVX3aTXZa9"
+				"bzz-raw://a8ec733f926af8f0d2847a4f37ae433b1ae3427afd3507e38467f17ced54ff33",
+				"dweb:/ipfs/QmVLdxBFBMH6vsB8CnSDqxoCrYXc4ScrJNLcUBd8TX6PgD"
 			]
 		},
 		"src/SliceToken.sol": {
-			"keccak256": "0xf9fdd73c03c15c7963a0437fd591648b3f6a4612e049533cf7dc95e5a7feea32",
+			"keccak256": "0x475ff50eb7e47a375b3ed1bb5782ba9048b536c573f4d0a17238f874b2464c53",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://ab7d19ea8ed471278f86582b816628ab11e279eb9bfc22e8230ba794a2d73192",
-				"dweb:/ipfs/QmRLM4ZWPs3bSWDhyr6LXSNuQxzeU5JJwq8TNErQQAVRdS"
+				"bzz-raw://15f0bf465b6345021217f759ba9cc17019523342010da8d963f08b956da1d398",
+				"dweb:/ipfs/QmbwKLA1nAARsM1hxw8PaKU9ZkqdEsYuTaeX1hMZXGB5me"
 			]
 		},
 		"src/Structs.sol": {
