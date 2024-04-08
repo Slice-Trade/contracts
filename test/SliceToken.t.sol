@@ -25,32 +25,32 @@ contract SliceTokenTest is Helper {
 
     Position[] public positions;
 
-    uint256 maxEstWethPrice = 400000000; // 400 usdc
-    uint256 maxEstWbtcPrice = 750000000; // 750 usdc
-    uint256 maxEstLinkPrice = 450000000; // 450 usdc
+    uint256 maxEstWethPrice = 40000000000; // 40000 usdc
+    uint256 maxEstWbtcPrice = 75000000000; // 75000 usdc
+    uint256 maxEstLinkPrice = 45000000000; // 45000 usdc
 
-    uint256 constant MAX_ESTIMATED_PRICE = 1600000000; // 1600 USDC
+    uint256 constant MAX_ESTIMATED_PRICE = 160000000000; // 160000 USDC
 
     uint256[] public maxEstimatedPrices;
 
-    uint256 public wethUnits = 100000000000000000; // 0.1 wETH
-    uint256 public wbtcUnits = 10000000000000000; // 0.01 wBTC
-    uint256 public linkUnits = 20000000000000000000; // 20 LINK
+    uint256 public wethUnits = 10000000000000000000; // 10 wETH
+    uint256 public wbtcUnits = 100000000; // 1 wBTC (8 decimals)
+    uint256 public linkUnits = 2000000000000000000000; // 2000 LINK
 
     bytes[] public routes;
 
     bytes public usdcWethRoute =
-        hex"02A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001eeb3e0999D01f0d1Ed465513E414725a357F6ae4000bb8";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa0014b60d93e8BAECbBbE8955fe6Fe5AbD483e21502F";
     bytes public usdcWbtcRoute =
-        hex"02A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a58000bb804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a5800eeb3e0999D01f0d1Ed465513E414725a357F6ae4000bb8";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a58004b60d93e8BAECbBbE8955fe6Fe5AbD483e21502F";
     bytes public usdcLinkRoute =
-        hex"02A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da967000bb804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700eeb3e0999D01f0d1Ed465513E414725a357F6ae4000bb8";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da967004b60d93e8BAECbBbE8955fe6Fe5AbD483e21502F";
 
     /* =========================================================== */
     /*    ==================      setup     ===================    */
     /* =========================================================== */
     function setUp() public {
-        forkMainnet();
+        forkMainnet(19518913);
 
         usdc = IERC20(getAddress("mainnet.usdc"));
         weth = IWETH(getAddress("mainnet.weth"));
@@ -135,10 +135,10 @@ contract SliceTokenTest is Helper {
         vm.startPrank(dev);
 
         uint256 balanceBefore = usdc.balanceOf(dev);
-        // TODO:
+
         // verify that purchase event in Core contract is emitted
-        /*        vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsPurchased(address(token), 2, dev); */
+        vm.expectEmit(true, true, true, false);
+        emit ISliceCore.UnderlyingAssetsPurchased(address(token), 2, dev);
 
         // call mint
         bytes32 mintId = token.mint(2, maxEstimatedPrices, routes);
@@ -155,14 +155,13 @@ contract SliceTokenTest is Helper {
     }
 
     function testCannotMint_NotEnoughMoney() public {
-        // call mint with a USDC amount that will fail in Core contract
-        vm.prank(dev);
-        usdc.transfer(users[1], MAX_ESTIMATED_PRICE);
-
         // verify that correct revert message is emitted
         vm.startPrank(users[1]);
-        vm.expectRevert("SliceToken: Insufficient payment token balance");
-        token.mint(2, maxEstimatedPrices, routes);
+
+        usdc.approve(address(token), MAX_ESTIMATED_PRICE);
+
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
+        token.mint(20000000000000000000, maxEstimatedPrices, routes);
 
         // verify that user Slice balance has not been increased
         uint256 sliceTokenBalance = token.balanceOf(users[1]);

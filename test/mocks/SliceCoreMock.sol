@@ -13,6 +13,10 @@ contract SliceCoreMock {
     IERC20 public wbtc;
     IERC20 public link;
 
+    uint256 public wethUnits = 10000000000000000000; // 10 wETH
+    uint256 public wbtcUnits = 100000000; // 1 wBTC (8 decimals)
+    uint256 public linkUnits = 2000000000000000000000; // 2000 LINK
+
     constructor(IERC20 _usdc, IWETH _weth, IERC20 _wbtc, IERC20 _link) {
         usdc = _usdc;
         weth = _weth;
@@ -34,9 +38,9 @@ contract SliceCoreMock {
         bytes[] memory _routes
     ) external {
         require(_maxEstimatedPrices.length == 3, "Positions must be weth, btc, link");
-        weth.transfer(token, 100000000000000000);
-        wbtc.transfer(token, 10000000000000000);
-        link.transfer(token, 20000000000000000000);
+        weth.transfer(token, wethUnits);
+        wbtc.transfer(token, wbtcUnits);
+        link.transfer(token, linkUnits);
     }
 
     /**

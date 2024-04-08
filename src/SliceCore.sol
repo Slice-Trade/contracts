@@ -431,7 +431,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         return _transactionCompleteSignal.signals == _numOfPositions;
     }
 
-    // assuming 18 decimals... TODO: Do with less other decimals
+    // assuming 18 decimals... TODO: Do with other decimals
     function calculateAmountOutMin(uint256 quantity, uint256 units) internal pure returns (uint256) {
         uint256 result = (units * quantity) / 1 ether;
         return result;
