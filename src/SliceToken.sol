@@ -14,6 +14,9 @@ contract SliceToken is ISliceToken, ERC20 {
     address public sliceCore;
     Position[] public positions;
 
+    string public category;
+    string public description;
+
     mapping(bytes32 => SliceTransactionInfo) public mints;
     mapping(bytes32 => SliceTransactionInfo) public rebalances;
     mapping(bytes32 => SliceTransactionInfo) public redeems;
@@ -22,6 +25,11 @@ contract SliceToken is ISliceToken, ERC20 {
         require(msg.sender == sliceCore, "SliceToken: Only Slice Core can call");
         _;
     }
+,0xDEB691E1138fe2B8100D65eCC8d68e911D4c9dA8,,,0x98C9ba8e19b789Dd3E5eB499A6f35D933C8d1657,,,0xB36c4ef1e4Bc67e323581bDd7F48702d016Ebf19,
+
+,0x98C9ba8e19b789Dd3E5eB499A6f35D933C8d1657,,,0x96B2DfdB5d84fb0096753875E6c21499189B47d5,,,0xDEB691E1138fe2B8100D65eCC8d68e911D4c9dA8,
+
+,0x9AD840B246e09a5d093842a625D3Ec5991b73282,,,0x7d91bAD0B08ac351D3d02D171B6742FBEcAe3A9A,,,0xDEB691E1138fe2B8100D65eCC8d68e911D4c9dA8,
 
     constructor(string memory _name, string memory _symbol, Position[] memory _positions, address _paymentToken, address _sliceCore)
         ERC20(_name, _symbol)
@@ -33,6 +41,11 @@ contract SliceToken is ISliceToken, ERC20 {
         for (uint256 i = 0; i < _positions.length; i++) {
             positions.push(_positions[i]);
         }
+    }
+
+    function setCategoryAndDescription(string calldata _category, string calldata _description) external {
+        category = _category;
+        description = _description;
     }
 
     /**

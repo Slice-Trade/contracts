@@ -5,8 +5,8 @@ import "forge-std/src/console.sol";
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {OApp, Origin, MessagingFee } from "@lz-oapp-v2/OApp.sol";
-import { MessagingParams } from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
+import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
+import {MessagingParams} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
 import "./external/ISushiXSwapV2.sol";
 import "./external/IRouteProcessor.sol";
 import "./external/IStargateAdapter.sol";
@@ -37,7 +37,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     address[] public registeredSliceTokensArray;
     uint256 public registeredSliceTokensCount;
 
-    mapping(bytes32 => TransactionCompleteSignals) private transactionCompleteSignals;
+    mapping(bytes32 => TransactionCompleteSignals) public transactionCompleteSignals;
 
     address public partnerSliceCore;
 
@@ -227,8 +227,10 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         // encode to bytes
         bytes memory ccsEncoded = abi.encode(ccs);
         // call send on layer zero endpoint
-        endpoint.send{ value: lzSendMsgValue }(
-            MessagingParams(srcChain.lzEndpointId, _getPeerOrRevert(srcChain.lzEndpointId), ccsEncoded, lzSendOpts, false),
+        endpoint.send{value: lzSendMsgValue}(
+            MessagingParams(
+                srcChain.lzEndpointId, _getPeerOrRevert(srcChain.lzEndpointId), ccsEncoded, lzSendOpts, false
+            ),
             payable(address(this))
         );
     }
@@ -262,7 +264,9 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         transactionCompleteSignals[ccs.mintID].signals++;
 
         if (checkPendingTransactionCompleteSignals(ccs.mintID)) {
-            emit UnderlyingAssetsPurchased(txCompleteSignals.token, txCompleteSignals.sliceTokenQuantity, txCompleteSignals.user);
+            emit UnderlyingAssetsPurchased(
+                txCompleteSignals.token, txCompleteSignals.sliceTokenQuantity, txCompleteSignals.user
+            );
             // if all complete signals received: call mintComplete on token
             SliceToken(txCompleteSignals.token).mintComplete(ccs.mintID);
         }
@@ -282,7 +286,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         IERC20(paymentToken).approve(address(sushiXSwap), _maxEstimatedPrice);
 
         uint256 amountIn = _maxEstimatedPrice;
-        uint256 amountOutMin = _position.units * _sliceTokenQuantity; // TODO
+        uint256 amountOutMin = calculateAmountOutMin(_sliceTokenQuantity, _position.units);
 
         IRouteProcessor.RouteProcessorData memory rpd = IRouteProcessor.RouteProcessorData({
             tokenIn: paymentToken,
@@ -313,12 +317,11 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     ) internal {
         IERC20(paymentToken).approve(address(sushiXSwap), _maxEstimatedPrice);
 
-        uint256 amountOutMin = _position.units * _sliceTokenQuantity; // TODO
+        uint256 amountOutMin = calculateAmountOutMin(_sliceTokenQuantity, _position.units);
 
         Chain memory dstChain = chainInfo.getChainInfo(_position.chainId);
 
-        bytes memory rpd_encoded_dst =
-            createRouteProcessorDataEncoded(dstChain, _position.token, amountOutMin, _route);
+        bytes memory rpd_encoded_dst = createRouteProcessorDataEncoded(dstChain, _position.token, amountOutMin, _route);
 
         bytes memory payloadDataEncoded = createPayloadDataEncoded(_mintId, _position.token, amountOutMin, _txInfo.data);
 
@@ -426,6 +429,12 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         TransactionCompleteSignals memory _transactionCompleteSignal = transactionCompleteSignals[_id];
         uint256 _numOfPositions = ISliceToken(_transactionCompleteSignal.token).getNumberOfPositions();
         return _transactionCompleteSignal.signals == _numOfPositions;
+    }
+
+    // assuming 18 decimals... TODO: Do with less other decimals
+    function calculateAmountOutMin(uint256 quantity, uint256 units) internal pure returns (uint256) {
+        uint256 result = (units * quantity) / 1 ether;
+        return result;
     }
 
     receive() external payable {}
