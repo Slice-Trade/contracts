@@ -32,10 +32,10 @@ contract SliceCoreMock {
      * @dev See ISliceCore - purchaseUnderlyingAssets
      */
     function purchaseUnderlyingAssets(
-        bytes32 _mintID,
-        uint256 _sliceTokenQuantity,
+        bytes32 /* _mintID */,
+        uint256 /* _sliceTokenQuantity */,
         uint256[] memory _maxEstimatedPrices,
-        bytes[] memory _routes
+        bytes[] memory /* _routes */
     ) external {
         require(_maxEstimatedPrices.length == 3, "Positions must be weth, btc, link");
         weth.transfer(token, wethUnits);

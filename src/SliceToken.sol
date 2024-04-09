@@ -21,6 +21,8 @@ contract SliceToken is ISliceToken, ERC20 {
     mapping(bytes32 => SliceTransactionInfo) public rebalances;
     mapping(bytes32 => SliceTransactionInfo) public redeems;
 
+    mapping(address => uint256) public locked;
+
     modifier onlySliceCore() {
         require(msg.sender == sliceCore, "SliceToken: Only Slice Core can call");
         _;
@@ -55,7 +57,7 @@ contract SliceToken is ISliceToken, ERC20 {
 
         paymentToken.transferFrom(msg.sender, address(sliceCore), sumPrice);
         
-        bytes32 mintId = keccak256(abi.encodePacked(msg.sender, address(this), _sliceTokenQuantity, sumPrice, block.timestamp));
+        bytes32 mintId = keccak256(abi.encodePacked(this.mint.selector, msg.sender, address(this), _sliceTokenQuantity, sumPrice, block.timestamp));
 
         SliceTransactionInfo memory txInfo = SliceTransactionInfo(
             mintId,
@@ -113,7 +115,32 @@ contract SliceToken is ISliceToken, ERC20 {
      * @dev See ISliceToken - redeem
      */
     function redeem(uint256 _sliceTokenQuantity) external returns (bytes32) {
-        // TODO
+        // make sure the user has enough balance
+        require(balanceOf(msg.sender) >= _sliceTokenQuantity, "SliceToken: Trying to redeem more than token balance");
+
+        // lock the given amount of tokens in the users balance (can't be transferred)
+        locked[msg.sender] += _sliceTokenQuantity;
+
+        // create redeem ID
+        bytes32 redeemID = keccak256(abi.encodePacked(this.redeem.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp));
+
+        // create tx info
+        SliceTransactionInfo memory txInfo = SliceTransactionInfo(
+            redeemID,
+            _sliceTokenQuantity,
+            msg.sender,
+            TransactionState.OPEN,
+            bytes("")
+        );
+
+        // record redeem ID + tx info
+        redeems[redeemID] = txInfo;
+
+        // call redeem underlying on slice core
+        ISliceCore(sliceCore).redeemUnderlying(redeemID);
+
+        // return redeem ID
+        return redeemID;
     }
 
     /**

@@ -346,7 +346,7 @@ contract SliceCoreTest is Helper {
         // verify that it reverts with the correct reason
         vm.expectRevert("SliceCore: Only registered Slice token can call");
         // call redeem from not registered slice token
-        core.redeemUnderlying(bytes32(0), SliceTransactionInfo(bytes32(0), 0, address(0), TransactionState.UNREGISTERED, bytes("")));
+        core.redeemUnderlying(bytes32(0));
     }
 
     /* =========================================================== */
