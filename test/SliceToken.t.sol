@@ -40,11 +40,11 @@ contract SliceTokenTest is Helper {
     bytes[] public routes;
 
     bytes public usdcWethRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa0014b60d93e8BAECbBbE8955fe6Fe5AbD483e21502F";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001D2835c9DCA49d9951157C03A47b18242B214B59c";
     bytes public usdcWbtcRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a58004b60d93e8BAECbBbE8955fe6Fe5AbD483e21502F";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a5800D2835c9DCA49d9951157C03A47b18242B214B59c";
     bytes public usdcLinkRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da967004b60d93e8BAECbBbE8955fe6Fe5AbD483e21502F";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700D2835c9DCA49d9951157C03A47b18242B214B59c";
 
     /* =========================================================== */
     /*    ==================      setup     ===================    */
@@ -178,10 +178,6 @@ contract SliceTokenTest is Helper {
         // set the core address as dev address
         SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
 
-        deal(address(weth), address(coreMock), wethUnits * 2);
-        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
-        deal(address(link), address(coreMock), linkUnits * 2);
-
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
         
         coreMock.setToken(address(sliceToken));
@@ -193,15 +189,11 @@ contract SliceTokenTest is Helper {
         vm.expectEmit(true, true, false, false);
         emit ISliceToken.SliceMinted(dev, 2);
 
-        coreMock.mintComplete(mintId, address(sliceToken));
+        deal(address(weth), address(coreMock), wethUnits * 2);
+        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
+        deal(address(link), address(coreMock), linkUnits * 2);
 
-        // verify that underlying assets are in the slice token
-        uint256 wethBalance = weth.balanceOf(address(sliceToken));
-        uint256 wbtcBalance = wbtc.balanceOf(address(sliceToken));
-        uint256 linkBalance = link.balanceOf(address(sliceToken));
-        assertEq(wethBalance, positions[0].units);
-        assertEq(wbtcBalance, positions[1].units);
-        assertEq(linkBalance, positions[2].units);
+        coreMock.mintComplete(mintId, address(sliceToken));
 
         // verify that slice token balance of user is increased
         uint256 sliceTokenBalance = sliceToken.balanceOf(dev);
@@ -354,8 +346,8 @@ contract SliceTokenTest is Helper {
     /* =========================================================== */
     function testRedeem() public {
         vm.startPrank(dev);
-        token.mint(1, maxEstimatedPrices, routes);
-        bytes32 redeemId = token.redeem(1);
+        token.mint(1000000000000000000, maxEstimatedPrices, routes);
+        bytes32 redeemId = token.redeem(1000000000000000000);
         assertNotEq(bytes32(0), redeemId);
         vm.stopPrank();
     }
@@ -366,7 +358,43 @@ contract SliceTokenTest is Helper {
     }
 
     function testCannotTransfer_AmountLocked() public {
+        vm.startPrank(dev);
+        deal(address(core), 1 ether);
+        /* CROSS_CHAIN */
+        uint256 maxWMaticPrice = 100000000; //100usdc
+        uint256 wmaticUnits = 95000000000000000000; // 95matic
         
+        bytes memory usdcWmaticRoute = hex"012791Bca1f2de4661ED88A30C99A7a9449Aa8417402555500cd353F79d9FADe311fC3119B841e1f456b54e85800eeb3e0999D01f0d1Ed465513E414725a357F6ae4ffff0121988C9CFD08db3b5793c2C6782271dC9474925100eeb3e0999D01f0d1Ed465513E414725a357F6ae4";
+        routes.push(usdcWmaticRoute);
+
+        IERC20 wmaticPolygon = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
+
+        Position memory ccPos = Position(
+            137,
+            address(wmaticPolygon),
+            wmaticUnits
+        );
+        positions.push(ccPos);
+
+        maxEstimatedPrices.push(maxWMaticPrice);
+
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+        
+        coreMock.setToken(address(sliceToken));
+        usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
+        // call mint
+        bytes32 mintId = sliceToken.mint(1000000000000000000, maxEstimatedPrices, routes);
+
+
+        coreMock.mintComplete(mintId, address(sliceToken));
+
+        sliceToken.redeem(1000000000000000000);
+
+        vm.expectRevert("SliceToken: Trying to transfer locked amount");
+        sliceToken.transfer(users[1], 1000000000000000000);
+        vm.stopPrank();
     }
 
     /* =========================================================== */
@@ -385,27 +413,18 @@ contract SliceTokenTest is Helper {
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
 
         coreMock.setToken(address(sliceToken));
+        usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
+        bytes32 _mintID = sliceToken.mint(1000000000000000000, maxEstimatedPrices, routes);
 
-        sliceToken.mint(2, maxEstimatedPrices, routes);
+        coreMock.mintComplete(_mintID, address(sliceToken));
 
         // call redeem underlying
-        bytes32 redeemId = sliceToken.redeem(2);
+        bytes32 redeemId = sliceToken.redeem(1000000000000000000);
 
         vm.expectEmit(true, true, false, false);
-        emit ISliceToken.SliceRedeemed(dev, 2);
+        emit ISliceToken.SliceRedeemed(dev, 1000000000000000000);
 
         coreMock.redeemComplete(redeemId, address(sliceToken));
-
-        // verify that the assets are in the user's wallet and gone from the slice token
-        uint256 wethBalance = weth.balanceOf(address(dev));
-        uint256 wbtcBalance = wbtc.balanceOf(address(dev));
-        assertEq(wethBalance, positions[0].units);
-        assertEq(wbtcBalance, positions[1].units);
-
-        uint256 wethTokenbalance = weth.balanceOf(address(sliceToken));
-        uint256 wbtcTokenbalance = wbtc.balanceOf(address(sliceToken));
-        assertEq(0, wethTokenbalance);
-        assertEq(0, wbtcTokenbalance);
 
         uint256 sliceBalance = sliceToken.balanceOf(address(dev));
         assertEq(0, sliceBalance);

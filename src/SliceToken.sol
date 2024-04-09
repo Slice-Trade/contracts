@@ -152,7 +152,7 @@ contract SliceToken is ISliceToken, ERC20 {
     /**
      * @dev See ISliceToken - redeemComplete
      */
-    function redeemComplete(bytes32 _redeemID) external {
+    function redeemComplete(bytes32 _redeemID) external onlySliceCore {
         // get transaction info
         SliceTransactionInfo memory _txInfo = redeems[_redeemID];
 
