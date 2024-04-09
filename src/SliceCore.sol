@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
 import {MessagingParams} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
+import {OptionsBuilder} from "@lz-oapp-v2/libs/OptionsBuilder.sol";
 import "./external/ISushiXSwapV2.sol";
 import "./external/IRouteProcessor.sol";
 import "./external/IStargateAdapter.sol";
@@ -17,6 +18,8 @@ import "./interfaces/IChainInfo.sol";
 import "./SliceToken.sol";
 
 contract SliceCore is ISliceCore, Ownable, OApp {
+    using OptionsBuilder for bytes;
+
     address public immutable lzEndpoint;
 
     address public paymentToken;
@@ -45,8 +48,6 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
     uint256 lzSendMsgValue = 758353551570386; // TODO: Do estimation for msg send value
 
-    bytes public lzSendOpts; // TODO: Generate programatically 0x00030100210100000000000000000000000000030d4000000000000000000001c6bf52634000
-
     constructor(
         address _paymentToken,
         address _sushiXSwap,
@@ -67,10 +68,6 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
     function setPartner(address _partner) external onlyOwner {
         partnerSliceCore = _partner;
-    }
-
-    function setLzSendOpts(bytes calldata _opts) external onlyOwner {
-        lzSendOpts = _opts;
     }
 
     function setPayloadGas(uint256 _payloadGas) external onlyOwner {
@@ -227,10 +224,13 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         CrossChainSignal memory ccs = CrossChainSignal(payloadData.mintID, true);
         // encode to bytes
         bytes memory ccsEncoded = abi.encode(ccs);
+
+        bytes memory _lzSendOpts = createLzSendOpts(200000, 500000000000000);  // TODO: Calculate values programatically
+
         // call send on layer zero endpoint
         endpoint.send{value: lzSendMsgValue}(
             MessagingParams(
-                srcChain.lzEndpointId, _getPeerOrRevert(srcChain.lzEndpointId), ccsEncoded, lzSendOpts, false
+                srcChain.lzEndpointId, _getPeerOrRevert(srcChain.lzEndpointId), ccsEncoded, _lzSendOpts, false
             ),
             payable(address(this))
         );
@@ -436,6 +436,10 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     function calculateAmountOutMin(uint256 quantity, uint256 units) internal pure returns (uint256) {
         uint256 result = (units * quantity) / 1 ether;
         return result;
+    }
+
+    function createLzSendOpts(uint128 _gas, uint128 _value) internal pure returns (bytes memory) {
+        return OptionsBuilder.newOptions().addExecutorLzReceiveOption(_gas, _value);
     }
 
     receive() external payable {}
