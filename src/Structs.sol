@@ -63,13 +63,16 @@ struct TransactionCompleteSignals {
 
 enum TransactionType {
     MINT,
-    REDEEM
+    REDEEM,
+    REDEEM_COMPLETE
 }
 
 struct CrossChainSignal {
     bytes32 id;
+    uint32 srcChainId;
     TransactionType txType;
     bool success;
+    address user;
     address underlying;
     uint256 units;
 }

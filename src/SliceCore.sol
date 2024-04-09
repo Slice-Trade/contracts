@@ -172,7 +172,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         // if the asset is local execute the transfer right away
         for (uint256 i = 0; i < positions.length; i++) {
             uint256 _amount = calculateAmountOutMin(txInfo.quantity, positions[i].units);
-            
+
             if (isPositionLocal(positions[i])) {
                 bool success = IERC20(positions[i].token).transfer(txInfo.user, _amount);
                 require(success, "SliceCore: Underlying asset transfer failed");
@@ -182,11 +182,12 @@ contract SliceCore is ISliceCore, Ownable, OApp {
                 // if asset is not local send lz msg to Core contract on dst chain
                 Chain memory dstChain = chainInfo.getChainInfo(positions[i].chainId);
 
-                CrossChainSignal memory ccs = CrossChainSignal(_redeemID, TransactionType.REDEEM, false, positions[i].token, _amount);
+                CrossChainSignal memory ccs =
+                    CrossChainSignal(_redeemID, uint32(block.chainid), TransactionType.REDEEM, false, txInfo.user, positions[i].token, _amount);
                 bytes memory ccsEncoded = abi.encode(ccs);
-                
-                bytes memory _lzSendOpts = createLzSendOpts(100000,0);
-                
+
+                bytes memory _lzSendOpts = createLzSendOpts(100000, 100000000000000);
+
                 endpoint.send{value: msg.value}(
                     MessagingParams(
                         dstChain.lzEndpointId, _getPeerOrRevert(dstChain.lzEndpointId), ccsEncoded, _lzSendOpts, false
@@ -265,7 +266,8 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         // get src lz chain id from payload data
         Chain memory srcChain = chainInfo.getChainInfo(payloadData.srcChainId);
         // create cross chain signal
-        CrossChainSignal memory ccs = CrossChainSignal(payloadData.mintID, TransactionType.MINT, true, address(0), 0);
+        CrossChainSignal memory ccs =
+            CrossChainSignal(payloadData.mintID, uint32(block.chainid), TransactionType.MINT, true, address(0), address(0), 0);
         // encode to bytes
         bytes memory ccsEncoded = abi.encode(ccs);
 
@@ -298,6 +300,16 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
         CrossChainSignal memory ccs = abi.decode(payload, (CrossChainSignal));
 
+        if (ccs.txType == TransactionType.MINT) {
+            handleSwapCompleteSignal(ccs);
+        } else if (ccs.txType == TransactionType.REDEEM) {
+            handleRedeemSignal(ccs);
+        } else if (ccs.txType == TransactionType.REDEEM_COMPLETE) {
+            handleRedeemCompleteSignal(ccs);
+        }
+    }
+
+    function handleSwapCompleteSignal(CrossChainSignal memory ccs) internal {
         TransactionCompleteSignals memory txCompleteSignals = transactionCompleteSignals[ccs.id];
         // verify that the mint id from the payload exists
         require(isSliceTokenRegistered(txCompleteSignals.token), "SliceCore: Unknown mint ID");
@@ -314,6 +326,52 @@ contract SliceCore is ISliceCore, Ownable, OApp {
             );
             // if all complete signals received: call mintComplete on token
             SliceToken(txCompleteSignals.token).mintComplete(ccs.id);
+        }
+    }
+
+    function handleRedeemSignal(CrossChainSignal memory ccs) internal {
+        // TODO
+        bool success = IERC20(ccs.underlying).transfer(ccs.user, ccs.units);
+        require(success, "SliceCore: Cross-chain redeem failed");
+
+        // send cross chain success msg
+        CrossChainSignal memory _ccsResponse = CrossChainSignal(
+            ccs.id,
+            uint32(block.chainid),
+            TransactionType.REDEEM_COMPLETE,
+            true,
+            address(0),
+            address(0),
+            0
+        );
+
+        bytes memory _ccsResponseEncoded = abi.encode(_ccsResponse);
+
+        bytes memory _lzSendOpts = createLzSendOpts(100000, 100000000000000);
+
+        endpoint.send{value: msg.value}(
+            MessagingParams(
+                ccs.srcChainId, _getPeerOrRevert(ccs.srcChainId), _ccsResponseEncoded, _lzSendOpts, false
+            ),
+            payable(address(this))
+        );
+    }
+
+    function handleRedeemCompleteSignal(CrossChainSignal memory ccs) internal {
+        TransactionCompleteSignals memory txCompleteSignals = transactionCompleteSignals[ccs.id];
+
+        require(isSliceTokenRegistered(txCompleteSignals.token), "SliceCore: Unknown redeem ID");
+
+        require(ccs.success, "SliceCore: Cross-chain redeem failed");
+
+        transactionCompleteSignals[ccs.id].signals++;
+
+        if (checkPendingTransactionCompleteSignals(ccs.id)) {
+            emit UnderlyingAssetsRedeemed(
+                txCompleteSignals.token, txCompleteSignals.sliceTokenQuantity, txCompleteSignals.user
+            );
+
+            SliceToken(txCompleteSignals.token).redeemComplete(ccs.id);
         }
     }
 
