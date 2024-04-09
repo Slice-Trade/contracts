@@ -61,9 +61,17 @@ struct TransactionCompleteSignals {
     address user;
 }
 
+enum TransactionType {
+    MINT,
+    REDEEM
+}
+
 struct CrossChainSignal {
-    bytes32 mintID;
+    bytes32 id;
+    TransactionType txType;
     bool success;
+    address underlying;
+    uint256 units;
 }
 
 struct SlicePayloadData {

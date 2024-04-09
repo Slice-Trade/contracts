@@ -365,6 +365,10 @@ contract SliceTokenTest is Helper {
         token.redeem(1);
     }
 
+    function testCannotTransfer_AmountLocked() public {
+        
+    }
+
     /* =========================================================== */
     /*   ================    redeemComplete   =================    */
     /* =========================================================== */

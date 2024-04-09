@@ -126,10 +126,9 @@ contract SliceCore is ISliceCore, Ownable, OApp {
             if (isPositionLocal(positions[i])) {
                 bool success =
                     executeLocalSwap(msg.sender, _sliceTokenQuantity, _maxEstimatedPrices[i], positions[i], _routes[i]);
+                require(success, "SliceCore: Local swap failed");
                 // increase the ready signal after each local swap
-                if (success) {
-                    transactionCompleteSignals[_mintID].signals++;
-                }
+                transactionCompleteSignals[_mintID].signals++;
             } else {
                 executeCrossChainSwap(
                     _mintID, msg.sender, _sliceTokenQuantity, _maxEstimatedPrices[i], positions[i], txInfo, _routes[i]
@@ -155,8 +154,53 @@ contract SliceCore is ISliceCore, Ownable, OApp {
      * @dev See ISliceCore - redeemUnderlying
      */
     function redeemUnderlying(bytes32 _redeemID) external payable {
-        // TODO
+        // check that slice token (msg.sender) is registered
+        require(registeredSliceTokens[msg.sender], "SliceCore: Only registered Slice token can call");
 
+        // get redeem tx info
+        SliceTransactionInfo memory txInfo = ISliceToken(msg.sender).getRedeem(_redeemID);
+        // check that redeem ID exists
+        require(txInfo.id == _redeemID, "SliceCore: Redeem ID does not exist");
+
+        // create tx complete signals struct
+        transactionCompleteSignals[_redeemID].token = msg.sender;
+        transactionCompleteSignals[_redeemID].user = txInfo.user;
+
+        // get the underlying positions of the slice token
+        Position[] memory positions = SliceToken(msg.sender).getPositions();
+
+        // if the asset is local execute the transfer right away
+        for (uint256 i = 0; i < positions.length; i++) {
+            uint256 _amount = calculateAmountOutMin(txInfo.quantity, positions[i].units);
+            
+            if (isPositionLocal(positions[i])) {
+                bool success = IERC20(positions[i].token).transfer(txInfo.user, _amount);
+                require(success, "SliceCore: Underlying asset transfer failed");
+                // increase ready signal after each local transfer
+                transactionCompleteSignals[_redeemID].signals++;
+            } else {
+                // if asset is not local send lz msg to Core contract on dst chain
+                Chain memory dstChain = chainInfo.getChainInfo(positions[i].chainId);
+
+                CrossChainSignal memory ccs = CrossChainSignal(_redeemID, TransactionType.REDEEM, false, positions[i].token, _amount);
+                bytes memory ccsEncoded = abi.encode(ccs);
+                
+                bytes memory _lzSendOpts = createLzSendOpts(100000,0);
+                
+                endpoint.send{value: msg.value}(
+                    MessagingParams(
+                        dstChain.lzEndpointId, _getPeerOrRevert(dstChain.lzEndpointId), ccsEncoded, _lzSendOpts, false
+                    ),
+                    payable(address(this))
+                );
+            }
+        }
+
+        // if all signals are in call redeemComplete on token contract
+        if (checkPendingTransactionCompleteSignals(_redeemID)) {
+            emit UnderlyingAssetsRedeemed(msg.sender, txInfo.quantity, txInfo.user);
+            SliceToken(msg.sender).redeemComplete(_redeemID);
+        }
     }
 
     /**
@@ -221,11 +265,11 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         // get src lz chain id from payload data
         Chain memory srcChain = chainInfo.getChainInfo(payloadData.srcChainId);
         // create cross chain signal
-        CrossChainSignal memory ccs = CrossChainSignal(payloadData.mintID, true);
+        CrossChainSignal memory ccs = CrossChainSignal(payloadData.mintID, TransactionType.MINT, true, address(0), 0);
         // encode to bytes
         bytes memory ccsEncoded = abi.encode(ccs);
 
-        bytes memory _lzSendOpts = createLzSendOpts(200000, 500000000000000);  // TODO: Calculate values programatically
+        bytes memory _lzSendOpts = createLzSendOpts(200000, 500000000000000); // TODO: Calculate values programatically
 
         // call send on layer zero endpoint
         endpoint.send{value: lzSendMsgValue}(
@@ -254,7 +298,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
         CrossChainSignal memory ccs = abi.decode(payload, (CrossChainSignal));
 
-        TransactionCompleteSignals memory txCompleteSignals = transactionCompleteSignals[ccs.mintID];
+        TransactionCompleteSignals memory txCompleteSignals = transactionCompleteSignals[ccs.id];
         // verify that the mint id from the payload exists
         require(isSliceTokenRegistered(txCompleteSignals.token), "SliceCore: Unknown mint ID");
 
@@ -262,14 +306,14 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         require(ccs.success, "SliceCore: Cross-chain swap failed");
 
         // then register complete signal
-        transactionCompleteSignals[ccs.mintID].signals++;
+        transactionCompleteSignals[ccs.id].signals++;
 
-        if (checkPendingTransactionCompleteSignals(ccs.mintID)) {
+        if (checkPendingTransactionCompleteSignals(ccs.id)) {
             emit UnderlyingAssetsPurchased(
                 txCompleteSignals.token, txCompleteSignals.sliceTokenQuantity, txCompleteSignals.user
             );
             // if all complete signals received: call mintComplete on token
-            SliceToken(txCompleteSignals.token).mintComplete(ccs.mintID);
+            SliceToken(txCompleteSignals.token).mintComplete(ccs.id);
         }
     }
 
