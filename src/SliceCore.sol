@@ -330,7 +330,6 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     }
 
     function handleRedeemSignal(CrossChainSignal memory ccs) internal {
-        // TODO
         bool success = IERC20(ccs.underlying).transfer(ccs.user, ccs.units);
         require(success, "SliceCore: Cross-chain redeem failed");
 

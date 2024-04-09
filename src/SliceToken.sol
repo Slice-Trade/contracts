@@ -153,7 +153,26 @@ contract SliceToken is ISliceToken, ERC20 {
      * @dev See ISliceToken - redeemComplete
      */
     function redeemComplete(bytes32 _redeemID) external {
-        // TODO
+        // get transaction info
+        SliceTransactionInfo memory _txInfo = redeems[_redeemID];
+
+        // check that redeem ID is valid
+        require(_txInfo.id != bytes32(0), "SliceToken: Invalid redeem ID");
+
+        // check that state is open
+        require(_txInfo.state == TransactionState.OPEN, "SliceToken: Transaction state is not open");
+
+        // change transaction state to fulfilled
+        redeems[_redeemID].state = TransactionState.FULFILLED;
+
+        // burn X quantity of tokens from user
+        _burn(_txInfo.user, _txInfo.quantity);
+
+        // remove lock on quantity
+        locked[_txInfo.user] -= _txInfo.quantity;
+
+        // emit event
+        emit SliceRedeemed(_txInfo.user, _txInfo.quantity);
     }
 
     /**
