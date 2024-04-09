@@ -40,6 +40,12 @@ contract SliceToken is ISliceToken, ERC20 {
         }
     }
 
+    function transfer(address to, uint256 amount) public virtual override(ERC20, IERC20) returns (bool) {
+        require(verifyTransfer(msg.sender, amount), "SliceToken: Trying to transfer locked amount");
+        bool success = super.transfer(to,amount);
+        return success;
+    }
+
     function setCategoryAndDescription(string calldata _category, string calldata _description) external {
         category = _category;
         description = _description;
@@ -171,5 +177,9 @@ contract SliceToken is ISliceToken, ERC20 {
 
     function getRebalance(bytes32 _id) external view returns (SliceTransactionInfo memory) {
         return rebalances[_id];
+    }
+
+    function verifyTransfer(address _sender, uint256 _amount) internal view returns (bool) {
+        return balanceOf(_sender) - _amount >= locked[_sender];
     }
 }
