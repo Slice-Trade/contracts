@@ -47,7 +47,7 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
      * @dev Transfers out the underlying assets for a given Slice token to the given user.
      * @param _redeemID The ID that uniquely identifies this transaction within the system
      */
-    function redeemUnderlying(bytes32 _redeemID) external;
+    function redeemUnderlying(bytes32 _redeemID) external payable;
 
     /**
      * @dev Enables/disables the creation of new Slice tokens. Can only be called by contract owner.

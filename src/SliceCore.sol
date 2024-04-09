@@ -157,7 +157,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     /**
      * @dev See ISliceCore - redeemUnderlying
      */
-    function redeemUnderlying(bytes32 _redeemID) external {
+    function redeemUnderlying(bytes32 _redeemID) external payable {
         // TODO
 
     }

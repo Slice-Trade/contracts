@@ -120,7 +120,7 @@ contract SliceToken is ISliceToken, ERC20 {
     /**
      * @dev See ISliceToken - redeem
      */
-    function redeem(uint256 _sliceTokenQuantity) external returns (bytes32) {
+    function redeem(uint256 _sliceTokenQuantity) external payable returns (bytes32) {
         // make sure the user has enough balance
         require(balanceOf(msg.sender) >= _sliceTokenQuantity, "SliceToken: Trying to redeem more than token balance");
 
@@ -143,7 +143,7 @@ contract SliceToken is ISliceToken, ERC20 {
         redeems[redeemID] = txInfo;
 
         // call redeem underlying on slice core
-        ISliceCore(sliceCore).redeemUnderlying(redeemID);
+        ISliceCore(sliceCore).redeemUnderlying{value: msg.value}(redeemID);
 
         // return redeem ID
         return redeemID;
