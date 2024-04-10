@@ -32,15 +32,11 @@ contract SliceCoreMock {
      * @dev See ISliceCore - purchaseUnderlyingAssets
      */
     function purchaseUnderlyingAssets(
-        bytes32 _mintID,
-        uint256 _sliceTokenQuantity,
+        bytes32 /* _mintID */,
+        uint256 /* _sliceTokenQuantity */,
         uint256[] memory _maxEstimatedPrices,
-        bytes[] memory _routes
+        bytes[] memory /* _routes */
     ) external {
-        require(_maxEstimatedPrices.length == 3, "Positions must be weth, btc, link");
-        weth.transfer(token, wethUnits);
-        wbtc.transfer(token, wbtcUnits);
-        link.transfer(token, linkUnits);
     }
 
     /**
@@ -53,7 +49,7 @@ contract SliceCoreMock {
     /**
      * @dev See ISliceCore - redeemUnderlying
      */
-    function redeemUnderlying(bytes32 _redeemID, SliceTransactionInfo memory _txInfo) external {
+    function redeemUnderlying(bytes32 _redeemID) external {
         // TODO
     }
 

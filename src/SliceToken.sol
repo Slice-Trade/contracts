@@ -21,6 +21,8 @@ contract SliceToken is ISliceToken, ERC20 {
     mapping(bytes32 => SliceTransactionInfo) public rebalances;
     mapping(bytes32 => SliceTransactionInfo) public redeems;
 
+    mapping(address => uint256) public locked;
+
     modifier onlySliceCore() {
         require(msg.sender == sliceCore, "SliceToken: Only Slice Core can call");
         _;
@@ -36,6 +38,12 @@ contract SliceToken is ISliceToken, ERC20 {
         for (uint256 i = 0; i < _positions.length; i++) {
             positions.push(_positions[i]);
         }
+    }
+
+    function transfer(address to, uint256 amount) public virtual override(ERC20, IERC20) returns (bool) {
+        require(verifyTransfer(msg.sender, amount), "SliceToken: Trying to transfer locked amount");
+        bool success = super.transfer(to,amount);
+        return success;
     }
 
     function setCategoryAndDescription(string calldata _category, string calldata _description) external {
@@ -55,7 +63,7 @@ contract SliceToken is ISliceToken, ERC20 {
 
         paymentToken.transferFrom(msg.sender, address(sliceCore), sumPrice);
         
-        bytes32 mintId = keccak256(abi.encodePacked(msg.sender, address(this), _sliceTokenQuantity, sumPrice, block.timestamp));
+        bytes32 mintId = keccak256(abi.encodePacked(this.mint.selector, msg.sender, address(this), _sliceTokenQuantity, sumPrice, block.timestamp));
 
         SliceTransactionInfo memory txInfo = SliceTransactionInfo(
             mintId,
@@ -112,15 +120,59 @@ contract SliceToken is ISliceToken, ERC20 {
     /**
      * @dev See ISliceToken - redeem
      */
-    function redeem(uint256 _sliceTokenQuantity) external returns (bytes32) {
-        // TODO
+    function redeem(uint256 _sliceTokenQuantity) external payable returns (bytes32) {
+        // make sure the user has enough balance
+        require(balanceOf(msg.sender) >= _sliceTokenQuantity, "SliceToken: Trying to redeem more than token balance");
+
+        // lock the given amount of tokens in the users balance (can't be transferred)
+        locked[msg.sender] += _sliceTokenQuantity;
+
+        // create redeem ID
+        bytes32 redeemID = keccak256(abi.encodePacked(this.redeem.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp));
+
+        // create tx info
+        SliceTransactionInfo memory txInfo = SliceTransactionInfo(
+            redeemID,
+            _sliceTokenQuantity,
+            msg.sender,
+            TransactionState.OPEN,
+            bytes("")
+        );
+
+        // record redeem ID + tx info
+        redeems[redeemID] = txInfo;
+
+        // call redeem underlying on slice core
+        ISliceCore(sliceCore).redeemUnderlying{value: msg.value}(redeemID);
+
+        // return redeem ID
+        return redeemID;
     }
 
     /**
      * @dev See ISliceToken - redeemComplete
      */
-    function redeemComplete(bytes32 _redeemID) external {
-        // TODO
+    function redeemComplete(bytes32 _redeemID) external onlySliceCore {
+        // get transaction info
+        SliceTransactionInfo memory _txInfo = redeems[_redeemID];
+
+        // check that redeem ID is valid
+        require(_txInfo.id != bytes32(0), "SliceToken: Invalid redeem ID");
+
+        // check that state is open
+        require(_txInfo.state == TransactionState.OPEN, "SliceToken: Transaction state is not open");
+
+        // change transaction state to fulfilled
+        redeems[_redeemID].state = TransactionState.FULFILLED;
+
+        // burn X quantity of tokens from user
+        _burn(_txInfo.user, _txInfo.quantity);
+
+        // remove lock on quantity
+        locked[_txInfo.user] -= _txInfo.quantity;
+
+        // emit event
+        emit SliceRedeemed(_txInfo.user, _txInfo.quantity);
     }
 
     /**
@@ -144,5 +196,9 @@ contract SliceToken is ISliceToken, ERC20 {
 
     function getRebalance(bytes32 _id) external view returns (SliceTransactionInfo memory) {
         return rebalances[_id];
+    }
+
+    function verifyTransfer(address _sender, uint256 _amount) internal view returns (bool) {
+        return balanceOf(_sender) - _amount >= locked[_sender];
     }
 }

@@ -44,11 +44,11 @@ contract SliceCoreTest is Helper {
     bytes[] public routes;
 
     bytes public usdcWethRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa0014b60d93e8BAECbBbE8955fe6Fe5AbD483e21502F";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001D2835c9DCA49d9951157C03A47b18242B214B59c";
     bytes public usdcWbtcRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a58004b60d93e8BAECbBbE8955fe6Fe5AbD483e21502F";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a5800D2835c9DCA49d9951157C03A47b18242B214B59c";
     bytes public usdcLinkRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da967004b60d93e8BAECbBbE8955fe6Fe5AbD483e21502F";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700D2835c9DCA49d9951157C03A47b18242B214B59c";
 
     
     /* CROSS_CHAIN */
@@ -224,9 +224,9 @@ contract SliceCoreTest is Helper {
         token.mint(1000000000000000000, maxEstimatedPrices, routes);
 
         // verify that the assets are purhased
-        uint256 wethBalance = weth.balanceOf(address(token));
-        uint256 wbtcBalance = wbtc.balanceOf(address(token));
-        uint256 linkBalance = link.balanceOf(address(token));
+        uint256 wethBalance = weth.balanceOf(address(core));
+        uint256 wbtcBalance = wbtc.balanceOf(address(core));
+        uint256 linkBalance = link.balanceOf(address(core));
 
         assertGe(wethBalance, wethUnits);
         assertGe(wbtcBalance, wbtcUnits);
@@ -290,8 +290,8 @@ contract SliceCoreTest is Helper {
         assertEq(8415120000000000, newPositions[1].units);
 
         // verify that underlying assets have been sold/bought correctly
-        uint256 wethBalance = weth.balanceOf(address(token));
-        uint256 wbtcBalance = wbtc.balanceOf(address(token));
+        uint256 wethBalance = weth.balanceOf(address(core));
+        uint256 wbtcBalance = wbtc.balanceOf(address(core));
         assertEq(wethBalance, newPositions[0].units * 2);
         assertEq(wbtcBalance, newPositions[1].units * 2);
         vm.stopPrank();
@@ -321,21 +321,29 @@ contract SliceCoreTest is Helper {
     function testRedeemUnderlying() public {
         // mint some slice tokens
         vm.startPrank(dev);
-        token.mint(2, maxEstimatedPrices, routes);
-
+        
+        token.mint(1000000000000000000, maxEstimatedPrices, routes);
+        uint256 wethTokenbalanceBefore = weth.balanceOf(address(core));
+        uint256 wbtcTokenbalanceBefore = wbtc.balanceOf(address(core));
+        uint256 linkTokenbalanceBefore = link.balanceOf(address(core));
         // call redeem underlying
-        token.redeem(2);
+        token.redeem(1000000000000000000);
 
         // verify that the assets are in the user's wallet and gone from the slice token
         uint256 wethBalance = weth.balanceOf(address(dev));
         uint256 wbtcBalance = wbtc.balanceOf(address(dev));
+        uint256 linkBalance = link.balanceOf(address(dev));
         assertEq(wethBalance, positions[0].units);
         assertEq(wbtcBalance, positions[1].units);
+        assertEq(linkBalance, positions[2].units);
 
-        uint256 wethTokenbalance = weth.balanceOf(address(token));
-        uint256 wbtcTokenbalance = wbtc.balanceOf(address(token));
-        assertEq(0, wethTokenbalance);
-        assertEq(0, wbtcTokenbalance);
+        uint256 wethTokenbalance = weth.balanceOf(address(core));
+        uint256 wbtcTokenbalance = wbtc.balanceOf(address(core));
+        uint256 linkTokenbalance = link.balanceOf(address(core));
+
+        assertEq(wethTokenbalanceBefore - wethTokenbalance, wethUnits);
+        assertEq(wbtcTokenbalanceBefore - wbtcTokenbalance, wbtcUnits);
+        assertEq(linkTokenbalanceBefore - linkTokenbalance, linkUnits);
 
         uint256 sliceBalance = token.balanceOf(address(dev));
         assertEq(0, sliceBalance);
@@ -346,7 +354,7 @@ contract SliceCoreTest is Helper {
         // verify that it reverts with the correct reason
         vm.expectRevert("SliceCore: Only registered Slice token can call");
         // call redeem from not registered slice token
-        core.redeemUnderlying(bytes32(0), SliceTransactionInfo(bytes32(0), 0, address(0), TransactionState.UNREGISTERED, bytes("")));
+        core.redeemUnderlying(bytes32(0));
     }
 
     /* =========================================================== */
@@ -386,22 +394,3 @@ contract SliceCoreTest is Helper {
         core.changeSliceTokenCreationEnabled(false);
     }
 }
-
-
-/* 
-0x012791Bca1f2de4661ED88A30C99A7a9449Aa8417402555500cd353F79d9FADe311fC3119B841e1f456b54e85800eeb3e0999D01f0d1Ed465513E414725a357F6ae4ffff0121988C9CFD08db3b5793c2C6782271dC9474925100eeb3e0999D01f0d1Ed465513E414725a357F6ae4
-01
-2791Bca1f2de4661ED88A30C99A7a9449Aa84174
-02
-5555
-00
-cd353F79d9FADe311fC3119B841e1f456b54e858
-00
-eeb3e0999D01f0d1Ed465513E414725a357F6ae4
-
-ffff
-01
-21988C9CFD08db3b5793c2C6782271dC94749251
-00
-eeb3e0999D01f0d1Ed465513E414725a357F6ae4
- */

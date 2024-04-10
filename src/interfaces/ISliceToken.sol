@@ -44,7 +44,7 @@ interface ISliceToken is IERC20 {
      * @param _sliceTokenQuantity The quantity of slice tokens to redeem
      * @return bytes32 The redeem ID 
      */
-    function redeem(uint256 _sliceTokenQuantity) external returns (bytes32);
+    function redeem(uint256 _sliceTokenQuantity) external payable returns (bytes32);
 
     /**
      * @dev Called by the SliceCore contract when a redeem transaction is confirmed completed by all the cross-chain contracts
