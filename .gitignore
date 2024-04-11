@@ -22,3 +22,11 @@ docs/
 .vscode/
 
 .deps/
+
+src/artifacts/
+
+src/interfaces/artifacts/
+
+src/libs/artifacts/
+
+src/utils/artifacts/
