@@ -530,6 +530,25 @@
 			{
 				"inputs": [
 					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "locked",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
 						"internalType": "uint256",
 						"name": "_sliceTokenQuantity",
 						"type": "uint256"
@@ -767,7 +786,7 @@
 						"type": "bytes32"
 					}
 				],
-				"stateMutability": "nonpayable",
+				"stateMutability": "payable",
 				"type": "function"
 			},
 			{
@@ -888,7 +907,7 @@
 					},
 					{
 						"internalType": "uint256",
-						"name": "value",
+						"name": "amount",
 						"type": "uint256"
 					}
 				],
@@ -1040,9 +1059,6 @@
 				"totalSupply()": {
 					"details": "See {IERC20-totalSupply}."
 				},
-				"transfer(address,uint256)": {
-					"details": "See {IERC20-transfer}. Requirements: - `to` cannot be the zero address. - the caller must have a balance of at least `value`."
-				},
 				"transferFrom(address,address,uint256)": {
 					"details": "See {IERC20-transferFrom}. Emits an {Approval} event indicating the updated allowance. This is not required by the EIP. See the note at the beginning of {ERC20}. NOTE: Does not update the allowance if the current allowance is the maximum `uint256`. Requirements: - `from` and `to` cannot be the zero address. - `from` must have a balance of at least `value`. - the caller must have allowance for ``from``'s tokens of at least `value`."
 				}
@@ -1174,19 +1190,19 @@
 			]
 		},
 		"src/SliceToken.sol": {
-			"keccak256": "0x475ff50eb7e47a375b3ed1bb5782ba9048b536c573f4d0a17238f874b2464c53",
+			"keccak256": "0x72c14ee2fac6f85aabc09192c61c4bd548080372935495d73845ea04d221dc3e",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://15f0bf465b6345021217f759ba9cc17019523342010da8d963f08b956da1d398",
-				"dweb:/ipfs/QmbwKLA1nAARsM1hxw8PaKU9ZkqdEsYuTaeX1hMZXGB5me"
+				"bzz-raw://880de087ea1a0a2985337496efae9370c3f1cefd2eb755ade8e326d71ea02f70",
+				"dweb:/ipfs/QmZPDh8QzV62iWzqajW5kfSdjUL4abfew5domSKkTXyYJY"
 			]
 		},
 		"src/Structs.sol": {
-			"keccak256": "0x632d21ad7bdfd44c50a9b9451f285d5ed5fba7de3b2728400243447e0fb887ea",
+			"keccak256": "0x19ee06e90087cec46f0814c8ae0817379205a8d5d44e5fce11f94f9ed5132dd3",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://68f6c541d31c50da8c0c6ae9a6153748b4f2140535af96a1e3cb6c51193e311d",
-				"dweb:/ipfs/QmWs85g5mn97ufQkAvbEigtFu7jUPhGZi5CLXwB7LdPxUZ"
+				"bzz-raw://9e2bd9ddff6ee6e9e2906246847a7ed44de01055214cb6a5904ce581058e9212",
+				"dweb:/ipfs/QmVXCNFfqya8KYYy26ZydmZc7Es54dGvenDA88XmADAzEW"
 			]
 		},
 		"src/external/IPayloadExecutor.sol": {
@@ -1198,19 +1214,19 @@
 			]
 		},
 		"src/interfaces/ISliceCore.sol": {
-			"keccak256": "0xbb7bfb945a55369d614638ea7aa39db235aae79706454da3d6f5276cdb8ad448",
+			"keccak256": "0xa6961f11faedd7be5fd28d21a9766e9d065dd1acb6c825291039961c3b863f1e",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://52ca4e5d3d7a1caa95bbef43b453c284a364537badcae0eb0d4d9801b79a7639",
-				"dweb:/ipfs/QmYtVQBdq1584uAEc38KasqibZkggPLs5xsEimSopjCFtQ"
+				"bzz-raw://d2ad466b8362b6c5c79e3e5daba3bcb5996f15602a99c8094ad30cd5802d90e1",
+				"dweb:/ipfs/QmZXUbyLN469gkhkRjgpbsM6KgowADS9vrvjnQM2wDV1Kh"
 			]
 		},
 		"src/interfaces/ISliceToken.sol": {
-			"keccak256": "0x0435fa9cb4d722eda6a3ae443ea825a067dc3d25e29920cfa816b157f49fd659",
+			"keccak256": "0x8a5e343ca9f7cf1f77014fc53369da26bab62254a3bc77c5df9ae291f178271f",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://cc2bff9ee2f97a0561b8467cbb7056dda4f4f8617e1bfb283d9ff370ec0f1f6a",
-				"dweb:/ipfs/QmSSzgAzCtFZdsLHyR5nyazRpDnVxw4rGgi3y6egfykAGX"
+				"bzz-raw://c4988575cd49d13c11dfea51142cac3693b87233d4c166a482649fac8465e3a4",
+				"dweb:/ipfs/QmTgsE2DUUyvbFVsZ1qwSyvgaQjZFhx5hNrADQtaYF8fT5"
 			]
 		},
 		"src/utils/Utils.sol": {

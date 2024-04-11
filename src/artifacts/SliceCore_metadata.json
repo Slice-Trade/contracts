@@ -24,16 +24,6 @@
 					},
 					{
 						"internalType": "address",
-						"name": "_axelarAdapter",
-						"type": "address"
-					},
-					{
-						"internalType": "address",
-						"name": "_partner",
-						"type": "address"
-					},
-					{
-						"internalType": "address",
 						"name": "_lzEndpoint",
 						"type": "address"
 					},
@@ -302,19 +292,6 @@
 				"type": "function"
 			},
 			{
-				"inputs": [],
-				"name": "axelarAdapter",
-				"outputs": [
-					{
-						"internalType": "address",
-						"name": "",
-						"type": "address"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
 				"inputs": [
 					{
 						"internalType": "address",
@@ -452,51 +429,6 @@
 			{
 				"inputs": [
 					{
-						"internalType": "uint256",
-						"name": "_idx",
-						"type": "uint256"
-					}
-				],
-				"name": "getRegisteredSliceToken",
-				"outputs": [
-					{
-						"internalType": "address",
-						"name": "",
-						"type": "address"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "getRegisteredSliceTokens",
-				"outputs": [
-					{
-						"internalType": "address[]",
-						"name": "",
-						"type": "address[]"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "getRegisteredSliceTokensCount",
-				"outputs": [
-					{
-						"internalType": "uint256",
-						"name": "",
-						"type": "uint256"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
 						"internalType": "address",
 						"name": "_token",
 						"type": "address"
@@ -590,19 +522,6 @@
 				"type": "function"
 			},
 			{
-				"inputs": [],
-				"name": "lzSendOpts",
-				"outputs": [
-					{
-						"internalType": "bytes",
-						"name": "",
-						"type": "bytes"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
 				"inputs": [
 					{
 						"internalType": "uint32",
@@ -672,7 +591,7 @@
 			},
 			{
 				"inputs": [],
-				"name": "partnerSliceCore",
+				"name": "partner",
 				"outputs": [
 					{
 						"internalType": "address",
@@ -760,80 +679,13 @@
 				"inputs": [
 					{
 						"internalType": "bytes32",
-						"name": "_rebalanceID",
-						"type": "bytes32"
-					},
-					{
-						"components": [
-							{
-								"internalType": "uint256",
-								"name": "chainId",
-								"type": "uint256"
-							},
-							{
-								"internalType": "address",
-								"name": "token",
-								"type": "address"
-							},
-							{
-								"internalType": "uint256",
-								"name": "units",
-								"type": "uint256"
-							}
-						],
-						"internalType": "struct Position[]",
-						"name": "_positions",
-						"type": "tuple[]"
-					}
-				],
-				"name": "rebalanceUnderlying",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "bytes32",
 						"name": "_redeemID",
 						"type": "bytes32"
-					},
-					{
-						"components": [
-							{
-								"internalType": "bytes32",
-								"name": "id",
-								"type": "bytes32"
-							},
-							{
-								"internalType": "uint256",
-								"name": "quantity",
-								"type": "uint256"
-							},
-							{
-								"internalType": "address",
-								"name": "user",
-								"type": "address"
-							},
-							{
-								"internalType": "enum TransactionState",
-								"name": "state",
-								"type": "uint8"
-							},
-							{
-								"internalType": "bytes",
-								"name": "data",
-								"type": "bytes"
-							}
-						],
-						"internalType": "struct SliceTransactionInfo",
-						"name": "_txInfo",
-						"type": "tuple"
 					}
 				],
 				"name": "redeemUnderlying",
 				"outputs": [],
-				"stateMutability": "nonpayable",
+				"stateMutability": "payable",
 				"type": "function"
 			},
 			{
@@ -910,38 +762,12 @@
 			{
 				"inputs": [
 					{
-						"internalType": "bytes",
-						"name": "_opts",
-						"type": "bytes"
-					}
-				],
-				"name": "setLzSendOpts",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
 						"internalType": "address",
 						"name": "_partner",
 						"type": "address"
 					}
 				],
 				"name": "setPartner",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint256",
-						"name": "_payloadGas",
-						"type": "uint256"
-					}
-				],
-				"name": "setPayloadGas",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -1084,15 +910,6 @@
 				"createSlice(string,string,(uint256,address,uint256)[])": {
 					"details": "See ISliceCore - createSlice"
 				},
-				"getRegisteredSliceToken(uint256)": {
-					"details": "See ISliceCore - getRegisteredSliceToken"
-				},
-				"getRegisteredSliceTokens()": {
-					"details": "See ISliceCore - getRegisteredSliceTokens"
-				},
-				"getRegisteredSliceTokensCount()": {
-					"details": "See ISliceCore - getRegisteredSliceTokensCount"
-				},
 				"isSliceTokenRegistered(address)": {
 					"details": "See ISliceCore - isSliceTokenRegistered"
 				},
@@ -1127,10 +944,7 @@
 				"purchaseUnderlyingAssets(bytes32,uint256,uint256[],bytes[])": {
 					"details": "See ISliceCore - purchaseUnderlyingAssets"
 				},
-				"rebalanceUnderlying(bytes32,(uint256,address,uint256)[])": {
-					"details": "See ISliceCore - rebalanceUnderlying"
-				},
-				"redeemUnderlying(bytes32,(bytes32,uint256,address,uint8,bytes))": {
+				"redeemUnderlying(bytes32)": {
 					"details": "See ISliceCore - redeemUnderlying"
 				},
 				"renounceOwnership()": {
@@ -1197,7 +1011,7 @@
 		},
 		"optimizer": {
 			"enabled": true,
-			"runs": 200
+			"runs": 50
 		},
 		"remappings": [
 			":@lz-oapp-v2/=lib/lz-oapp-v2/src/",
@@ -1312,6 +1126,46 @@
 				"dweb:/ipfs/Qmf9gUahTNkNviw77SjrZ6PXqQa1wCY4up8p5q8o5tDRao"
 			]
 		},
+		"lib/lz-oapp-v2/src/libs/BitMaps.sol": {
+			"keccak256": "0xab53a5a918defbd783061a9fc1eefadd34a3a2a0fc07223b3cc9a2a9fa2b6157",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://bba63ccf301439055831f9447d716d1ed28ae408b4b8fcbcb80c7d537d3fc128",
+				"dweb:/ipfs/QmT5igymQPzT5bocP1qZECfayFxxHXPQX6o5jf9b8M5sFi"
+			]
+		},
+		"lib/lz-oapp-v2/src/libs/CalldataBytesLib.sol": {
+			"keccak256": "0xc087cbaf7c5d9d7a4de220f5a913e285cff954dcd241236065f7e3c9adf3593f",
+			"license": "LZBL-1.2",
+			"urls": [
+				"bzz-raw://b146e61df52e3be8d5c7bf6a9729fe09cc3e5921dce8ccc9c92a150d3f03e86a",
+				"dweb:/ipfs/QmPqyM8seb6J8TLi9TGMFhd2pd5hhCGb6DfqHWJx6rhA6z"
+			]
+		},
+		"lib/lz-oapp-v2/src/libs/DVNOptions.sol": {
+			"keccak256": "0xca9005eac81f7f360588bf77415609f0fca384efc66f39149c11001693332806",
+			"license": "LZBL-1.2",
+			"urls": [
+				"bzz-raw://7a1433567bd2eade160944fc2d7a7d85097c14f88bed3d08394846a1ff7c8385",
+				"dweb:/ipfs/Qmd8vBmzEAhj2dRQQ54cmJvd8Dxf52FFGP2rgFRbR4fj6G"
+			]
+		},
+		"lib/lz-oapp-v2/src/libs/ExecutorOptions.sol": {
+			"keccak256": "0xc5de33e0f3edadaadaaecd235bce906890c9fef985c2ce6fc35ae525e4980d03",
+			"license": "LZBL-1.2",
+			"urls": [
+				"bzz-raw://cd80c968612b67197cc380780e6fa93c793079d18b726aed484c2ad5484c81cd",
+				"dweb:/ipfs/QmSKssSM6GTT6TspuGgprb6uX1xNJYw1mEgEszK9N5Cw1o"
+			]
+		},
+		"lib/lz-oapp-v2/src/libs/OptionsBuilder.sol": {
+			"keccak256": "0xdbbc4f0a201300adf801345451e575af22b65f20363630a5f1f744dc4365c0d9",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://5cf8b73ec7ec60343049141f8c4e231288483ea9a6e52063b34402cee17e3afd",
+				"dweb:/ipfs/QmYDkXFoJKhBmSZHLqEvE7zYDRiuk8jfrKj9gBEMWqPiRv"
+			]
+		},
 		"lib/openzeppelin-contracts/contracts/access/Ownable.sol": {
 			"keccak256": "0xff6d0bb2e285473e5311d9d3caacb525ae3538a80758c10649a4d61029b017bb",
 			"license": "MIT",
@@ -1384,28 +1238,44 @@
 				"dweb:/ipfs/Qmax9WHBnVsZP46ZxEMNRQpLQnrdE4dK8LehML1Py8FowF"
 			]
 		},
-		"src/SliceCore.sol": {
-			"keccak256": "0x48acca9f353d05d374ee4e853268e6a9b446d68db90b85601bbf7deeafa6e171",
+		"lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol": {
+			"keccak256": "0xe19a4d5f31d2861e7344e8e535e2feafb913d806d3e2b5fe7782741a2a7094fe",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://a8ec733f926af8f0d2847a4f37ae433b1ae3427afd3507e38467f17ced54ff33",
-				"dweb:/ipfs/QmVLdxBFBMH6vsB8CnSDqxoCrYXc4ScrJNLcUBd8TX6PgD"
+				"bzz-raw://4aed79c0fa6f0546ed02f2f683e8f77f0fd2ed7eb34d8bbf3d373c9a6d95b13c",
+				"dweb:/ipfs/QmWqVz6UAVqmnWU5pqYPt1o6iDEZyPaBraAA3rKfTTSfYj"
+			]
+		},
+		"solidity-bytes-utils/contracts/BytesLib.sol": {
+			"keccak256": "0xa5b10f04797d5a10a9ba07855108b6bd695940e6a3d128927b2f74a0d359868a",
+			"license": "Unlicense",
+			"urls": [
+				"bzz-raw://a38d7680aacbb18dae659876b396b73bcc8f759672213f8a0efc4129e2648535",
+				"dweb:/ipfs/QmfKFnwpTEGAnbRnZxMuv3mRCG9S9WMjFhFL23bftBT2Jq"
+			]
+		},
+		"src/SliceCore.sol": {
+			"keccak256": "0x84cc7b775001be38f05960aa4ff849f4fb55360176a761f4f5e68ab2b25202d2",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://db8f37ed1e464faf8d827aa4efb150350f112aa1036d463e22d5d83b556d0ea8",
+				"dweb:/ipfs/QmVnbqSs6P6TH224pLU8U6zG9v4WRf28q4SGLBavGpbVoX"
 			]
 		},
 		"src/SliceToken.sol": {
-			"keccak256": "0x475ff50eb7e47a375b3ed1bb5782ba9048b536c573f4d0a17238f874b2464c53",
+			"keccak256": "0x72c14ee2fac6f85aabc09192c61c4bd548080372935495d73845ea04d221dc3e",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://15f0bf465b6345021217f759ba9cc17019523342010da8d963f08b956da1d398",
-				"dweb:/ipfs/QmbwKLA1nAARsM1hxw8PaKU9ZkqdEsYuTaeX1hMZXGB5me"
+				"bzz-raw://880de087ea1a0a2985337496efae9370c3f1cefd2eb755ade8e326d71ea02f70",
+				"dweb:/ipfs/QmZPDh8QzV62iWzqajW5kfSdjUL4abfew5domSKkTXyYJY"
 			]
 		},
 		"src/Structs.sol": {
-			"keccak256": "0x632d21ad7bdfd44c50a9b9451f285d5ed5fba7de3b2728400243447e0fb887ea",
+			"keccak256": "0x19ee06e90087cec46f0814c8ae0817379205a8d5d44e5fce11f94f9ed5132dd3",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://68f6c541d31c50da8c0c6ae9a6153748b4f2140535af96a1e3cb6c51193e311d",
-				"dweb:/ipfs/QmWs85g5mn97ufQkAvbEigtFu7jUPhGZi5CLXwB7LdPxUZ"
+				"bzz-raw://9e2bd9ddff6ee6e9e2906246847a7ed44de01055214cb6a5904ce581058e9212",
+				"dweb:/ipfs/QmVXCNFfqya8KYYy26ZydmZc7Es54dGvenDA88XmADAzEW"
 			]
 		},
 		"src/external/IPayloadExecutor.sol": {
@@ -1465,19 +1335,27 @@
 			]
 		},
 		"src/interfaces/ISliceCore.sol": {
-			"keccak256": "0xbb7bfb945a55369d614638ea7aa39db235aae79706454da3d6f5276cdb8ad448",
+			"keccak256": "0xbdbf01583dc6d790cf0716fa5518c02efe704fa01108301a4ad7d6fff1698e24",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://52ca4e5d3d7a1caa95bbef43b453c284a364537badcae0eb0d4d9801b79a7639",
-				"dweb:/ipfs/QmYtVQBdq1584uAEc38KasqibZkggPLs5xsEimSopjCFtQ"
+				"bzz-raw://e9074932cc7cf975556ae6317ac1cbbad5afcce49b2e7ce48aee2a96fe7beb74",
+				"dweb:/ipfs/QmQsyByWBmDpAuz2aUzgZ6MZ3kxvg2ZzxM4g9C1aKHim4y"
 			]
 		},
 		"src/interfaces/ISliceToken.sol": {
-			"keccak256": "0x0435fa9cb4d722eda6a3ae443ea825a067dc3d25e29920cfa816b157f49fd659",
+			"keccak256": "0x8a5e343ca9f7cf1f77014fc53369da26bab62254a3bc77c5df9ae291f178271f",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://cc2bff9ee2f97a0561b8467cbb7056dda4f4f8617e1bfb283d9ff370ec0f1f6a",
-				"dweb:/ipfs/QmSSzgAzCtFZdsLHyR5nyazRpDnVxw4rGgi3y6egfykAGX"
+				"bzz-raw://c4988575cd49d13c11dfea51142cac3693b87233d4c166a482649fac8465e3a4",
+				"dweb:/ipfs/QmTgsE2DUUyvbFVsZ1qwSyvgaQjZFhx5hNrADQtaYF8fT5"
+			]
+		},
+		"src/libs/CrossChainData.sol": {
+			"keccak256": "0x4abfd72f54348fccd2631071cfb49ca19bac519d6cc82e91416a5851d585a606",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://b6731e7ecfdd52dfb9d44f9ec1903d484e983db02c8ebaaebbc83183a894adb3",
+				"dweb:/ipfs/QmPwEBTPBWDi79N4fLrLS2AYhsYG1vrQQLA1e9Dx2v7fDJ"
 			]
 		},
 		"src/utils/Utils.sol": {

@@ -24,16 +24,6 @@
 					},
 					{
 						"internalType": "address",
-						"name": "_axelarAdapter",
-						"type": "address"
-					},
-					{
-						"internalType": "address",
-						"name": "_partner",
-						"type": "address"
-					},
-					{
-						"internalType": "address",
 						"name": "_lzEndpoint",
 						"type": "address"
 					},
@@ -302,19 +292,6 @@
 				"type": "function"
 			},
 			{
-				"inputs": [],
-				"name": "axelarAdapter",
-				"outputs": [
-					{
-						"internalType": "address",
-						"name": "",
-						"type": "address"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
 				"inputs": [
 					{
 						"internalType": "address",
@@ -452,51 +429,6 @@
 			{
 				"inputs": [
 					{
-						"internalType": "uint256",
-						"name": "_idx",
-						"type": "uint256"
-					}
-				],
-				"name": "getRegisteredSliceToken",
-				"outputs": [
-					{
-						"internalType": "address",
-						"name": "",
-						"type": "address"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "getRegisteredSliceTokens",
-				"outputs": [
-					{
-						"internalType": "address[]",
-						"name": "",
-						"type": "address[]"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "getRegisteredSliceTokensCount",
-				"outputs": [
-					{
-						"internalType": "uint256",
-						"name": "",
-						"type": "uint256"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
 						"internalType": "address",
 						"name": "_token",
 						"type": "address"
@@ -520,54 +452,6 @@
 					{
 						"internalType": "bool",
 						"name": "",
-						"type": "bool"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "lastReceive",
-				"outputs": [
-					{
-						"internalType": "address",
-						"name": "msgsender",
-						"type": "address"
-					},
-					{
-						"internalType": "bytes32",
-						"name": "partner",
-						"type": "bytes32"
-					},
-					{
-						"internalType": "bytes32",
-						"name": "id",
-						"type": "bytes32"
-					},
-					{
-						"internalType": "bool",
-						"name": "isok",
-						"type": "bool"
-					},
-					{
-						"internalType": "bool",
-						"name": "isEndpoint",
-						"type": "bool"
-					},
-					{
-						"internalType": "bool",
-						"name": "isPartner",
-						"type": "bool"
-					},
-					{
-						"internalType": "bool",
-						"name": "isRegistered",
-						"type": "bool"
-					},
-					{
-						"internalType": "bool",
-						"name": "isSuccess",
 						"type": "bool"
 					}
 				],
@@ -635,19 +519,6 @@
 				"name": "lzReceive",
 				"outputs": [],
 				"stateMutability": "payable",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "lzSendOpts",
-				"outputs": [
-					{
-						"internalType": "bytes",
-						"name": "",
-						"type": "bytes"
-					}
-				],
-				"stateMutability": "view",
 				"type": "function"
 			},
 			{
@@ -720,7 +591,7 @@
 			},
 			{
 				"inputs": [],
-				"name": "partnerSliceCore",
+				"name": "partner",
 				"outputs": [
 					{
 						"internalType": "address",
@@ -808,80 +679,13 @@
 				"inputs": [
 					{
 						"internalType": "bytes32",
-						"name": "_rebalanceID",
-						"type": "bytes32"
-					},
-					{
-						"components": [
-							{
-								"internalType": "uint256",
-								"name": "chainId",
-								"type": "uint256"
-							},
-							{
-								"internalType": "address",
-								"name": "token",
-								"type": "address"
-							},
-							{
-								"internalType": "uint256",
-								"name": "units",
-								"type": "uint256"
-							}
-						],
-						"internalType": "struct Position[]",
-						"name": "_positions",
-						"type": "tuple[]"
-					}
-				],
-				"name": "rebalanceUnderlying",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "bytes32",
 						"name": "_redeemID",
 						"type": "bytes32"
-					},
-					{
-						"components": [
-							{
-								"internalType": "bytes32",
-								"name": "id",
-								"type": "bytes32"
-							},
-							{
-								"internalType": "uint256",
-								"name": "quantity",
-								"type": "uint256"
-							},
-							{
-								"internalType": "address",
-								"name": "user",
-								"type": "address"
-							},
-							{
-								"internalType": "enum TransactionState",
-								"name": "state",
-								"type": "uint8"
-							},
-							{
-								"internalType": "bytes",
-								"name": "data",
-								"type": "bytes"
-							}
-						],
-						"internalType": "struct SliceTransactionInfo",
-						"name": "_txInfo",
-						"type": "tuple"
 					}
 				],
 				"name": "redeemUnderlying",
 				"outputs": [],
-				"stateMutability": "nonpayable",
+				"stateMutability": "payable",
 				"type": "function"
 			},
 			{
@@ -958,38 +762,12 @@
 			{
 				"inputs": [
 					{
-						"internalType": "bytes",
-						"name": "_opts",
-						"type": "bytes"
-					}
-				],
-				"name": "setLzSendOpts",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
 						"internalType": "address",
 						"name": "_partner",
 						"type": "address"
 					}
 				],
 				"name": "setPartner",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "uint256",
-						"name": "_payloadGas",
-						"type": "uint256"
-					}
-				],
-				"name": "setPayloadGas",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -1086,6 +864,13 @@
 				"type": "function"
 			},
 			{
+				"inputs": [],
+				"name": "withdraw",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
 				"stateMutability": "payable",
 				"type": "receive"
 			}
@@ -1132,15 +917,6 @@
 				"createSlice(string,string,(uint256,address,uint256)[])": {
 					"details": "See ISliceCore - createSlice"
 				},
-				"getRegisteredSliceToken(uint256)": {
-					"details": "See ISliceCore - getRegisteredSliceToken"
-				},
-				"getRegisteredSliceTokens()": {
-					"details": "See ISliceCore - getRegisteredSliceTokens"
-				},
-				"getRegisteredSliceTokensCount()": {
-					"details": "See ISliceCore - getRegisteredSliceTokensCount"
-				},
 				"isSliceTokenRegistered(address)": {
 					"details": "See ISliceCore - isSliceTokenRegistered"
 				},
@@ -1175,10 +951,7 @@
 				"purchaseUnderlyingAssets(bytes32,uint256,uint256[],bytes[])": {
 					"details": "See ISliceCore - purchaseUnderlyingAssets"
 				},
-				"rebalanceUnderlying(bytes32,(uint256,address,uint256)[])": {
-					"details": "See ISliceCore - rebalanceUnderlying"
-				},
-				"redeemUnderlying(bytes32,(bytes32,uint256,address,uint8,bytes))": {
+				"redeemUnderlying(bytes32)": {
 					"details": "See ISliceCore - redeemUnderlying"
 				},
 				"renounceOwnership()": {
@@ -1245,7 +1018,7 @@
 		},
 		"optimizer": {
 			"enabled": true,
-			"runs": 200
+			"runs": 50
 		},
 		"remappings": [
 			":@lz-oapp-v2/=lib/lz-oapp-v2/src/",
@@ -1257,11 +1030,11 @@
 	},
 	"sources": {
 		"src/utils/TenderlyUpload.sol": {
-			"keccak256": "0x4816b573532cc74f21c5b77009af68a51d1f75cf7d78944891dab9f0d11e7132",
+			"keccak256": "0xd44221ee180c1a062de1ebc0829cb284d723e63f0f2c3670150c06e23d206657",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://4417e28ad830200f0bf2bbb96057393e3e6c9a344b4a7114dbcf69d0f5b7949b",
-				"dweb:/ipfs/QmZX1cxB5W4vyDhNqjVd6mBo62Y6C2NrQLr947Apep8Jy4"
+				"bzz-raw://369ce46afdefe5ea91a495bb01435edc31c79ba683a007ef112fc977b72d6ab0",
+				"dweb:/ipfs/QmRsYsdHqqQw9NSsXD1q88eep75SFZZDvGf62i9UXtEF2s"
 			]
 		}
 	},

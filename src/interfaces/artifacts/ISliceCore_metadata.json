@@ -1,0 +1,599 @@
+{
+	"compiler": {
+		"version": "0.8.25+commit.b61c2a91"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					}
+				],
+				"name": "SliceTokenCreated",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "sliceTokenQuantity",
+						"type": "uint256"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					}
+				],
+				"name": "UnderlyingAssetsPurchased",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					}
+				],
+				"name": "UnderlyingAssetsRebalanced",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "token",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "uint256",
+						"name": "sliceTokenQuantity",
+						"type": "uint256"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					}
+				],
+				"name": "UnderlyingAssetsRedeemed",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"components": [
+							{
+								"internalType": "uint32",
+								"name": "srcEid",
+								"type": "uint32"
+							},
+							{
+								"internalType": "bytes32",
+								"name": "sender",
+								"type": "bytes32"
+							},
+							{
+								"internalType": "uint64",
+								"name": "nonce",
+								"type": "uint64"
+							}
+						],
+						"internalType": "struct Origin",
+						"name": "_origin",
+						"type": "tuple"
+					}
+				],
+				"name": "allowInitializePath",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_user",
+						"type": "address"
+					}
+				],
+				"name": "canCreateSlice",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_user",
+						"type": "address"
+					},
+					{
+						"internalType": "bool",
+						"name": "_isApproved",
+						"type": "bool"
+					}
+				],
+				"name": "changeApprovedSliceTokenCreator",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bool",
+						"name": "_isEnabled",
+						"type": "bool"
+					}
+				],
+				"name": "changeSliceTokenCreationEnabled",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "string",
+						"name": "_name",
+						"type": "string"
+					},
+					{
+						"internalType": "string",
+						"name": "_symbol",
+						"type": "string"
+					},
+					{
+						"components": [
+							{
+								"internalType": "uint256",
+								"name": "chainId",
+								"type": "uint256"
+							},
+							{
+								"internalType": "address",
+								"name": "token",
+								"type": "address"
+							},
+							{
+								"internalType": "uint256",
+								"name": "units",
+								"type": "uint256"
+							}
+						],
+						"internalType": "struct Position[]",
+						"name": "_positions",
+						"type": "tuple[]"
+					}
+				],
+				"name": "createSlice",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_idx",
+						"type": "uint256"
+					}
+				],
+				"name": "getRegisteredSliceToken",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getRegisteredSliceTokens",
+				"outputs": [
+					{
+						"internalType": "address[]",
+						"name": "",
+						"type": "address[]"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getRegisteredSliceTokensCount",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_token",
+						"type": "address"
+					}
+				],
+				"name": "isSliceTokenRegistered",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"components": [
+							{
+								"internalType": "uint32",
+								"name": "srcEid",
+								"type": "uint32"
+							},
+							{
+								"internalType": "bytes32",
+								"name": "sender",
+								"type": "bytes32"
+							},
+							{
+								"internalType": "uint64",
+								"name": "nonce",
+								"type": "uint64"
+							}
+						],
+						"internalType": "struct Origin",
+						"name": "_origin",
+						"type": "tuple"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "_guid",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_message",
+						"type": "bytes"
+					},
+					{
+						"internalType": "address",
+						"name": "_executor",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_extraData",
+						"type": "bytes"
+					}
+				],
+				"name": "lzReceive",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint32",
+						"name": "_eid",
+						"type": "uint32"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "_sender",
+						"type": "bytes32"
+					}
+				],
+				"name": "nextNonce",
+				"outputs": [
+					{
+						"internalType": "uint64",
+						"name": "",
+						"type": "uint64"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes",
+						"name": "_data",
+						"type": "bytes"
+					}
+				],
+				"name": "onPayloadReceive",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "_mintID",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_sliceTokenQuantity",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256[]",
+						"name": "_maxEstimatedPrices",
+						"type": "uint256[]"
+					},
+					{
+						"internalType": "bytes[]",
+						"name": "_routes",
+						"type": "bytes[]"
+					}
+				],
+				"name": "purchaseUnderlyingAssets",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "_redeemID",
+						"type": "bytes32"
+					}
+				],
+				"name": "redeemUnderlying",
+				"outputs": [],
+				"stateMutability": "payable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {
+				"canCreateSlice(address)": {
+					"details": "Returns whether a given address is authorized to create a Slice token.",
+					"params": {
+						"_user": "The address of the user"
+					}
+				},
+				"changeApprovedSliceTokenCreator(address,bool)": {
+					"details": "Adds or removes an address from the list of addresses that can create new Slice tokens",
+					"params": {
+						"_isApproved": "Whether to approve/disapprove ",
+						"_user": "The address to approve/remove"
+					}
+				},
+				"changeSliceTokenCreationEnabled(bool)": {
+					"details": "Enables/disables the creation of new Slice tokens. Can only be called by contract owner.",
+					"params": {
+						"_isEnabled": "If true token creation is enabled, otherwise disabled"
+					}
+				},
+				"createSlice(string,string,(uint256,address,uint256)[])": {
+					"details": "Deploys a new Slice token contract. Can only be called by verified addresses.",
+					"params": {
+						"_positions": "The Slice token's underlying positions "
+					}
+				},
+				"getRegisteredSliceToken(uint256)": {
+					"details": "Returns a registered Slice token at the given index.",
+					"params": {
+						"_idx": "The index in the registeredSliceTokens array."
+					}
+				},
+				"getRegisteredSliceTokens()": {
+					"details": "Returns all the registered Slice tokens."
+				},
+				"getRegisteredSliceTokensCount()": {
+					"details": "Returns the number of Slice tokens registered (created) in the contract."
+				},
+				"isSliceTokenRegistered(address)": {
+					"details": "Returns whether a given address is a registered slice token or not.",
+					"params": {
+						"_token": "The address to check"
+					}
+				},
+				"onPayloadReceive(bytes)": {
+					"params": {
+						"_data": "The data to pass to payload executor"
+					}
+				},
+				"purchaseUnderlyingAssets(bytes32,uint256,uint256[],bytes[])": {
+					"details": "Purchases the underlying assets for a given slice token (msg.sender).",
+					"params": {
+						"_maxEstimatedPrices": "The maximum estimated price for each underlying asset. In USDC (6 decimals)",
+						"_mintID": "The ID that uniquely identifies this mint transaction within the sysem",
+						"_sliceTokenQuantity": "The quantity of slice tokens to purchase the underlying assets for"
+					}
+				},
+				"redeemUnderlying(bytes32)": {
+					"details": "Transfers out the underlying assets for a given Slice token to the given user.",
+					"params": {
+						"_redeemID": "The ID that uniquely identifies this transaction within the system"
+					}
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"onPayloadReceive(bytes)": {
+					"notice": "Execute a payload"
+				}
+			},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"src/interfaces/ISliceCore.sol": "ISliceCore"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": [
+			":@lz-oapp-v2/=lib/lz-oapp-v2/src/",
+			":@openzeppelin/=lib/openzeppelin-contracts/",
+			":ds-test/=lib/forge-std/lib/ds-test/src/",
+			":forge-std/=lib/forge-std/",
+			":forge-std/=lib/forge-std/src/"
+		]
+	},
+	"sources": {
+		"lib/lz-oapp-v2/src/interfaces/ILayerZeroEndpointV2.sol": {
+			"keccak256": "0x27a280b392d4a88277d9a6c1ee2da41672dde7c5cf9749454eb5164841e15795",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://1b7a9c5b463df4fe6a89d4bf4049146a5a1cca1fa0297493293954bddb54c79d",
+				"dweb:/ipfs/QmZmnDoTqA8fN9W3RRtiZjN1ZVv26pMb9YG4XeKKUVRsN6"
+			]
+		},
+		"lib/lz-oapp-v2/src/interfaces/ILayerZeroReceiver.sol": {
+			"keccak256": "0x45659938159561648f88b65191b498f5c95bbc5d0ec0653e3bb60225a8f08b93",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://e0bf882e87bf2d3882adf670c737ec1dfc5a9a80bbb152fe4d21c0128a7fe2cd",
+				"dweb:/ipfs/QmerZer7TyFUGXfNnZGykQSBMDaWGC7hvNA1syMjStg5FV"
+			]
+		},
+		"lib/lz-oapp-v2/src/interfaces/IMessageLibManager.sol": {
+			"keccak256": "0xec03fac058158437891aaa048135d91f0a5ef1d55760a1ad25dcff050bbcdd91",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://8c5c03ec168a27af2b6b0c1fa49adead7b1c1b023f86cec3ff80aaf3c2185067",
+				"dweb:/ipfs/QmWC2omNv33EPmxJ5SDuX7RNu4wq4to8Sxm1dGoZgbExW6"
+			]
+		},
+		"lib/lz-oapp-v2/src/interfaces/IMessagingChannel.sol": {
+			"keccak256": "0x4930fa16cf62a0bf89739565b97f297d516a52c5217ce69e5f152e1d5cd05b3d",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://6e263c34aee161f7f77e84b71fe7527fa86e08c1d2ca6d25f70eff76db4d2ac1",
+				"dweb:/ipfs/QmQoA81q5f6MkR7Y7GpoiEmSzh7YLPhfC8dkQsZPNikpdw"
+			]
+		},
+		"lib/lz-oapp-v2/src/interfaces/IMessagingComposer.sol": {
+			"keccak256": "0xbdbb99c8e0931dc4fdbefda6d8644ad8aa31ca83f341d8c41325aa6d2b81f894",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://d27d21c1585b021d4f177a66dabc2c4d874eee5412906ff057f555d7471d8e53",
+				"dweb:/ipfs/QmXH1KnuwtvYMYVWXeKfSrTVnL3x3jnUrCPUMfbAPqLSPH"
+			]
+		},
+		"lib/lz-oapp-v2/src/interfaces/IMessagingContext.sol": {
+			"keccak256": "0xf24fb2cc3e26561bb3d5b5fb6ebd8ed9dbff76db1808355652f26a284fd0dd40",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://5ebb37acd6c9f860075e95dd2d63a704f8a07860453401adf4517381ae3354ac",
+				"dweb:/ipfs/QmeLPoud1i1QvZrUckJzeVbkWYpJZ3FufXeeQiUL7xv4EE"
+			]
+		},
+		"lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol": {
+			"keccak256": "0xc6a8ff0ea489379b61faa647490411b80102578440ab9d84e9a957cc12164e70",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://0ea104e577e63faea3b69c415637e99e755dcbf64c5833d7140c35a714d6d90c",
+				"dweb:/ipfs/Qmau6x4Ns9XdyynRCNNp3RhLqijJjFm7z5fyZazfYFGYdq"
+			]
+		},
+		"src/Structs.sol": {
+			"keccak256": "0x19ee06e90087cec46f0814c8ae0817379205a8d5d44e5fce11f94f9ed5132dd3",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://9e2bd9ddff6ee6e9e2906246847a7ed44de01055214cb6a5904ce581058e9212",
+				"dweb:/ipfs/QmVXCNFfqya8KYYy26ZydmZc7Es54dGvenDA88XmADAzEW"
+			]
+		},
+		"src/external/IPayloadExecutor.sol": {
+			"keccak256": "0x34e1342ae050cf540616f5ec187aaebc256cd9a9360972ef875a06c198b5a7fd",
+			"license": "GPL-3.0-or-later",
+			"urls": [
+				"bzz-raw://f049be8e6384e9e9f3f8b3b8d5e83b34e007104cc057e62f2197754b7d45804b",
+				"dweb:/ipfs/QmTVX4uL7AFwd5PLstL9uyMXW911RcM1qiPkecCv9yiFNY"
+			]
+		},
+		"src/interfaces/ISliceCore.sol": {
+			"keccak256": "0x13ecebdfab5d18e17aeb3c84b4081ad6368d49032346e04fe187328eea7f5e90",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://8e3197ac16a237fa8ac47669c2453dc7de0e452bf4a511b2e3b079b7a9b91f44",
+				"dweb:/ipfs/QmTTtwtwYTt5pNjyd4DVeGR9mNW7oou7UBRvEpjpnWdNet"
+			]
+		},
+		"src/interfaces/ISliceToken.sol": {
+			"keccak256": "0x8a5e343ca9f7cf1f77014fc53369da26bab62254a3bc77c5df9ae291f178271f",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://c4988575cd49d13c11dfea51142cac3693b87233d4c166a482649fac8465e3a4",
+				"dweb:/ipfs/QmTgsE2DUUyvbFVsZ1qwSyvgaQjZFhx5hNrADQtaYF8fT5"
+			]
+		}
+	},
+	"version": 1
+}

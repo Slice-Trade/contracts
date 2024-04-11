@@ -216,51 +216,6 @@
 			{
 				"inputs": [
 					{
-						"internalType": "uint256",
-						"name": "_idx",
-						"type": "uint256"
-					}
-				],
-				"name": "getRegisteredSliceToken",
-				"outputs": [
-					{
-						"internalType": "address",
-						"name": "",
-						"type": "address"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "getRegisteredSliceTokens",
-				"outputs": [
-					{
-						"internalType": "address[]",
-						"name": "",
-						"type": "address[]"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [],
-				"name": "getRegisteredSliceTokensCount",
-				"outputs": [
-					{
-						"internalType": "uint256",
-						"name": "",
-						"type": "uint256"
-					}
-				],
-				"stateMutability": "view",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
 						"internalType": "address",
 						"name": "_token",
 						"type": "address"
@@ -396,80 +351,13 @@
 				"inputs": [
 					{
 						"internalType": "bytes32",
-						"name": "_rebalanceID",
-						"type": "bytes32"
-					},
-					{
-						"components": [
-							{
-								"internalType": "uint256",
-								"name": "chainId",
-								"type": "uint256"
-							},
-							{
-								"internalType": "address",
-								"name": "token",
-								"type": "address"
-							},
-							{
-								"internalType": "uint256",
-								"name": "units",
-								"type": "uint256"
-							}
-						],
-						"internalType": "struct Position[]",
-						"name": "_positions",
-						"type": "tuple[]"
-					}
-				],
-				"name": "rebalanceUnderlying",
-				"outputs": [],
-				"stateMutability": "nonpayable",
-				"type": "function"
-			},
-			{
-				"inputs": [
-					{
-						"internalType": "bytes32",
 						"name": "_redeemID",
 						"type": "bytes32"
-					},
-					{
-						"components": [
-							{
-								"internalType": "bytes32",
-								"name": "id",
-								"type": "bytes32"
-							},
-							{
-								"internalType": "uint256",
-								"name": "quantity",
-								"type": "uint256"
-							},
-							{
-								"internalType": "address",
-								"name": "user",
-								"type": "address"
-							},
-							{
-								"internalType": "enum TransactionState",
-								"name": "state",
-								"type": "uint8"
-							},
-							{
-								"internalType": "bytes",
-								"name": "data",
-								"type": "bytes"
-							}
-						],
-						"internalType": "struct SliceTransactionInfo",
-						"name": "_txInfo",
-						"type": "tuple"
 					}
 				],
 				"name": "redeemUnderlying",
 				"outputs": [],
-				"stateMutability": "nonpayable",
+				"stateMutability": "payable",
 				"type": "function"
 			}
 		],
@@ -501,18 +389,6 @@
 						"_positions": "The Slice token's underlying positions "
 					}
 				},
-				"getRegisteredSliceToken(uint256)": {
-					"details": "Returns a registered Slice token at the given index.",
-					"params": {
-						"_idx": "The index in the registeredSliceTokens array."
-					}
-				},
-				"getRegisteredSliceTokens()": {
-					"details": "Returns all the registered Slice tokens."
-				},
-				"getRegisteredSliceTokensCount()": {
-					"details": "Returns the number of Slice tokens registered (created) in the contract."
-				},
 				"isSliceTokenRegistered(address)": {
 					"details": "Returns whether a given address is a registered slice token or not.",
 					"params": {
@@ -532,18 +408,10 @@
 						"_sliceTokenQuantity": "The quantity of slice tokens to purchase the underlying assets for"
 					}
 				},
-				"rebalanceUnderlying(bytes32,(uint256,address,uint256)[])": {
-					"details": "Sells/buy the Slice token (msg.sender) underlying assets to rebalance to the new positions",
-					"params": {
-						"_positions": "The new positions to rebalance to",
-						"_rebalanceID": "The ID that uniquely identifies this transaction within the system"
-					}
-				},
-				"redeemUnderlying(bytes32,(bytes32,uint256,address,uint8,bytes))": {
+				"redeemUnderlying(bytes32)": {
 					"details": "Transfers out the underlying assets for a given Slice token to the given user.",
 					"params": {
-						"_redeemID": "The ID that uniquely identifies this transaction within the system",
-						"_txInfo": "The details of the underlying asset redeeming."
+						"_redeemID": "The ID that uniquely identifies this transaction within the system"
 					}
 				}
 			},
@@ -570,7 +438,7 @@
 		},
 		"optimizer": {
 			"enabled": true,
-			"runs": 200
+			"runs": 50
 		},
 		"remappings": [
 			":@lz-oapp-v2/=lib/lz-oapp-v2/src/",
@@ -582,11 +450,11 @@
 	},
 	"sources": {
 		"src/utils/TenderlyUpload.sol": {
-			"keccak256": "0x4816b573532cc74f21c5b77009af68a51d1f75cf7d78944891dab9f0d11e7132",
+			"keccak256": "0xd44221ee180c1a062de1ebc0829cb284d723e63f0f2c3670150c06e23d206657",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://4417e28ad830200f0bf2bbb96057393e3e6c9a344b4a7114dbcf69d0f5b7949b",
-				"dweb:/ipfs/QmZX1cxB5W4vyDhNqjVd6mBo62Y6C2NrQLr947Apep8Jy4"
+				"bzz-raw://369ce46afdefe5ea91a495bb01435edc31c79ba683a007ef112fc977b72d6ab0",
+				"dweb:/ipfs/QmRsYsdHqqQw9NSsXD1q88eep75SFZZDvGf62i9UXtEF2s"
 			]
 		}
 	},

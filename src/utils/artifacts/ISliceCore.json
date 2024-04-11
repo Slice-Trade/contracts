@@ -54,16 +54,12 @@
 			"changeApprovedSliceTokenCreator(address,bool)": "a7dbb845",
 			"changeSliceTokenCreationEnabled(bool)": "6e3f5447",
 			"createSlice(string,string,(uint256,address,uint256)[])": "290dfdb2",
-			"getRegisteredSliceToken(uint256)": "f476b41a",
-			"getRegisteredSliceTokens()": "982c26d4",
-			"getRegisteredSliceTokensCount()": "3a3e8443",
 			"isSliceTokenRegistered(address)": "8fb84f31",
 			"lzReceive((uint32,bytes32,uint64),bytes32,bytes,address,bytes)": "13137d65",
 			"nextNonce(uint32,bytes32)": "7d25a05e",
 			"onPayloadReceive(bytes)": "a6ac3db6",
 			"purchaseUnderlyingAssets(bytes32,uint256,uint256[],bytes[])": "3a135554",
-			"rebalanceUnderlying(bytes32,(uint256,address,uint256)[])": "0993035c",
-			"redeemUnderlying(bytes32,(bytes32,uint256,address,uint8,bytes))": "82c325d2"
+			"redeemUnderlying(bytes32)": "697a41f7"
 		}
 	},
 	"abi": [
@@ -278,51 +274,6 @@
 		{
 			"inputs": [
 				{
-					"internalType": "uint256",
-					"name": "_idx",
-					"type": "uint256"
-				}
-			],
-			"name": "getRegisteredSliceToken",
-			"outputs": [
-				{
-					"internalType": "address",
-					"name": "",
-					"type": "address"
-				}
-			],
-			"stateMutability": "view",
-			"type": "function"
-		},
-		{
-			"inputs": [],
-			"name": "getRegisteredSliceTokens",
-			"outputs": [
-				{
-					"internalType": "address[]",
-					"name": "",
-					"type": "address[]"
-				}
-			],
-			"stateMutability": "view",
-			"type": "function"
-		},
-		{
-			"inputs": [],
-			"name": "getRegisteredSliceTokensCount",
-			"outputs": [
-				{
-					"internalType": "uint256",
-					"name": "",
-					"type": "uint256"
-				}
-			],
-			"stateMutability": "view",
-			"type": "function"
-		},
-		{
-			"inputs": [
-				{
 					"internalType": "address",
 					"name": "_token",
 					"type": "address"
@@ -458,80 +409,13 @@
 			"inputs": [
 				{
 					"internalType": "bytes32",
-					"name": "_rebalanceID",
-					"type": "bytes32"
-				},
-				{
-					"components": [
-						{
-							"internalType": "uint256",
-							"name": "chainId",
-							"type": "uint256"
-						},
-						{
-							"internalType": "address",
-							"name": "token",
-							"type": "address"
-						},
-						{
-							"internalType": "uint256",
-							"name": "units",
-							"type": "uint256"
-						}
-					],
-					"internalType": "struct Position[]",
-					"name": "_positions",
-					"type": "tuple[]"
-				}
-			],
-			"name": "rebalanceUnderlying",
-			"outputs": [],
-			"stateMutability": "nonpayable",
-			"type": "function"
-		},
-		{
-			"inputs": [
-				{
-					"internalType": "bytes32",
 					"name": "_redeemID",
 					"type": "bytes32"
-				},
-				{
-					"components": [
-						{
-							"internalType": "bytes32",
-							"name": "id",
-							"type": "bytes32"
-						},
-						{
-							"internalType": "uint256",
-							"name": "quantity",
-							"type": "uint256"
-						},
-						{
-							"internalType": "address",
-							"name": "user",
-							"type": "address"
-						},
-						{
-							"internalType": "enum TransactionState",
-							"name": "state",
-							"type": "uint8"
-						},
-						{
-							"internalType": "bytes",
-							"name": "data",
-							"type": "bytes"
-						}
-					],
-					"internalType": "struct SliceTransactionInfo",
-					"name": "_txInfo",
-					"type": "tuple"
 				}
 			],
 			"name": "redeemUnderlying",
 			"outputs": [],
-			"stateMutability": "nonpayable",
+			"stateMutability": "payable",
 			"type": "function"
 		}
 	]

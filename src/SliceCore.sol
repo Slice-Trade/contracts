@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
 import {MessagingParams} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
-import {OptionsBuilder} from "@lz-oapp-v2/libs/OptionsBuilder.sol";
 import "./external/ISushiXSwapV2.sol";
 import "./external/IRouteProcessor.sol";
 import "./external/IStargateAdapter.sol";
@@ -15,11 +14,12 @@ import "./external/ISushiXSwapV2Adapter.sol";
 import "./interfaces/ISliceCore.sol";
 import "./utils/Utils.sol";
 import "./interfaces/IChainInfo.sol";
+import "./interfaces/ISliceTokenDeployer.sol";
 import "./SliceToken.sol";
 
-contract SliceCore is ISliceCore, Ownable, OApp {
-    using OptionsBuilder for bytes;
+import "./libs/CrossChainData.sol";
 
+contract SliceCore is ISliceCore, Ownable, OApp {
     address public immutable lzEndpoint;
 
     address public paymentToken;
@@ -27,7 +27,6 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     ISushiXSwapV2 public sushiXSwap;
 
     address public stargateAdapter;
-
     address public axelarAdapter;
 
     IChainInfo public chainInfo;
@@ -42,36 +41,39 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
     mapping(bytes32 => TransactionCompleteSignals) public transactionCompleteSignals;
 
-    address public partnerSliceCore;
-
     uint256 public payloadGas = 500000; // TODO: Do gas estimation before sending tx
 
     uint256 lzSendMsgValue = 758353551570386; // TODO: Do estimation for msg send value
+
+    address public partner;
+
+    address public sliceTokenDeployer;
 
     constructor(
         address _paymentToken,
         address _sushiXSwap,
         address _stargateAdapter,
         address _axelarAdapter,
-        address _partner,
         address _lzEndpoint,
-        address _chainInfo
+        address _chainInfo,
+        address _sliceTokenDeployer
     ) Ownable(msg.sender) OApp(_lzEndpoint, msg.sender) {
         paymentToken = _paymentToken;
         sushiXSwap = ISushiXSwapV2(_sushiXSwap);
         chainInfo = IChainInfo(_chainInfo);
         stargateAdapter = _stargateAdapter;
         axelarAdapter = _axelarAdapter;
-        partnerSliceCore = _partner;
         lzEndpoint = _lzEndpoint;
+        sliceTokenDeployer = _sliceTokenDeployer;
     }
 
     function setPartner(address _partner) external onlyOwner {
-        partnerSliceCore = _partner;
+        partner = _partner;
     }
 
-    function setPayloadGas(uint256 _payloadGas) external onlyOwner {
-        payloadGas = _payloadGas;
+    function withdraw() external onlyOwner {
+        (bool success,) = msg.sender.call{value: address(this).balance}("");
+        require(success);
     }
 
     /**
@@ -84,14 +86,17 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         require(canCreateSlice(msg.sender), "SliceCore: Unauthorized caller");
         require(isTokenCreationEnabled, "SliceCore: Slice token creation disabled");
 
-        SliceToken token = new SliceToken(_name, _symbol, _positions, paymentToken, address(this));
-        registeredSliceTokens[address(token)] = true;
-        registeredSliceTokensArray.push(address(token));
+        address token = ISliceTokenDeployer(sliceTokenDeployer).deploySliceToken(
+            _name, _symbol, _positions, paymentToken, address(this)
+        );
+
+        registeredSliceTokens[token] = true;
+        registeredSliceTokensArray.push(token);
         registeredSliceTokensCount++;
 
-        emit SliceTokenCreated(address(token));
+        emit SliceTokenCreated(token);
 
-        return address(token);
+        return token;
     }
 
     /**
@@ -163,7 +168,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
         // if the asset is local execute the transfer right away
         for (uint256 i = 0; i < positions.length; i++) {
-            uint256 _amount = calculateAmountOutMin(txInfo.quantity, positions[i].units);
+            uint256 _amount = CrossChainData.calculateAmountOutMin(txInfo.quantity, positions[i].units);
 
             if (isPositionLocal(positions[i])) {
                 bool success = IERC20(positions[i].token).transfer(txInfo.user, _amount);
@@ -185,7 +190,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
                 );
                 bytes memory ccsEncoded = abi.encode(ccs);
 
-                bytes memory _lzSendOpts = createLzSendOpts(100000, 100000000000000);
+                bytes memory _lzSendOpts = CrossChainData.createLzSendOpts(200000, 500000000000000);
 
                 endpoint.send{value: msg.value}(
                     MessagingParams(
@@ -201,13 +206,6 @@ contract SliceCore is ISliceCore, Ownable, OApp {
             emit UnderlyingAssetsRedeemed(msg.sender, txInfo.quantity, txInfo.user);
             SliceToken(msg.sender).redeemComplete(_redeemID);
         }
-    }
-
-    /**
-     * @dev See ISliceCore - rebalanceUnderlying
-     */
-    function rebalanceUnderlying(bytes32 _rebalanceID, Position[] calldata _positions) external {
-        // TODO
     }
 
     /**
@@ -239,27 +237,6 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     }
 
     /**
-     * @dev See ISliceCore - getRegisteredSliceTokensCount
-     */
-    function getRegisteredSliceTokensCount() external view returns (uint256) {
-        return registeredSliceTokensCount;
-    }
-
-    /**
-     * @dev See ISliceCore - getRegisteredSliceTokens
-     */
-    function getRegisteredSliceTokens() external view returns (address[] memory) {
-        return registeredSliceTokensArray;
-    }
-
-    /**
-     * @dev See ISliceCore - getRegisteredSliceToken
-     */
-    function getRegisteredSliceToken(uint256 _idx) external view returns (address) {
-        return registeredSliceTokensArray[_idx];
-    }
-
-    /**
      * @dev See IPayloadExecutor - onPayloadReceive
      */
     function onPayloadReceive(bytes memory _data) external payable {
@@ -278,7 +255,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         // encode to bytes
         bytes memory ccsEncoded = abi.encode(ccs);
 
-        bytes memory _lzSendOpts = createLzSendOpts(200000, 500000000000000); // TODO: Calculate values programatically
+        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts(200000, 500000000000000); // TODO: Calculate values programatically
 
         // call send on layer zero endpoint
         endpoint.send{value: lzSendMsgValue}(
@@ -301,7 +278,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
         // verify that the msg came from the slice core address
         require(
-            address(uint160(uint256(_origin.sender))) == partnerSliceCore,
+            address(uint160(uint256(_origin.sender))) == partner,
             "SliceCore: lzSend not initiated by cross-chain SliceCore"
         );
 
@@ -347,10 +324,14 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
         bytes memory _ccsResponseEncoded = abi.encode(_ccsResponse);
 
-        bytes memory _lzSendOpts = createLzSendOpts(100000, 100000000000000);
+        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts(200000, 500000000000000);
 
-        endpoint.send{value: msg.value}(
-            MessagingParams(ccs.srcChainId, _getPeerOrRevert(ccs.srcChainId), _ccsResponseEncoded, _lzSendOpts, false),
+        Chain memory srcChain = chainInfo.getChainInfo(ccs.srcChainId);
+
+        endpoint.send{value: lzSendMsgValue}(
+            MessagingParams(
+                srcChain.lzEndpointId, _getPeerOrRevert(srcChain.lzEndpointId), _ccsResponseEncoded, _lzSendOpts, false
+            ),
             payable(address(this))
         );
     }
@@ -386,7 +367,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         IERC20(paymentToken).approve(address(sushiXSwap), _maxEstimatedPrice);
 
         uint256 amountIn = _maxEstimatedPrice;
-        uint256 amountOutMin = calculateAmountOutMin(_sliceTokenQuantity, _position.units);
+        uint256 amountOutMin = CrossChainData.calculateAmountOutMin(_sliceTokenQuantity, _position.units);
 
         IRouteProcessor.RouteProcessorData memory rpd = IRouteProcessor.RouteProcessorData({
             tokenIn: paymentToken,
@@ -416,24 +397,29 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     ) internal {
         IERC20(paymentToken).approve(address(sushiXSwap), _maxEstimatedPrice);
 
-        uint256 amountOutMin = calculateAmountOutMin(_sliceTokenQuantity, _position.units);
+        uint256 amountOutMin = CrossChainData.calculateAmountOutMin(_sliceTokenQuantity, _position.units);
 
         Chain memory dstChain = chainInfo.getChainInfo(_position.chainId);
 
-        bytes memory rpd_encoded_dst = createRouteProcessorDataEncoded(dstChain, _position.token, amountOutMin, _route);
+        bytes memory rpd_encoded_dst =
+            CrossChainData.createRouteProcessorDataEncoded(dstChain, _position.token, amountOutMin, partner, _route);
 
-        bytes memory payloadDataEncoded = createPayloadDataEncoded(_mintId, _position.token, amountOutMin, _txInfo.data);
+        bytes memory payloadDataEncoded = CrossChainData.createPayloadDataEncoded(
+            _mintId, _position.token, amountOutMin, partner, payloadGas, _txInfo.data
+        );
 
         // TODO: Estimate gas correctly for swap
-        uint256 gasNeeded = getGasNeeded(dstChain.stargateChainId, rpd_encoded_dst, payloadDataEncoded);
-
-        sushiXSwap.bridge{value: gasNeeded}(
+        sushiXSwap.bridge{
+            value: CrossChainData.getGasNeeded(
+                dstChain.stargateChainId, stargateAdapter, partner, rpd_encoded_dst, payloadDataEncoded
+                )
+        }(
             ISushiXSwapV2.BridgeParams({
                 refId: 0x0000,
                 adapter: stargateAdapter,
                 tokenIn: paymentToken,
                 amountIn: _maxEstimatedPrice,
-                to: partnerSliceCore, // TODO SliceCore deployed to all chains with same address!
+                to: partner, // TODO SliceCore deployed to all chains with same address!
                 adapterData: createAdapterData(dstChain, _maxEstimatedPrice, 550000)
             }), // bridge params
             _txInfo.user, // refund address
@@ -456,69 +442,8 @@ contract SliceCore is ISliceCore, Ownable, OApp {
             0, // amountMin,
             0, // dust
             _dstChain.stargateAdapter, // receiver
-            partnerSliceCore, // to
+            partner, // to
             gasForSwap // gas
-        );
-    }
-
-    function createRouteProcessorDataEncoded(
-        Chain memory _chainInfo,
-        address _token,
-        uint256 amountOutMin,
-        bytes memory _route
-    ) private view returns (bytes memory) {
-        return abi.encode(
-            IRouteProcessor.RouteProcessorData({
-                tokenIn: _chainInfo.paymentToken,
-                amountIn: 0, // amount in doesnt matter since we use amount bridged
-                tokenOut: _token,
-                amountOutMin: amountOutMin,
-                to: partnerSliceCore,
-                route: _route
-            })
-        );
-    }
-
-    function getGasNeeded(uint16 stargateChainId, bytes memory swapDataEncoded, bytes memory payloadDataEncoded)
-        private
-        view
-        returns (uint256)
-    {
-        (uint256 gasNeeded,) = IStargateAdapter(stargateAdapter).getFee(
-            stargateChainId,
-            1,
-            stargateAdapter,
-            550000,
-            0,
-            abi.encode(
-                partnerSliceCore, // to
-                swapDataEncoded, // swap data
-                payloadDataEncoded // payload data
-            )
-        );
-
-        return gasNeeded;
-    }
-
-    function createPayloadDataEncoded(bytes32 _mintId, address _token, uint256 amountOutMin, bytes memory _data)
-        private
-        view
-        returns (bytes memory)
-    {
-        return abi.encode(
-            ISushiXSwapV2Adapter.PayloadData(
-                partnerSliceCore,
-                payloadGas, // TODO verify gas
-                abi.encode(
-                    SlicePayloadData(
-                        block.chainid, // src chain id
-                        _mintId, //mint ID
-                        _token, // token Out
-                        amountOutMin, // amount out min
-                        _data // data
-                    )
-                ) // slice payload data
-            )
         );
     }
 
@@ -529,15 +454,28 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         return _transactionCompleteSignal.signals == _numOfPositions;
     }
 
-    // assuming 18 decimals... TODO: Do with other decimals
-    function calculateAmountOutMin(uint256 quantity, uint256 units) internal pure returns (uint256) {
-        uint256 result = (units * quantity) / 1 ether;
-        return result;
+    /**
+     * @dev See ISliceCore - getRegisteredSliceTokensCount
+     */
+    function getRegisteredSliceTokensCount() external view returns (uint256) {
+        return registeredSliceTokensCount;
     }
 
-    function createLzSendOpts(uint128 _gas, uint128 _value) internal pure returns (bytes memory) {
-        return OptionsBuilder.newOptions().addExecutorLzReceiveOption(_gas, _value);
+    /**
+     * @dev See ISliceCore - getRegisteredSliceTokens
+     */
+    function getRegisteredSliceTokens() external view returns (address[] memory) {
+        return registeredSliceTokensArray;
     }
 
+    /**
+     * @dev See ISliceCore - getRegisteredSliceToken
+     */
+    function getRegisteredSliceToken(uint256 _idx) external view returns (address) {
+        return registeredSliceTokensArray[_idx];
+    }
+
+    function rebalanceUnderlying(bytes32 _rebalanceID, Position[] calldata _positions) external {}
+    
     receive() external payable {}
 }

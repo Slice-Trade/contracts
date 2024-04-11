@@ -13,6 +13,7 @@ import "../src/SliceCore.sol";
 import "../src/SliceToken.sol";
 
 import "./mocks/SliceCoreMock.sol";
+import "../src/libs/SliceTokenDeployer.sol";
 
 contract SliceTokenTest is Helper {
     SliceCore core;
@@ -102,14 +103,16 @@ contract SliceTokenTest is Helper {
 
         ChainInfo chainInfo = new ChainInfo();
 
+        SliceTokenDeployer deployer = new SliceTokenDeployer(); 
+
         core = new SliceCore(
             address(usdc),
             getAddress("mainnet.sushiXSwap"),
             getAddress("mainnet.stargateAdapter"),
             getAddress("mainnet.axelarAdapter"),
-            address(0),
-            getAddress("mainnet.layerZeroEndpoint"),
-            address(chainInfo)
+            getAddress("mainnet.layerZeroEndpoint"), // TODO
+            address(chainInfo),
+            address(deployer)
         );
 
         // enable slice token creation

@@ -309,12 +309,38 @@
 			},
 			{
 				"inputs": [],
+				"name": "category",
+				"outputs": [
+					{
+						"internalType": "string",
+						"name": "",
+						"type": "string"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
 				"name": "decimals",
 				"outputs": [
 					{
 						"internalType": "uint8",
 						"name": "",
 						"type": "uint8"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "description",
+				"outputs": [
+					{
+						"internalType": "string",
+						"name": "",
+						"type": "string"
 					}
 				],
 				"stateMutability": "view",
@@ -496,6 +522,25 @@
 						"internalType": "struct SliceTransactionInfo",
 						"name": "",
 						"type": "tuple"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "locked",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
 					}
 				],
 				"stateMutability": "view",
@@ -741,7 +786,7 @@
 						"type": "bytes32"
 					}
 				],
-				"stateMutability": "nonpayable",
+				"stateMutability": "payable",
 				"type": "function"
 			},
 			{
@@ -797,6 +842,24 @@
 				"type": "function"
 			},
 			{
+				"inputs": [
+					{
+						"internalType": "string",
+						"name": "_category",
+						"type": "string"
+					},
+					{
+						"internalType": "string",
+						"name": "_description",
+						"type": "string"
+					}
+				],
+				"name": "setCategoryAndDescription",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
 				"inputs": [],
 				"name": "sliceCore",
 				"outputs": [
@@ -844,7 +907,7 @@
 					},
 					{
 						"internalType": "uint256",
-						"name": "value",
+						"name": "amount",
 						"type": "uint256"
 					}
 				],
@@ -996,9 +1059,6 @@
 				"totalSupply()": {
 					"details": "See {IERC20-totalSupply}."
 				},
-				"transfer(address,uint256)": {
-					"details": "See {IERC20-transfer}. Requirements: - `to` cannot be the zero address. - the caller must have a balance of at least `value`."
-				},
 				"transferFrom(address,address,uint256)": {
 					"details": "See {IERC20-transferFrom}. Emits an {Approval} event indicating the updated allowance. This is not required by the EIP. See the note at the beginning of {ERC20}. NOTE: Does not update the allowance if the current allowance is the maximum `uint256`. Requirements: - `from` and `to` cannot be the zero address. - `from` must have a balance of at least `value`. - the caller must have allowance for ``from``'s tokens of at least `value`."
 				}
@@ -1022,7 +1082,7 @@
 		},
 		"optimizer": {
 			"enabled": true,
-			"runs": 200
+			"runs": 50
 		},
 		"remappings": [
 			":@lz-oapp-v2/=lib/lz-oapp-v2/src/",
@@ -1034,11 +1094,11 @@
 	},
 	"sources": {
 		"src/utils/TenderlyUpload.sol": {
-			"keccak256": "0x4816b573532cc74f21c5b77009af68a51d1f75cf7d78944891dab9f0d11e7132",
+			"keccak256": "0xd44221ee180c1a062de1ebc0829cb284d723e63f0f2c3670150c06e23d206657",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://4417e28ad830200f0bf2bbb96057393e3e6c9a344b4a7114dbcf69d0f5b7949b",
-				"dweb:/ipfs/QmZX1cxB5W4vyDhNqjVd6mBo62Y6C2NrQLr947Apep8Jy4"
+				"bzz-raw://369ce46afdefe5ea91a495bb01435edc31c79ba683a007ef112fc977b72d6ab0",
+				"dweb:/ipfs/QmRsYsdHqqQw9NSsXD1q88eep75SFZZDvGf62i9UXtEF2s"
 			]
 		}
 	},
