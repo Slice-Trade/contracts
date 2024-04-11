@@ -11,6 +11,7 @@ import "../src/utils/ChainInfo.sol";
 
 import "../src/SliceCore.sol";
 import "../src/SliceToken.sol";
+import "../src/libs/SliceTokenDeployer.sol";
 
 contract SliceCoreTest is Helper {
     SliceCore core;
@@ -44,11 +45,11 @@ contract SliceCoreTest is Helper {
     bytes[] public routes;
 
     bytes public usdcWethRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001D2835c9DCA49d9951157C03A47b18242B214B59c";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa00157B4A83415cEf8C2Fe53350E28DA0E2fA17386D4";
     bytes public usdcWbtcRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a5800D2835c9DCA49d9951157C03A47b18242B214B59c";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a580057B4A83415cEf8C2Fe53350E28DA0E2fA17386D4";
     bytes public usdcLinkRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700D2835c9DCA49d9951157C03A47b18242B214B59c";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da9670057B4A83415cEf8C2Fe53350E28DA0E2fA17386D4";
 
     
     /* CROSS_CHAIN */
@@ -117,14 +118,16 @@ contract SliceCoreTest is Helper {
 
         ChainInfo chainInfo = new ChainInfo();
 
+        SliceTokenDeployer deployer = new SliceTokenDeployer(); 
+
         core = new SliceCore(
             address(usdc),
             getAddress("mainnet.sushiXSwap"),
             getAddress("mainnet.stargateAdapter"),
             getAddress("mainnet.axelarAdapter"),
-            address(0),
             getAddress("mainnet.layerZeroEndpoint"), // TODO
-            address(chainInfo)
+            address(chainInfo),
+            address(deployer)
         );
         // enable slice token creation
         core.changeSliceTokenCreationEnabled(true);

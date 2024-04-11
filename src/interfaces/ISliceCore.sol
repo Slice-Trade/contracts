@@ -41,7 +41,7 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
      * @param _rebalanceID The ID that uniquely identifies this transaction within the system
      * @param _positions The new positions to rebalance to
      */
-    function rebalanceUnderlying(bytes32 _rebalanceID, Position[] calldata _positions) external;
+    //function rebalanceUnderlying(bytes32 _rebalanceID, Position[] calldata _positions) external;
 
     /**
      * @dev Transfers out the underlying assets for a given Slice token to the given user.
