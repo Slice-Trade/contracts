@@ -16,3 +16,9 @@ docs/
 .DS_Store
 
 /src/utils/TenderlyUpload.sol
+
+.states/
+
+.vscode/
+
+.deps/

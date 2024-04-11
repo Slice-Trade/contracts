@@ -342,23 +342,21 @@
 		},
 		"optimizer": {
 			"enabled": true,
-			"runs": 50
+			"runs": 200
 		},
 		"remappings": [
 			":@lz-oapp-v2/=lib/lz-oapp-v2/src/",
 			":@openzeppelin/=lib/openzeppelin-contracts/",
-			":ds-test/=lib/forge-std/lib/ds-test/src/",
-			":forge-std/=lib/forge-std/",
-			":forge-std/=lib/forge-std/src/"
+			":forge-std/=lib/forge-std/"
 		]
 	},
 	"sources": {
 		"src/utils/TenderlyUpload.sol": {
-			"keccak256": "0xd44221ee180c1a062de1ebc0829cb284d723e63f0f2c3670150c06e23d206657",
+			"keccak256": "0xa2f2486bfaf0504ac8a1b5dd2de6b87bac97b5d332bd217464f403913726226c",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://369ce46afdefe5ea91a495bb01435edc31c79ba683a007ef112fc977b72d6ab0",
-				"dweb:/ipfs/QmRsYsdHqqQw9NSsXD1q88eep75SFZZDvGf62i9UXtEF2s"
+				"bzz-raw://d18e73d3c692351f8c131d2292026a8f74077af7250943c19cdbce39dbb06851",
+				"dweb:/ipfs/QmYqTb9Uap6LUsKto8NHw8yqNShZogiicqxJYymzPrwJoR"
 			]
 		}
 	},

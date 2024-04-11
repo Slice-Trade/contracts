@@ -24,12 +24,22 @@
 					},
 					{
 						"internalType": "address",
+						"name": "_axelarAdapter",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
 						"name": "_lzEndpoint",
 						"type": "address"
 					},
 					{
 						"internalType": "address",
 						"name": "_chainInfo",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "_sliceTokenDeployer",
 						"type": "address"
 					}
 				],
@@ -292,6 +302,19 @@
 				"type": "function"
 			},
 			{
+				"inputs": [],
+				"name": "axelarAdapter",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
 				"inputs": [
 					{
 						"internalType": "address",
@@ -421,6 +444,51 @@
 						"internalType": "contract ILayerZeroEndpointV2",
 						"name": "",
 						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_idx",
+						"type": "uint256"
+					}
+				],
+				"name": "getRegisteredSliceToken",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getRegisteredSliceTokens",
+				"outputs": [
+					{
+						"internalType": "address[]",
+						"name": "",
+						"type": "address[]"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getRegisteredSliceTokensCount",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
 					}
 				],
 				"stateMutability": "view",
@@ -679,6 +747,41 @@
 				"inputs": [
 					{
 						"internalType": "bytes32",
+						"name": "_rebalanceID",
+						"type": "bytes32"
+					},
+					{
+						"components": [
+							{
+								"internalType": "uint256",
+								"name": "chainId",
+								"type": "uint256"
+							},
+							{
+								"internalType": "address",
+								"name": "token",
+								"type": "address"
+							},
+							{
+								"internalType": "uint256",
+								"name": "units",
+								"type": "uint256"
+							}
+						],
+						"internalType": "struct Position[]",
+						"name": "_positions",
+						"type": "tuple[]"
+					}
+				],
+				"name": "rebalanceUnderlying",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
 						"name": "_redeemID",
 						"type": "bytes32"
 					}
@@ -788,6 +891,19 @@
 				"name": "setPeer",
 				"outputs": [],
 				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "sliceTokenDeployer",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
 				"type": "function"
 			},
 			{
@@ -917,6 +1033,15 @@
 				"createSlice(string,string,(uint256,address,uint256)[])": {
 					"details": "See ISliceCore - createSlice"
 				},
+				"getRegisteredSliceToken(uint256)": {
+					"details": "See ISliceCore - getRegisteredSliceToken"
+				},
+				"getRegisteredSliceTokens()": {
+					"details": "See ISliceCore - getRegisteredSliceTokens"
+				},
+				"getRegisteredSliceTokensCount()": {
+					"details": "See ISliceCore - getRegisteredSliceTokensCount"
+				},
 				"isSliceTokenRegistered(address)": {
 					"details": "See ISliceCore - isSliceTokenRegistered"
 				},
@@ -1018,23 +1143,21 @@
 		},
 		"optimizer": {
 			"enabled": true,
-			"runs": 50
+			"runs": 200
 		},
 		"remappings": [
 			":@lz-oapp-v2/=lib/lz-oapp-v2/src/",
 			":@openzeppelin/=lib/openzeppelin-contracts/",
-			":ds-test/=lib/forge-std/lib/ds-test/src/",
-			":forge-std/=lib/forge-std/",
-			":forge-std/=lib/forge-std/src/"
+			":forge-std/=lib/forge-std/"
 		]
 	},
 	"sources": {
 		"src/utils/TenderlyUpload.sol": {
-			"keccak256": "0xd44221ee180c1a062de1ebc0829cb284d723e63f0f2c3670150c06e23d206657",
+			"keccak256": "0xa2f2486bfaf0504ac8a1b5dd2de6b87bac97b5d332bd217464f403913726226c",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://369ce46afdefe5ea91a495bb01435edc31c79ba683a007ef112fc977b72d6ab0",
-				"dweb:/ipfs/QmRsYsdHqqQw9NSsXD1q88eep75SFZZDvGf62i9UXtEF2s"
+				"bzz-raw://d18e73d3c692351f8c131d2292026a8f74077af7250943c19cdbce39dbb06851",
+				"dweb:/ipfs/QmYqTb9Uap6LUsKto8NHw8yqNShZogiicqxJYymzPrwJoR"
 			]
 		}
 	},

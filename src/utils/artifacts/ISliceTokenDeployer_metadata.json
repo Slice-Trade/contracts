@@ -1,0 +1,106 @@
+{
+	"compiler": {
+		"version": "0.8.25+commit.b61c2a91"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "string",
+						"name": "_name",
+						"type": "string"
+					},
+					{
+						"internalType": "string",
+						"name": "_symbol",
+						"type": "string"
+					},
+					{
+						"components": [
+							{
+								"internalType": "uint256",
+								"name": "chainId",
+								"type": "uint256"
+							},
+							{
+								"internalType": "address",
+								"name": "token",
+								"type": "address"
+							},
+							{
+								"internalType": "uint256",
+								"name": "units",
+								"type": "uint256"
+							}
+						],
+						"internalType": "struct Position[]",
+						"name": "_positions",
+						"type": "tuple[]"
+					},
+					{
+						"internalType": "address",
+						"name": "_paymentToken",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "_core",
+						"type": "address"
+					}
+				],
+				"name": "deploySliceToken",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"src/utils/TenderlyUpload.sol": "ISliceTokenDeployer"
+		},
+		"evmVersion": "cancun",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": [
+			":@lz-oapp-v2/=lib/lz-oapp-v2/src/",
+			":@openzeppelin/=lib/openzeppelin-contracts/",
+			":forge-std/=lib/forge-std/"
+		]
+	},
+	"sources": {
+		"src/utils/TenderlyUpload.sol": {
+			"keccak256": "0xa2f2486bfaf0504ac8a1b5dd2de6b87bac97b5d332bd217464f403913726226c",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://d18e73d3c692351f8c131d2292026a8f74077af7250943c19cdbce39dbb06851",
+				"dweb:/ipfs/QmYqTb9Uap6LUsKto8NHw8yqNShZogiicqxJYymzPrwJoR"
+			]
+		}
+	},
+	"version": 1
+}
