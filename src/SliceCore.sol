@@ -17,6 +17,7 @@ import "./interfaces/IChainInfo.sol";
 import "./interfaces/ISliceTokenDeployer.sol";
 import "./SliceToken.sol";
 
+import "./libs/RouteVerifier.sol";
 import "./libs/CrossChainData.sol";
 
 contract SliceCore is ISliceCore, Ownable, OApp {
@@ -364,6 +365,8 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         Position memory _position,
         bytes memory _route
     ) internal returns (bool) {
+        RouteVerifier.verifyRoute(address(this), _route);
+        
         IERC20(paymentToken).approve(address(sushiXSwap), _maxEstimatedPrice);
 
         uint256 amountIn = _maxEstimatedPrice;
@@ -395,6 +398,8 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         SliceTransactionInfo memory _txInfo,
         bytes memory _route
     ) internal {
+        RouteVerifier.verifyRoute(partner, _route);
+
         IERC20(paymentToken).approve(address(sushiXSwap), _maxEstimatedPrice);
 
         uint256 amountOutMin = CrossChainData.calculateAmountOutMin(_sliceTokenQuantity, _position.units);

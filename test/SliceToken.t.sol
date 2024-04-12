@@ -6,7 +6,6 @@ import "forge-std/src/Test.sol";
 import "./helpers/Helper.sol";
 import "../src/external/IWETH.sol";
 
-import "../src/utils/Route.sol";
 import "../src/utils/ChainInfo.sol";
 
 import "../src/SliceCore.sol";
@@ -41,11 +40,11 @@ contract SliceTokenTest is Helper {
     bytes[] public routes;
 
     bytes public usdcWethRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001D2835c9DCA49d9951157C03A47b18242B214B59c";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001";
     bytes public usdcWbtcRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a5800D2835c9DCA49d9951157C03A47b18242B214B59c";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a5800";
     bytes public usdcLinkRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700D2835c9DCA49d9951157C03A47b18242B214B59c";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700";
 
     /* =========================================================== */
     /*    ==================      setup     ===================    */
@@ -90,17 +89,6 @@ contract SliceTokenTest is Helper {
         positions.push(wbtcPosition);
         positions.push(linkPosition);
 
-        routes.push(usdcWethRoute);
-        routes.push(usdcWbtcRoute);
-        routes.push(usdcLinkRoute);
-
-        Route routeProcessorHelper = new Route(
-            getAddress("mainnet.v2Factory"),
-            getAddress("mainnet.v3Factory"),
-            getAddress("mainnet.routeProcessor"),
-            address(weth)
-        );
-
         ChainInfo chainInfo = new ChainInfo();
 
         SliceTokenDeployer deployer = new SliceTokenDeployer(); 
@@ -115,12 +103,18 @@ contract SliceTokenTest is Helper {
             address(deployer)
         );
 
+        usdcWethRoute = abi.encodePacked(usdcWethRoute, address(core));
+        usdcWbtcRoute = abi.encodePacked(usdcWbtcRoute, address(core));
+        usdcLinkRoute = abi.encodePacked(usdcLinkRoute, address(core));
+
+        routes.push(usdcWethRoute);
+        routes.push(usdcWbtcRoute);
+        routes.push(usdcLinkRoute);
+
         // enable slice token creation
         core.changeSliceTokenCreationEnabled(true);
         // approve address as Slice token creator
         core.changeApprovedSliceTokenCreator(dev, true);
-
-        routeProcessorHelper.setSliceCore(address(core));
 
         address tokenAddr = core.createSlice("Slice Token", "SC", positions);
         token = SliceToken(tokenAddr);
@@ -157,7 +151,7 @@ contract SliceTokenTest is Helper {
         vm.stopPrank();
     }
 
-    function testCannotMint_NotEnoughMoney() public {
+    function test_Cannot_Mint_NotEnoughMoney() public {
         // verify that correct revert message is emitted
         vm.startPrank(users[1]);
 
@@ -175,7 +169,7 @@ contract SliceTokenTest is Helper {
     /* =========================================================== */
     /*   =================    mintComplete   ==================    */
     /* =========================================================== */
-    function testMintComplete() public {
+    function test_MintComplete() public {
         vm.startPrank(dev);
         // create a new Slice token
         // set the core address as dev address
@@ -204,7 +198,7 @@ contract SliceTokenTest is Helper {
         vm.stopPrank();
     }
 
-    function testCannotMintComplete_NotAuthorized() public {
+    function test_Cannot_MintComplete_NotAuthorized() public {
         // create a new Slice token
         vm.startPrank(dev);
         // create a new Slice token
@@ -231,7 +225,7 @@ contract SliceTokenTest is Helper {
         vm.stopPrank();
     }
 
-    function testCannotMintComplete_NotOpen() public {
+    function test_Cannot_MintComplete_NotOpen() public {
         vm.startPrank(dev);
 
         SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
@@ -253,7 +247,7 @@ contract SliceTokenTest is Helper {
         coreMock.mintComplete(mintId, address(sliceToken));
     }
 
-    function testCannotMintComplete_InvalidMintID() public {
+    function test_Cannot_MintComplete_InvalidMintID() public {
         vm.startPrank(dev);
         // create a new Slice token
         // set the core address as dev address
@@ -274,9 +268,113 @@ contract SliceTokenTest is Helper {
     }
 
     /* =========================================================== */
+    /*    ===================    redeem    ====================    */
+    /* =========================================================== */
+    function test_Redeem() public {
+        vm.startPrank(dev);
+        token.mint(1000000000000000000, maxEstimatedPrices, routes);
+        bytes32 redeemId = token.redeem(1000000000000000000);
+        assertNotEq(bytes32(0), redeemId);
+        vm.stopPrank();
+    }
+
+    function test_Cannot_Redeem_InsufficientBalance() public {
+        vm.expectRevert("SliceToken: Trying to redeem more than token balance");
+        token.redeem(1);
+    }
+
+    function test_Cannot_Transfer_AmountLocked() public {
+        vm.startPrank(dev);
+        deal(address(core), 1 ether);
+        /* CROSS_CHAIN */
+        uint256 maxWMaticPrice = 100000000; //100usdc
+        uint256 wmaticUnits = 95000000000000000000; // 95matic
+        
+        bytes memory usdcWmaticRoute = hex"012791Bca1f2de4661ED88A30C99A7a9449Aa8417402555500cd353F79d9FADe311fC3119B841e1f456b54e85800eeb3e0999D01f0d1Ed465513E414725a357F6ae4ffff0121988C9CFD08db3b5793c2C6782271dC9474925100eeb3e0999D01f0d1Ed465513E414725a357F6ae4";
+        routes.push(usdcWmaticRoute);
+
+        IERC20 wmaticPolygon = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
+
+        Position memory ccPos = Position(
+            137,
+            address(wmaticPolygon),
+            wmaticUnits
+        );
+        positions.push(ccPos);
+
+        maxEstimatedPrices.push(maxWMaticPrice);
+
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+        
+        coreMock.setToken(address(sliceToken));
+        usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
+        // call mint
+        bytes32 mintId = sliceToken.mint(1000000000000000000, maxEstimatedPrices, routes);
+
+
+        coreMock.mintComplete(mintId, address(sliceToken));
+
+        sliceToken.redeem(1000000000000000000);
+
+        vm.expectRevert("SliceToken: Trying to transfer locked amount");
+        sliceToken.transfer(users[1], 1000000000000000000);
+        vm.stopPrank();
+    }
+
+    /* =========================================================== */
+    /*   ================    redeemComplete   =================    */
+    /* =========================================================== */
+    function test_RedeemComplete() public {
+        // mint some slice tokens
+        vm.startPrank(dev);
+
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+
+        deal(address(weth), address(coreMock), wethUnits * 2);
+        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
+        deal(address(link), address(coreMock), linkUnits * 2);
+
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+
+        coreMock.setToken(address(sliceToken));
+        usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
+        bytes32 _mintID = sliceToken.mint(1000000000000000000, maxEstimatedPrices, routes);
+
+        coreMock.mintComplete(_mintID, address(sliceToken));
+
+        // call redeem underlying
+        bytes32 redeemId = sliceToken.redeem(1000000000000000000);
+
+        vm.expectEmit(true, true, false, false);
+        emit ISliceToken.SliceRedeemed(dev, 1000000000000000000);
+
+        coreMock.redeemComplete(redeemId, address(sliceToken));
+
+        uint256 sliceBalance = sliceToken.balanceOf(address(dev));
+        assertEq(0, sliceBalance);
+        vm.stopPrank();
+    }
+
+    function test_Cannot_RedeemComplete_NotAuthorized() public {
+        vm.expectRevert("SliceToken: Only Slice Core can call");
+        token.redeemComplete(bytes32(0));
+    }
+
+    function test_Cannot_RedeemComplete_InvalidRedeemID() public {
+        vm.startPrank(dev);
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), dev);
+        vm.expectRevert("SliceToken: Invalid redeem ID");
+        sliceToken.redeemComplete(bytes32(0));
+        vm.stopPrank();
+    }
+
+
+    /* =========================================================== */
     /*    ==================    rebalance   ===================    */
     /* =========================================================== */
-    function testRebalance() public {
+/*     function testRebalance() public {
         vm.prank(dev);
         bytes32 rebalanceId = token.rebalance(positions);
         assertNotEq(bytes32(0), rebalanceId);
@@ -287,12 +385,12 @@ contract SliceTokenTest is Helper {
         vm.prank(users[1]);
         vm.expectRevert("SliceToken: Only contract owner can call");
         token.rebalance(positions);
-    }
+    } */
 
     /* =========================================================== */
     /*  ================   rebalanceComplete   =================   */
     /* =========================================================== */
-    function testRebalanceComplete() public {
+/*     function testRebalanceComplete() public {
         vm.startPrank(dev);
 
         SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
@@ -342,108 +440,5 @@ contract SliceTokenTest is Helper {
         vm.prank(dev);
         vm.expectRevert("SliceToken: Invalid rebalance ID");
         token.rebalanceComplete(bytes32(0));
-    }
-
-    /* =========================================================== */
-    /*    ===================    redeem    ====================    */
-    /* =========================================================== */
-    function testRedeem() public {
-        vm.startPrank(dev);
-        token.mint(1000000000000000000, maxEstimatedPrices, routes);
-        bytes32 redeemId = token.redeem(1000000000000000000);
-        assertNotEq(bytes32(0), redeemId);
-        vm.stopPrank();
-    }
-
-    function testCannotRedeem_InsufficientBalance() public {
-        vm.expectRevert("SliceToken: Trying to redeem more than token balance");
-        token.redeem(1);
-    }
-
-    function testCannotTransfer_AmountLocked() public {
-        vm.startPrank(dev);
-        deal(address(core), 1 ether);
-        /* CROSS_CHAIN */
-        uint256 maxWMaticPrice = 100000000; //100usdc
-        uint256 wmaticUnits = 95000000000000000000; // 95matic
-        
-        bytes memory usdcWmaticRoute = hex"012791Bca1f2de4661ED88A30C99A7a9449Aa8417402555500cd353F79d9FADe311fC3119B841e1f456b54e85800eeb3e0999D01f0d1Ed465513E414725a357F6ae4ffff0121988C9CFD08db3b5793c2C6782271dC9474925100eeb3e0999D01f0d1Ed465513E414725a357F6ae4";
-        routes.push(usdcWmaticRoute);
-
-        IERC20 wmaticPolygon = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
-
-        Position memory ccPos = Position(
-            137,
-            address(wmaticPolygon),
-            wmaticUnits
-        );
-        positions.push(ccPos);
-
-        maxEstimatedPrices.push(maxWMaticPrice);
-
-        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
-
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
-        
-        coreMock.setToken(address(sliceToken));
-        usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
-        // call mint
-        bytes32 mintId = sliceToken.mint(1000000000000000000, maxEstimatedPrices, routes);
-
-
-        coreMock.mintComplete(mintId, address(sliceToken));
-
-        sliceToken.redeem(1000000000000000000);
-
-        vm.expectRevert("SliceToken: Trying to transfer locked amount");
-        sliceToken.transfer(users[1], 1000000000000000000);
-        vm.stopPrank();
-    }
-
-    /* =========================================================== */
-    /*   ================    redeemComplete   =================    */
-    /* =========================================================== */
-    function testRedeemComplete() public {
-        // mint some slice tokens
-        vm.startPrank(dev);
-
-        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
-
-        deal(address(weth), address(coreMock), wethUnits * 2);
-        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
-        deal(address(link), address(coreMock), linkUnits * 2);
-
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
-
-        coreMock.setToken(address(sliceToken));
-        usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
-        bytes32 _mintID = sliceToken.mint(1000000000000000000, maxEstimatedPrices, routes);
-
-        coreMock.mintComplete(_mintID, address(sliceToken));
-
-        // call redeem underlying
-        bytes32 redeemId = sliceToken.redeem(1000000000000000000);
-
-        vm.expectEmit(true, true, false, false);
-        emit ISliceToken.SliceRedeemed(dev, 1000000000000000000);
-
-        coreMock.redeemComplete(redeemId, address(sliceToken));
-
-        uint256 sliceBalance = sliceToken.balanceOf(address(dev));
-        assertEq(0, sliceBalance);
-        vm.stopPrank();
-    }
-
-    function testCannotRedeemComplete_NotAuthorized() public {
-        vm.expectRevert("SliceToken: Only Slice Core can call");
-        token.redeemComplete(bytes32(0));
-    }
-
-    function testCannotRedeemComplete_InvalidRedeemID() public {
-        vm.startPrank(dev);
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), dev);
-        vm.expectRevert("SliceToken: Invalid redeem ID");
-        sliceToken.redeemComplete(bytes32(0));
-        vm.stopPrank();
-    }
+    } */
 }

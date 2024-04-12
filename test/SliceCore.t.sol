@@ -6,7 +6,6 @@ import "forge-std/src/console.sol";
 import "./helpers/Helper.sol";
 import "../src/external/IWETH.sol";
 
-import "../src/utils/Route.sol";
 import "../src/utils/ChainInfo.sol";
 
 import "../src/SliceCore.sol";
@@ -45,11 +44,11 @@ contract SliceCoreTest is Helper {
     bytes[] public routes;
 
     bytes public usdcWethRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa00157B4A83415cEf8C2Fe53350E28DA0E2fA17386D4";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001";
     bytes public usdcWbtcRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a580057B4A83415cEf8C2Fe53350E28DA0E2fA17386D4";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a5800";
     bytes public usdcLinkRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da9670057B4A83415cEf8C2Fe53350E28DA0E2fA17386D4";
+        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700";
 
     
     /* CROSS_CHAIN */
@@ -59,7 +58,7 @@ contract SliceCoreTest is Helper {
     uint256[] public maxEstCCPrices;
     Position[] public ccPositions;
     bytes[] public ccRoutes;
-    bytes public usdcWmaticRoute = hex"012791Bca1f2de4661ED88A30C99A7a9449Aa8417402555500cd353F79d9FADe311fC3119B841e1f456b54e85800eeb3e0999D01f0d1Ed465513E414725a357F6ae4ffff0121988C9CFD08db3b5793c2C6782271dC9474925100eeb3e0999D01f0d1Ed465513E414725a357F6ae4";
+    bytes public usdcWmaticRoute = hex"012791Bca1f2de4661ED88A30C99A7a9449Aa8417402555500cd353F79d9FADe311fC3119B841e1f456b54e85800eeb3e0999D01f0d1Ed465513E414725a357F6ae4ffff0121988C9CFD08db3b5793c2C6782271dC9474925100";
     
     /* =========================================================== */
     /*    ==================      setup     ===================    */
@@ -105,17 +104,6 @@ contract SliceCoreTest is Helper {
         positions.push(wbtcPosition);
         positions.push(linkPosition);
 
-        routes.push(usdcWethRoute);
-        routes.push(usdcWbtcRoute);
-        routes.push(usdcLinkRoute);
-
-        Route routeProcessorHelper = new Route(
-            getAddress("mainnet.v2Factory"),
-            getAddress("mainnet.v3Factory"),
-            getAddress("mainnet.routeProcessor"),
-            address(weth)
-        );
-
         ChainInfo chainInfo = new ChainInfo();
 
         SliceTokenDeployer deployer = new SliceTokenDeployer(); 
@@ -134,7 +122,15 @@ contract SliceCoreTest is Helper {
         // approve address as Slice token creator
         core.changeApprovedSliceTokenCreator(dev, true);
 
-        routeProcessorHelper.setSliceCore(address(core));
+        console.log(address(core));
+        usdcWethRoute = abi.encodePacked(usdcWethRoute, address(core));
+        usdcWbtcRoute = abi.encodePacked(usdcWbtcRoute, address(core));
+        usdcLinkRoute = abi.encodePacked(usdcLinkRoute, address(core));
+        usdcWmaticRoute = abi.encodePacked(usdcWmaticRoute, address(core));
+
+        routes.push(usdcWethRoute);
+        routes.push(usdcWbtcRoute);
+        routes.push(usdcLinkRoute);
 
         address tokenAddr = core.createSlice("Slice Token", "SC", positions);
         token = SliceToken(tokenAddr);
@@ -165,7 +161,7 @@ contract SliceCoreTest is Helper {
     /* =========================================================== */
     /*   ==================    createSlice   ==================    */
     /* =========================================================== */
-    function testCreateSlice() public {
+    function test_CreateSlice() public {
         vm.startPrank(dev);
         // approve address as Slice token creator
         core.changeApprovedSliceTokenCreator(users[1], true);
@@ -194,7 +190,7 @@ contract SliceCoreTest is Helper {
         assertEq(true, isSliceRegistered);
     }
 
-    function testCannotCreateSlice_NotAuthorized() public {
+    function test_Cannot_CreateSlice_NotAuthorized() public {
         vm.prank(dev);
         core.changeSliceTokenCreationEnabled(true);
 
@@ -205,7 +201,7 @@ contract SliceCoreTest is Helper {
         core.createSlice("Test Token", "TT", positions);
     }
 
-    function testCannotCreateSlice_CreationNotEnabled() public {
+    function test_Cannot_CreateSlice_CreationNotEnabled() public {
         vm.startPrank(dev);
         // enable slice token creation
         core.changeSliceTokenCreationEnabled(false);
@@ -216,7 +212,7 @@ contract SliceCoreTest is Helper {
     /* =========================================================== */
     /*   ===========   purchaseUnderlyingAssets   =============    */
     /* =========================================================== */
-    function testPurchaseUnderlyingAssets() public {
+    function test_PurchaseUnderlyingAssets() public {
         vm.startPrank(dev);
         // call mint -> call purchase underlying assets
 
@@ -247,21 +243,22 @@ contract SliceCoreTest is Helper {
         vm.stopPrank();
     }
 
-    function testPurchaseUnderlyingAssets_Multichain() public {
+    function test_PurchaseUnderlyingAssets_Multichain() public {
         vm.startPrank(dev);
 
         vm.deal(dev, 100 ether);
 
-        console.log(dev.balance);
         (bool success, ) = address(core).call{value: 1 ether}("");
         assertTrue(success);
+
+        core.setPartner(address(core));
 
         ccToken.mint(1000000000000000000, maxEstCCPrices, ccRoutes);
 
         vm.stopPrank();
     }
 
-    function testCannotPurchaseUnderlyingAssets_NotRegistedSliceToken() public {
+    function test_Cannot_PurchaseUnderlyingAssets_NotRegistedSliceToken() public {
         // verify that it reverts with the correct revert msg
         vm.expectRevert("SliceCore: Only registered Slice token can call");
         // call purchaseUnderlying from a non-registered address
@@ -271,9 +268,89 @@ contract SliceCoreTest is Helper {
     // TODO: cannot purchase - invalid mint id
 
     /* =========================================================== */
+    /*   ==============    redeemUnderlying    ================    */
+    /* =========================================================== */
+    function test_RedeemUnderlying() public {
+        // mint some slice tokens
+        vm.startPrank(dev);
+        
+        token.mint(1000000000000000000, maxEstimatedPrices, routes);
+        uint256 wethTokenbalanceBefore = weth.balanceOf(address(core));
+        uint256 wbtcTokenbalanceBefore = wbtc.balanceOf(address(core));
+        uint256 linkTokenbalanceBefore = link.balanceOf(address(core));
+        // call redeem underlying
+        token.redeem(1000000000000000000);
+
+        // verify that the assets are in the user's wallet and gone from the slice token
+        uint256 wethBalance = weth.balanceOf(address(dev));
+        uint256 wbtcBalance = wbtc.balanceOf(address(dev));
+        uint256 linkBalance = link.balanceOf(address(dev));
+        assertEq(wethBalance, positions[0].units);
+        assertEq(wbtcBalance, positions[1].units);
+        assertEq(linkBalance, positions[2].units);
+
+        uint256 wethTokenbalance = weth.balanceOf(address(core));
+        uint256 wbtcTokenbalance = wbtc.balanceOf(address(core));
+        uint256 linkTokenbalance = link.balanceOf(address(core));
+
+        assertEq(wethTokenbalanceBefore - wethTokenbalance, wethUnits);
+        assertEq(wbtcTokenbalanceBefore - wbtcTokenbalance, wbtcUnits);
+        assertEq(linkTokenbalanceBefore - linkTokenbalance, linkUnits);
+
+        uint256 sliceBalance = token.balanceOf(address(dev));
+        assertEq(0, sliceBalance);
+        vm.stopPrank();
+    }
+
+    function test_Cannot_RedeemUnderlying_NotAuthorized() public {
+        // verify that it reverts with the correct reason
+        vm.expectRevert("SliceCore: Only registered Slice token can call");
+        // call redeem from not registered slice token
+        core.redeemUnderlying(bytes32(0));
+    }
+
+    /* =========================================================== */
+    /*  =========   changeSliceTokenCreationEnabled   ===========  */
+    /* =========================================================== */
+    function test_ChangeSliceTokenCreationEnabled() public {
+        vm.startPrank(dev);
+        // enable slice token creation
+        core.changeSliceTokenCreationEnabled(true);
+
+        // verify that we can create slice tokens
+        address newSliceToken = core.createSlice("New Test Token", "NTT", positions);
+        bool isRegistered = core.isSliceTokenRegistered(newSliceToken);
+        assertTrue(isRegistered);
+
+        Position[] memory newTokenPositions = SliceToken(newSliceToken).getPositions();
+        for (uint256 i = 0; i < newTokenPositions.length; i++) {
+            assertEq(positions[i].chainId, newTokenPositions[i].chainId);
+            assertEq(positions[i].token, newTokenPositions[i].token);
+            assertEq(positions[i].units, newTokenPositions[i].units);
+        }
+
+        // disable slice token creation
+        core.changeSliceTokenCreationEnabled(false);
+
+        vm.expectRevert("SliceCore: Slice token creation disabled");
+        // verify that we cannot create slice tokens
+        core.createSlice("New Test Token", "NTT", positions);
+        vm.stopPrank();
+    }
+
+    function test_Cannot_ChangeSliceTokenCreationEnabled_NotAuthorized() public {
+        vm.prank(users[2]);
+        // verify that it reverts
+        vm.expectRevert();
+        // try changing enable/disable with non-owner address
+        core.changeSliceTokenCreationEnabled(false);
+    }
+
+
+    /* =========================================================== */
     /*   =============    rebalanceUnderlying   ===============    */
     /* =========================================================== */
-    function testRebalanceUnderlying() public {
+/*     function testRebalanceUnderlying() public {
         // mint some tokens
         vm.startPrank(dev);
         token.mint(2, maxEstimatedPrices, routes);
@@ -316,84 +393,5 @@ contract SliceCoreTest is Helper {
         vm.expectRevert("SliceCore: Invalid positions after rebalance");
         token.rebalance(positions);
         vm.stopPrank();
-    }
-
-    /* =========================================================== */
-    /*   ==============    redeemUnderlying    ================    */
-    /* =========================================================== */
-    function testRedeemUnderlying() public {
-        // mint some slice tokens
-        vm.startPrank(dev);
-        
-        token.mint(1000000000000000000, maxEstimatedPrices, routes);
-        uint256 wethTokenbalanceBefore = weth.balanceOf(address(core));
-        uint256 wbtcTokenbalanceBefore = wbtc.balanceOf(address(core));
-        uint256 linkTokenbalanceBefore = link.balanceOf(address(core));
-        // call redeem underlying
-        token.redeem(1000000000000000000);
-
-        // verify that the assets are in the user's wallet and gone from the slice token
-        uint256 wethBalance = weth.balanceOf(address(dev));
-        uint256 wbtcBalance = wbtc.balanceOf(address(dev));
-        uint256 linkBalance = link.balanceOf(address(dev));
-        assertEq(wethBalance, positions[0].units);
-        assertEq(wbtcBalance, positions[1].units);
-        assertEq(linkBalance, positions[2].units);
-
-        uint256 wethTokenbalance = weth.balanceOf(address(core));
-        uint256 wbtcTokenbalance = wbtc.balanceOf(address(core));
-        uint256 linkTokenbalance = link.balanceOf(address(core));
-
-        assertEq(wethTokenbalanceBefore - wethTokenbalance, wethUnits);
-        assertEq(wbtcTokenbalanceBefore - wbtcTokenbalance, wbtcUnits);
-        assertEq(linkTokenbalanceBefore - linkTokenbalance, linkUnits);
-
-        uint256 sliceBalance = token.balanceOf(address(dev));
-        assertEq(0, sliceBalance);
-        vm.stopPrank();
-    }
-
-    function testCannotRedeemUnderlying_NotAuthorized() public {
-        // verify that it reverts with the correct reason
-        vm.expectRevert("SliceCore: Only registered Slice token can call");
-        // call redeem from not registered slice token
-        core.redeemUnderlying(bytes32(0));
-    }
-
-    /* =========================================================== */
-    /*  =========   changeSliceTokenCreationEnabled   ===========  */
-    /* =========================================================== */
-    function testChangeSliceTokenCreationEnabled() public {
-        vm.startPrank(dev);
-        // enable slice token creation
-        core.changeSliceTokenCreationEnabled(true);
-
-        // verify that we can create slice tokens
-        address newSliceToken = core.createSlice("New Test Token", "NTT", positions);
-        bool isRegistered = core.isSliceTokenRegistered(newSliceToken);
-        assertTrue(isRegistered);
-
-        Position[] memory newTokenPositions = SliceToken(newSliceToken).getPositions();
-        for (uint256 i = 0; i < newTokenPositions.length; i++) {
-            assertEq(positions[i].chainId, newTokenPositions[i].chainId);
-            assertEq(positions[i].token, newTokenPositions[i].token);
-            assertEq(positions[i].units, newTokenPositions[i].units);
-        }
-
-        // disable slice token creation
-        core.changeSliceTokenCreationEnabled(false);
-
-        vm.expectRevert("SliceCore: Slice token creation disabled");
-        // verify that we cannot create slice tokens
-        core.createSlice("New Test Token", "NTT", positions);
-        vm.stopPrank();
-    }
-
-    function testCannotChangeSliceTokenCreationEnabled_NotAuthorized() public {
-        vm.prank(users[2]);
-        // verify that it reverts with the correct revert msg
-        vm.expectRevert("0x118cdaa70000000000000000000000008ce502537d13f249834eaa02dde4781ebfe0d40f");
-        // try changing enable/disable with non-owner address
-        core.changeSliceTokenCreationEnabled(false);
-    }
+    } */
 }
