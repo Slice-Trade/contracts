@@ -52,10 +52,10 @@ contract SliceCoreDeployer is Script, Constants {
             salt
         );
 
-        console.log("Slice Core deployed: ");
-        console.log(sliceCoreAddress);
-
         vm.stopBroadcast();
+
+        console.log("Slice Core deployed to: ");
+        console.log(sliceCoreAddress);
     }
 
     function getConstructorArgs() internal view returns (ConstructorArgs memory) {
