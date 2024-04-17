@@ -251,8 +251,6 @@ contract SliceCoreTest is Helper {
         (bool success, ) = address(core).call{value: 1 ether}("");
         assertTrue(success);
 
-        core.setPartner(address(core));
-
         ccToken.mint(1000000000000000000, maxEstCCPrices, ccRoutes);
 
         vm.stopPrank();
