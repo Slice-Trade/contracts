@@ -10,13 +10,15 @@ contract Constants {
     string[] public addressKeys;
 
     constructor() {
-        setAddress("sepolia.paymentToken", 0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590);
-        setAddress("sepolia.sushiXSwap", 0x32F34391965A8e9322194edA50013af19b866227);
-        setAddress("sepolia.stargateAdapter", 0xC2216FCdf9bb3a40D20eD2E17632fe5AdFd4aB63);
-        setAddress("sepolia.axelarAdapter", 0x9d56C29Fc58F06B5846503C225C09090c8661BeF);
-        setAddress("sepolia.lzEndpoint", 0x6EDCE65403992e310A62460808c4b910D972f10f);
-        setAddress("sepolia.chainInfo", 0x3187F6AC207c6c58031Abc018d74399c0a8860AC);
-        setAddress("sepolia.tokenDeployer", 0xaA00a929E78f73F63bfe208bFc0ac452F636b10e);
+        setAddress("owner", 0x1c46D242755040a0032505fD33C6e8b83293a332);
+
+        setAddress("eth_sepolia.paymentToken", 0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590);
+        setAddress("eth_sepolia.sushiXSwap", 0x32F34391965A8e9322194edA50013af19b866227);
+        setAddress("eth_sepolia.stargateAdapter", 0xC2216FCdf9bb3a40D20eD2E17632fe5AdFd4aB63);
+        setAddress("eth_sepolia.axelarAdapter", 0x9d56C29Fc58F06B5846503C225C09090c8661BeF);
+        setAddress("eth_sepolia.lzEndpoint", 0x6EDCE65403992e310A62460808c4b910D972f10f);
+        setAddress("eth_sepolia.chainInfo", 0x3187F6AC207c6c58031Abc018d74399c0a8860AC);
+        setAddress("eth_sepolia.tokenDeployer", 0xaA00a929E78f73F63bfe208bFc0ac452F636b10e);
 
         setAddress("op_sepolia.paymentToken", 0x488327236B65C61A6c083e8d811a4E0D3d1D4268);
         setAddress("op_sepolia.sushiXSwap", 0x6C1aeA2C4933f040007a43Bc5683B0e068452c46);
@@ -25,6 +27,8 @@ contract Constants {
         setAddress("op_sepolia.lzEndpoint", 0x6EDCE65403992e310A62460808c4b910D972f10f);
         setAddress("op_sepolia.chainInfo", 0xB1c883daf4ed666aa7caDC3f8dD0180addE0C3ba);
         setAddress("op_sepolia.tokenDeployer", 0x107EA81c7894305BE7179d3424A4C22684Dca961);
+
+        setAddress("deployer.create3", 0x6513Aedb4D1593BA12e50644401D976aebDc90d8);
     }
 
     function initAddressLabels(Vm vm) public {

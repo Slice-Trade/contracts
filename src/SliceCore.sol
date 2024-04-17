@@ -53,8 +53,9 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         address _axelarAdapter,
         address _lzEndpoint,
         address _chainInfo,
-        address _sliceTokenDeployer
-    ) Ownable(msg.sender) OApp(_lzEndpoint, msg.sender) {
+        address _sliceTokenDeployer,
+        address _owner
+    ) Ownable(_owner) OApp(_lzEndpoint, _owner) {
         paymentToken = _paymentToken;
         sushiXSwap = ISushiXSwapV2(_sushiXSwap);
         chainInfo = IChainInfo(_chainInfo);

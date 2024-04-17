@@ -100,7 +100,8 @@ contract SliceTokenTest is Helper {
             getAddress("mainnet.axelarAdapter"),
             getAddress("mainnet.layerZeroEndpoint"), // TODO
             address(chainInfo),
-            address(deployer)
+            address(deployer),
+            dev
         );
 
         usdcWethRoute = abi.encodePacked(usdcWethRoute, address(core));

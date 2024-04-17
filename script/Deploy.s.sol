@@ -4,12 +4,85 @@ pragma solidity ^0.8.22;
 import "forge-std/src/console.sol";
 import "forge-std/src/Script.sol";
 import "../src/SliceCore.sol";
+import {Constants} from  "./Constants.sol";
+import {IDeployer} from "./IDeployer.sol";
 
-contract SliceCoreDeployer is Script {
+contract SliceCoreDeployer is Script, Constants {
+    uint immutable ETH_SEPOLIA_CHAIN_ID = 11155111;
+    uint immutable OP_SEPOLIA_CHAIN_ID = 11155420;
+
+    bytes32 public salt = 0x74686973697361737570657272616e646f6d737472696e6768656c6c6f000000;
+    
+    struct ConstructorArgs {
+        address paymentToken;
+        address sushiXSwap;
+        address stargateAdapter;
+        address axelarAdapter;
+        address endpoint;
+        address chainInfo;
+        address sliceTokenDeployer;
+        address owner;
+    }
+
     function run() external {
-        bytes memory creationCode = type(SliceCore).creationCode;
-        string memory bar = iToHex(creationCode);
-        console.log(bar);
+        IDeployer create3Deployer = IDeployer(getAddress("deployer.create3"));
+
+        ConstructorArgs memory c = getConstructorArgs();
+
+        bytes memory byteCode = abi.encodePacked(
+            type(SliceCore).creationCode,
+            abi.encode(
+                c.paymentToken,
+                c.sushiXSwap,
+                c.stargateAdapter,
+                c.axelarAdapter,
+                c.endpoint,
+                c.chainInfo,
+                c.sliceTokenDeployer,
+                c.owner
+            )
+        );
+
+        uint256 deployerPrivKey = vm.envUint("KEY");
+
+        vm.startBroadcast(deployerPrivKey);
+
+        address sliceCoreAddress = create3Deployer.deploy(
+            byteCode,
+            salt
+        );
+
+        console.log("Slice Core deployed: ");
+        console.log(sliceCoreAddress);
+
+        vm.stopBroadcast();
+    }
+
+    function getConstructorArgs() internal view returns (ConstructorArgs memory) {
+        if (block.chainid == ETH_SEPOLIA_CHAIN_ID) {
+            return ConstructorArgs(
+                getAddress("eth_sepolia.paymentToken"),
+                getAddress("eth_sepolia.sushiXSwap"),
+                getAddress("eth_sepolia.stargateAdapter"),
+                getAddress("eth_sepolia.axelarAdapter"),
+                getAddress("eth_sepolia.lzEndpoint"),
+                getAddress("eth_sepolia.chainInfo"),
+                getAddress("eth_sepolia.tokenDeployer"),
+                getAddress("owner")
+            );
+        } else if (block.chainid == OP_SEPOLIA_CHAIN_ID) {
+            return ConstructorArgs(
+                getAddress("op_sepolia.paymentToken"),
+                getAddress("op_sepolia.sushiXSwap"),
+                getAddress("op_sepolia.stargateAdapter"),
+                getAddress("op_sepolia.axelarAdapter"),
+                getAddress("op_sepolia.lzEndpoint"),
+                getAddress("op_sepolia.chainInfo"),
+                getAddress("op_sepolia.tokenDeployer"),
+                getAddress("owner")
+            );
+        }
+        revert("Unimplemented chain ID");
     }
 
     function iToHex(bytes memory buffer) public pure returns (string memory) {

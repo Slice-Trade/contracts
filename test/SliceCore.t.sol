@@ -115,7 +115,8 @@ contract SliceCoreTest is Helper {
             getAddress("mainnet.axelarAdapter"),
             getAddress("mainnet.layerZeroEndpoint"), // TODO
             address(chainInfo),
-            address(deployer)
+            address(deployer),
+            dev
         );
         // enable slice token creation
         core.changeSliceTokenCreationEnabled(true);
