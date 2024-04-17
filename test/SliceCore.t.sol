@@ -115,7 +115,8 @@ contract SliceCoreTest is Helper {
             getAddress("mainnet.axelarAdapter"),
             getAddress("mainnet.layerZeroEndpoint"), // TODO
             address(chainInfo),
-            address(deployer)
+            address(deployer),
+            dev
         );
         // enable slice token creation
         core.changeSliceTokenCreationEnabled(true);
@@ -250,8 +251,6 @@ contract SliceCoreTest is Helper {
 
         (bool success, ) = address(core).call{value: 1 ether}("");
         assertTrue(success);
-
-        core.setPartner(address(core));
 
         ccToken.mint(1000000000000000000, maxEstCCPrices, ccRoutes);
 

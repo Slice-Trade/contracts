@@ -21,8 +21,6 @@ import "./libs/RouteVerifier.sol";
 import "./libs/CrossChainData.sol";
 
 contract SliceCore is ISliceCore, Ownable, OApp {
-    address public immutable lzEndpoint;
-
     address public paymentToken;
 
     ISushiXSwapV2 public sushiXSwap;
@@ -46,8 +44,6 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
     uint256 lzSendMsgValue = 758353551570386; // TODO: Do estimation for msg send value
 
-    address public partner;
-
     address public sliceTokenDeployer;
 
     constructor(
@@ -57,19 +53,15 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         address _axelarAdapter,
         address _lzEndpoint,
         address _chainInfo,
-        address _sliceTokenDeployer
-    ) Ownable(msg.sender) OApp(_lzEndpoint, msg.sender) {
+        address _sliceTokenDeployer,
+        address _owner
+    ) Ownable(_owner) OApp(_lzEndpoint, _owner) {
         paymentToken = _paymentToken;
         sushiXSwap = ISushiXSwapV2(_sushiXSwap);
         chainInfo = IChainInfo(_chainInfo);
         stargateAdapter = _stargateAdapter;
         axelarAdapter = _axelarAdapter;
-        lzEndpoint = _lzEndpoint;
         sliceTokenDeployer = _sliceTokenDeployer;
-    }
-
-    function setPartner(address _partner) external onlyOwner {
-        partner = _partner;
     }
 
     function withdraw() external onlyOwner {
@@ -275,11 +267,11 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         bytes calldata /* _extraData */ // arbitrary data appended by the Executor
     ) internal override {
         // verify that it was sent by the correct layer zero endpoint
-        require(msg.sender == lzEndpoint, "SliceCore: lzReceive not called by endpoint");
+        require(msg.sender == address(endpoint), "SliceCore: lzReceive not called by endpoint");
 
         // verify that the msg came from the slice core address
         require(
-            address(uint160(uint256(_origin.sender))) == partner,
+            address(uint160(uint256(_origin.sender))) == address(this),
             "SliceCore: lzSend not initiated by cross-chain SliceCore"
         );
 
@@ -398,7 +390,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         SliceTransactionInfo memory _txInfo,
         bytes memory _route
     ) internal {
-        RouteVerifier.verifyRoute(partner, _route);
+        RouteVerifier.verifyRoute(address(this), _route);
 
         IERC20(paymentToken).approve(address(sushiXSwap), _maxEstimatedPrice);
 
@@ -407,16 +399,16 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         Chain memory dstChain = chainInfo.getChainInfo(_position.chainId);
 
         bytes memory rpd_encoded_dst =
-            CrossChainData.createRouteProcessorDataEncoded(dstChain, _position.token, amountOutMin, partner, _route);
+            CrossChainData.createRouteProcessorDataEncoded(dstChain, _position.token, amountOutMin, address(this), _route);
 
         bytes memory payloadDataEncoded = CrossChainData.createPayloadDataEncoded(
-            _mintId, _position.token, amountOutMin, partner, payloadGas, _txInfo.data
+            _mintId, _position.token, amountOutMin, address(this), payloadGas, _txInfo.data
         );
 
         // TODO: Estimate gas correctly for swap
         sushiXSwap.bridge{
             value: CrossChainData.getGasNeeded(
-                dstChain.stargateChainId, stargateAdapter, partner, rpd_encoded_dst, payloadDataEncoded
+                dstChain.stargateChainId, stargateAdapter, address(this), rpd_encoded_dst, payloadDataEncoded
                 )
         }(
             ISushiXSwapV2.BridgeParams({
@@ -424,7 +416,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
                 adapter: stargateAdapter,
                 tokenIn: paymentToken,
                 amountIn: _maxEstimatedPrice,
-                to: partner, // TODO SliceCore deployed to all chains with same address!
+                to: address(this), // TODO SliceCore deployed to all chains with same address!
                 adapterData: createAdapterData(dstChain, _maxEstimatedPrice, 550000)
             }), // bridge params
             _txInfo.user, // refund address
@@ -447,7 +439,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
             0, // amountMin,
             0, // dust
             _dstChain.stargateAdapter, // receiver
-            partner, // to
+            address(this), // to
             gasForSwap // gas
         );
     }

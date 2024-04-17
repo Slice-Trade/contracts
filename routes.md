@@ -9,7 +9,7 @@ Sends that WETH to the WETH WBTC pool
     
 trades the weth to WBTC and sends it to the user address    
     
-process user erc: 02     
+process user erc: 01     
 token in (usdc1): FF970A61A04b1cA14834A43f5dE4533eBDDB5CC8    
 number of routes in swap: 02    
 share of the total amount in to send to pool: bfff    
@@ -48,7 +48,7 @@ to: 1c46D242755040a0032505fD33C6e8b83293a332
 ETH USDC TO OP WBTC:
 
 
-process user erc: 02
+process user erc: 01
 token in (USDC): 7F5c764cBc14f9669B88837ca1490cCa17c31607
 number of routes in swap: 01
 share of the total: ffff
