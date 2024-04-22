@@ -11,7 +11,7 @@ contract SliceCoreDeployer is Script, Constants {
     uint immutable ETH_SEPOLIA_CHAIN_ID = 11155111;
     uint immutable OP_SEPOLIA_CHAIN_ID = 11155420;
 
-    bytes32 public salt = 0x74686973697361737570657272616e646f6d737472696e6768656c6c6f000000;
+    bytes32 public salt;
     
     struct ConstructorArgs {
         address paymentToken;
@@ -25,6 +25,8 @@ contract SliceCoreDeployer is Script, Constants {
     }
 
     function run() external {
+        string memory _saltString = vm.envString("SALT");
+        setSalt(_saltString);
         IDeployer create3Deployer = IDeployer(getAddress("deployer.create3"));
 
         ConstructorArgs memory c = getConstructorArgs();
@@ -52,10 +54,20 @@ contract SliceCoreDeployer is Script, Constants {
             salt
         );
 
+        // TODO: get all chains and set peer to all of them
+
         vm.stopBroadcast();
 
         console.log("Slice Core deployed to: ");
         console.log(sliceCoreAddress);
+    }
+
+    function setSalt(string memory _saltString) internal {
+        bytes32 result;
+        assembly {
+            result := mload(add(_saltString, 32))
+        }
+        salt = result;
     }
 
     function getConstructorArgs() internal view returns (ConstructorArgs memory) {

@@ -43,6 +43,10 @@ abstract contract Helper is Test, Constants {
     function forkPolygon(uint256 blockNumber) internal {
         vm.createSelectFork(vm.envString("POLYGON_RPC_URL"), blockNumber);
     }
+
+    function makePersistent(address contractAddress) internal {
+        vm.makePersistent(contractAddress);
+    }
 }
 
 contract Users is Test {

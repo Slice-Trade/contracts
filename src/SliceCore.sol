@@ -42,8 +42,6 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
     uint256 public payloadGas = 500000; // TODO: Do gas estimation before sending tx
 
-    uint256 lzSendMsgValue = 758353551570386; // TODO: Do estimation for msg send value
-
     address public sliceTokenDeployer;
 
     constructor(
@@ -250,8 +248,12 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
         bytes memory _lzSendOpts = CrossChainData.createLzSendOpts(200000, 500000000000000); // TODO: Calculate values programatically
 
+        MessagingFee memory _fee = _quote(srcChain.lzEndpointId, ccsEncoded, _lzSendOpts, false);
+
+        console.log(_fee.nativeFee);
+
         // call send on layer zero endpoint
-        endpoint.send{value: lzSendMsgValue}(
+        endpoint.send{value: _fee.nativeFee}(
             MessagingParams(
                 srcChain.lzEndpointId, _getPeerOrRevert(srcChain.lzEndpointId), ccsEncoded, _lzSendOpts, false
             ),
@@ -321,7 +323,12 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
         Chain memory srcChain = chainInfo.getChainInfo(ccs.srcChainId);
 
-        endpoint.send{value: lzSendMsgValue}(
+        MessagingFee memory _fee = _quote(srcChain.lzEndpointId, _ccsResponseEncoded, _lzSendOpts, false);
+
+        console.log("Fee: ");
+        console.log(_fee.nativeFee);
+
+        endpoint.send{value: _fee.nativeFee}(
             MessagingParams(
                 srcChain.lzEndpointId, _getPeerOrRevert(srcChain.lzEndpointId), _ccsResponseEncoded, _lzSendOpts, false
             ),
@@ -401,11 +408,11 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         bytes memory rpd_encoded_dst =
             CrossChainData.createRouteProcessorDataEncoded(dstChain, _position.token, amountOutMin, address(this), _route);
 
+        // TODO: Estimate gas correctly for swap
         bytes memory payloadDataEncoded = CrossChainData.createPayloadDataEncoded(
             _mintId, _position.token, amountOutMin, address(this), payloadGas, _txInfo.data
         );
 
-        // TODO: Estimate gas correctly for swap
         sushiXSwap.bridge{
             value: CrossChainData.getGasNeeded(
                 dstChain.stargateChainId, stargateAdapter, address(this), rpd_encoded_dst, payloadDataEncoded
@@ -416,7 +423,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
                 adapter: stargateAdapter,
                 tokenIn: paymentToken,
                 amountIn: _maxEstimatedPrice,
-                to: address(this), // TODO SliceCore deployed to all chains with same address!
+                to: address(this),
                 adapterData: createAdapterData(dstChain, _maxEstimatedPrice, 550000)
             }), // bridge params
             _txInfo.user, // refund address
