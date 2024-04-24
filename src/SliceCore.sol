@@ -40,7 +40,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
     mapping(bytes32 => TransactionCompleteSignals) public transactionCompleteSignals;
 
-    uint256 public payloadGas = 500000; // TODO: Do gas estimation before sending tx
+    CrossChainGas public crossChainGas = CrossChainGas(500000, 280000);
 
     address public sliceTokenDeployer;
 
@@ -365,7 +365,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         bytes memory _route
     ) internal returns (bool) {
         RouteVerifier.verifyRoute(address(this), _route);
-        
+
         IERC20(paymentToken).approve(address(sushiXSwap), _maxEstimatedPrice);
 
         uint256 amountIn = _maxEstimatedPrice;
@@ -405,12 +405,13 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
         Chain memory dstChain = chainInfo.getChainInfo(_position.chainId);
 
-        bytes memory rpd_encoded_dst =
-            CrossChainData.createRouteProcessorDataEncoded(dstChain, _position.token, amountOutMin, address(this), _route);
+        bytes memory rpd_encoded_dst = CrossChainData.createRouteProcessorDataEncoded(
+            dstChain, _position.token, amountOutMin, address(this), _route
+        );
 
         // TODO: Estimate gas correctly for swap
         bytes memory payloadDataEncoded = CrossChainData.createPayloadDataEncoded(
-            _mintId, _position.token, amountOutMin, address(this), payloadGas, _txInfo.data
+            _mintId, _position.token, amountOutMin, address(this), crossChainGas.gasForPayload, _txInfo.data
         );
 
         sushiXSwap.bridge{
@@ -424,7 +425,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
                 tokenIn: paymentToken,
                 amountIn: _maxEstimatedPrice,
                 to: address(this),
-                adapterData: createAdapterData(dstChain, _maxEstimatedPrice, 550000)
+                adapterData: createAdapterData(dstChain, _maxEstimatedPrice, crossChainGas.gasForAdapter)
             }), // bridge params
             _txInfo.user, // refund address
             rpd_encoded_dst, // swap data
@@ -479,7 +480,11 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         return registeredSliceTokensArray[_idx];
     }
 
+    function setCrossChainGas(CrossChainGas memory _crossChainGas) external onlyOwner {
+        crossChainGas = _crossChainGas;
+    }
+
     function rebalanceUnderlying(bytes32 _rebalanceID, Position[] calldata _positions) external {}
-    
+
     receive() external payable {}
 }

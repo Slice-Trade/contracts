@@ -27,7 +27,7 @@ contract SliceToken is ISliceToken, ERC20 {
         require(msg.sender == sliceCore, "SliceToken: Only Slice Core can call");
         _;
     }
-
+// 11155111,0xB36c4ef1e4Bc67e323581bDd7F48702d016Ebf19,2184000000000000000000
     constructor(string memory _name, string memory _symbol, Position[] memory _positions, address _paymentToken, address _sliceCore)
         ERC20(_name, _symbol)
     {

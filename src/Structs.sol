@@ -84,3 +84,8 @@ struct SlicePayloadData {
     uint256 amountOutMin;
     bytes data;
 }
+
+struct CrossChainGas {
+    uint256 gasForAdapter;
+    uint256 gasForPayload;
+}
