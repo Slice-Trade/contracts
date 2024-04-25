@@ -77,8 +77,13 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         external
         returns (address)
     {
-        require(canCreateSlice(msg.sender), "SliceCore: Unauthorized caller");
-        require(isTokenCreationEnabled, "SliceCore: Slice token creation disabled");
+        if (!canCreateSlice(msg.sender)) {
+            revert UnauthorizedCaller();
+        }
+
+        if (!isTokenCreationEnabled) {
+            revert TokenCreationDisabled();
+        }
 
         address token = ISliceTokenDeployer(sliceTokenDeployer).deploySliceToken(
             _name, _symbol, _positions, paymentToken, address(this)
@@ -103,15 +108,18 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         bytes[] memory _routes
     ) external payable {
         // check that slice token (msg.sender) is registered
-        require(registeredSliceTokens[msg.sender], "SliceCore: Only registered Slice token can call");
+        if (!registeredSliceTokens[msg.sender]) {
+            revert UnregisteredSliceToken();
+        }
 
-        require(
-            IERC20(paymentToken).balanceOf(address(this)) >= Utils.sumMaxEstimatedPrices(_maxEstimatedPrices),
-            "SliceCore: Max estimated price not transferred to contract"
-        );
+        if (IERC20(paymentToken).balanceOf(address(this)) < Utils.sumMaxEstimatedPrices(_maxEstimatedPrices)) {
+            revert TokenPriceNotTransferred();
+        }
 
         SliceTransactionInfo memory txInfo = ISliceToken(msg.sender).getMint(_mintID);
-        require(txInfo.id == _mintID, "SliceCore: Mint ID does not exist");
+        if (txInfo.id != _mintID) {
+            revert MintIdDoesNotExist();
+        }
 
         transactionCompleteSignals[_mintID].token = msg.sender;
         transactionCompleteSignals[_mintID].sliceTokenQuantity = _sliceTokenQuantity;
@@ -124,7 +132,9 @@ contract SliceCore is ISliceCore, Ownable, OApp {
             // if asset is local execute swap right away: (check block.chainid)
             if (isPositionLocal(positions[i])) {
                 bool success = executeLocalSwap(_sliceTokenQuantity, _maxEstimatedPrices[i], positions[i], _routes[i]);
-                require(success, "SliceCore: Local swap failed");
+                if (!success) {
+                    revert LocalSwapFailed();
+                }
                 // increase the ready signal after each local swap
                 transactionCompleteSignals[_mintID].signals++;
             } else {
@@ -146,12 +156,16 @@ contract SliceCore is ISliceCore, Ownable, OApp {
      */
     function redeemUnderlying(bytes32 _redeemID) external payable {
         // check that slice token (msg.sender) is registered
-        require(registeredSliceTokens[msg.sender], "SliceCore: Only registered Slice token can call");
+        if (!registeredSliceTokens[msg.sender]) {
+            revert UnregisteredSliceToken();
+        }
 
         // get redeem tx info
         SliceTransactionInfo memory txInfo = ISliceToken(msg.sender).getRedeem(_redeemID);
         // check that redeem ID exists
-        require(txInfo.id == _redeemID, "SliceCore: Redeem ID does not exist");
+        if (txInfo.id != _redeemID) {
+            revert RedeemIdDoesNotExist();
+        }
 
         // create tx complete signals struct
         transactionCompleteSignals[_redeemID].token = msg.sender;
@@ -166,7 +180,9 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
             if (isPositionLocal(positions[i])) {
                 bool success = IERC20(positions[i].token).transfer(txInfo.user, _amount);
-                require(success, "SliceCore: Underlying asset transfer failed");
+                if (!success) {
+                    revert UnderlyingAssetTransferFailed();
+                }
                 // increase ready signal after each local transfer
                 transactionCompleteSignals[_redeemID].signals++;
             } else {
@@ -207,10 +223,16 @@ contract SliceCore is ISliceCore, Ownable, OApp {
      */
     function onPayloadReceive(bytes memory _data) external payable {
         // implement on payload receive, verify the transfer details on dst chain
-        require(msg.sender == stargateAdapter, "SliceCore: Only Stargate adapter can call");
+        if (msg.sender != stargateAdapter) {
+            revert OnlyStargateAdapterCanCall();
+        }
+
         SlicePayloadData memory payloadData = abi.decode(_data, (SlicePayloadData));
         uint256 balance = IERC20(payloadData.tokenOut).balanceOf(address(this));
-        require(balance >= payloadData.amountOutMin, "SliceCore: Incorrect amount of token out");
+        if (balance < payloadData.amountOutMin) {
+            revert IncorrectAmountOut();
+        }
+        
         // implement layer zero msg send to main chain contract
         // get src lz chain id from payload data
         Chain memory srcChain = chainInfo.getChainInfo(payloadData.srcChainId);
@@ -306,13 +328,14 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         bytes calldata /* _extraData */ // arbitrary data appended by the Executor
     ) internal override {
         // verify that it was sent by the correct layer zero endpoint
-        require(msg.sender == address(endpoint), "SliceCore: lzReceive not called by endpoint");
+        if (msg.sender != address(endpoint)) {
+            revert OnlyLzEndpointCanCall();
+        }
 
         // verify that the msg came from the slice core address
-        require(
-            address(uint160(uint256(_origin.sender))) == address(this),
-            "SliceCore: lzSend not initiated by cross-chain SliceCore"
-        );
+        if (address(uint160(uint256(_origin.sender))) != address(this)) {
+            revert OriginNotSliceCore();
+        }
 
         CrossChainSignal memory ccs = abi.decode(payload, (CrossChainSignal));
 
@@ -328,10 +351,14 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     function handleSwapCompleteSignal(CrossChainSignal memory ccs) internal {
         TransactionCompleteSignals memory txCompleteSignals = transactionCompleteSignals[ccs.id];
         // verify that the mint id from the payload exists
-        require(isSliceTokenRegistered(txCompleteSignals.token), "SliceCore: Unknown mint ID");
+        if (!isSliceTokenRegistered(txCompleteSignals.token)) {
+            revert UnregisteredSliceToken();
+        }
 
         // verify that the payload status is OK
-        require(ccs.success, "SliceCore: Cross-chain swap failed");
+        if (!ccs.success) {
+            revert CrossChainSwapFailed();
+        }
 
         // then register complete signal
         transactionCompleteSignals[ccs.id].signals++;
@@ -347,7 +374,9 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
     function handleRedeemSignal(CrossChainSignal memory ccs) internal {
         bool success = IERC20(ccs.underlying).transfer(ccs.user, ccs.units);
-        require(success, "SliceCore: Cross-chain redeem failed");
+        if (!success) {
+            revert CrossChainRedeemFailed();
+        }
 
         // send cross chain success msg
         CrossChainSignal memory _ccsResponse = CrossChainSignal(
@@ -373,9 +402,14 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     function handleRedeemCompleteSignal(CrossChainSignal memory ccs) internal {
         TransactionCompleteSignals memory txCompleteSignals = transactionCompleteSignals[ccs.id];
 
-        require(isSliceTokenRegistered(txCompleteSignals.token), "SliceCore: Unknown redeem ID");
+        if (!isSliceTokenRegistered(txCompleteSignals.token)) {
+            revert UnregisteredSliceToken();
+        }
 
-        require(ccs.success, "SliceCore: Cross-chain redeem failed");
+        // verify that the payload status is OK
+        if (!ccs.success) {
+            revert CrossChainRedeemFailed();
+        }
 
         transactionCompleteSignals[ccs.id].signals++;
 

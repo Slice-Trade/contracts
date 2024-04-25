@@ -5,8 +5,9 @@ import "../external/IPayloadExecutor.sol";
 import "@lz-oapp-v2/interfaces/ILayerZeroReceiver.sol";
 import "../Structs.sol";
 import "./ISliceToken.sol";
+import "./ISliceCoreErrors.sol";
 
-interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
+interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver, ISliceCoreErrors {
     /* Emitted when a new slice token is created */
     event SliceTokenCreated(address indexed token);
     /* Emitted when the underlying assets of a Slice token are purchased during a Slice token mint */
@@ -16,9 +17,11 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
 
     /**
      * @dev Deploys a new Slice token contract. Can only be called by verified addresses.
-     * @param _positions The Slice token's underlying positions 
+     * @param _positions The Slice token's underlying positions
      */
-    function createSlice(string calldata _name, string calldata _symbol, Position[] calldata _positions) external returns (address);
+    function createSlice(string calldata _name, string calldata _symbol, Position[] calldata _positions)
+        external
+        returns (address);
 
     /**
      * @dev Returns whether a given address is authorized to create a Slice token.
@@ -32,7 +35,12 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
      * @param _sliceTokenQuantity The quantity of slice tokens to purchase the underlying assets for
      * @param _maxEstimatedPrices The maximum estimated price for each underlying asset. In USDC (6 decimals)
      */
-    function purchaseUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes) external payable;
+    function purchaseUnderlyingAssets(
+        bytes32 _mintID,
+        uint256 _sliceTokenQuantity,
+        uint256[] memory _maxEstimatedPrices,
+        bytes[] memory _routes
+    ) external payable;
 
     /**
      * @dev Transfers out the underlying assets for a given Slice token to the given user.
@@ -49,7 +57,7 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
     /**
      * @dev Adds or removes an address from the list of addresses that can create new Slice tokens
      * @param _user The address to approve/remove
-     * @param _isApproved Whether to approve/disapprove 
+     * @param _isApproved Whether to approve/disapprove
      */
     function changeApprovedSliceTokenCreator(address _user, bool _isApproved) external;
 
