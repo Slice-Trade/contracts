@@ -40,7 +40,9 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
     mapping(bytes32 => TransactionCompleteSignals) public transactionCompleteSignals;
 
-    CrossChainGas public crossChainGas = CrossChainGas(500000, 280000);
+    CrossChainGas public crossChainGas = CrossChainGas(550000, 500000);
+
+    mapping(TransactionType => uint128) public lzGasLookup;
 
     address public sliceTokenDeployer;
 
@@ -60,6 +62,10 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         stargateAdapter = _stargateAdapter;
         axelarAdapter = _axelarAdapter;
         sliceTokenDeployer = _sliceTokenDeployer;
+
+        lzGasLookup[TransactionType.MINT] = 120000;
+        lzGasLookup[TransactionType.REDEEM] = 200000;
+        lzGasLookup[TransactionType.REDEEM_COMPLETE] = 150000;
     }
 
     function withdraw() external onlyOwner {
@@ -181,7 +187,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
                 );
                 bytes memory ccsEncoded = abi.encode(ccs);
 
-                bytes memory _lzSendOpts = CrossChainData.createLzSendOpts(200000, 500000000000000);
+                bytes memory _lzSendOpts = CrossChainData.createLzSendOpts(lzGasLookup[TransactionType.REDEEM], 0);
 
                 endpoint.send{value: msg.value}(
                     MessagingParams(
@@ -246,7 +252,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         // encode to bytes
         bytes memory ccsEncoded = abi.encode(ccs);
 
-        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts(200000, 500000000000000); // TODO: Calculate values programatically
+        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts(lzGasLookup[TransactionType.MINT], 0);
 
         MessagingFee memory _fee = _quote(srcChain.lzEndpointId, ccsEncoded, _lzSendOpts, false);
 
@@ -319,14 +325,11 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
         bytes memory _ccsResponseEncoded = abi.encode(_ccsResponse);
 
-        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts(200000, 500000000000000);
+        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts(lzGasLookup[TransactionType.REDEEM_COMPLETE], 0);
 
         Chain memory srcChain = chainInfo.getChainInfo(ccs.srcChainId);
 
         MessagingFee memory _fee = _quote(srcChain.lzEndpointId, _ccsResponseEncoded, _lzSendOpts, false);
-
-        console.log("Fee: ");
-        console.log(_fee.nativeFee);
 
         endpoint.send{value: _fee.nativeFee}(
             MessagingParams(
@@ -409,7 +412,6 @@ contract SliceCore is ISliceCore, Ownable, OApp {
             dstChain, _position.token, amountOutMin, address(this), _route
         );
 
-        // TODO: Estimate gas correctly for swap
         bytes memory payloadDataEncoded = CrossChainData.createPayloadDataEncoded(
             _mintId, _position.token, amountOutMin, address(this), crossChainGas.gasForPayload, _txInfo.data
         );
@@ -482,6 +484,10 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
     function setCrossChainGas(CrossChainGas memory _crossChainGas) external onlyOwner {
         crossChainGas = _crossChainGas;
+    }
+
+    function setLzGas(TransactionType _txType, uint128 _gas) external onlyOwner {
+        lzGasLookup[_txType] = _gas;
     }
 
     function rebalanceUnderlying(bytes32 _rebalanceID, Position[] calldata _positions) external {}

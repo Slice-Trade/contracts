@@ -6,6 +6,7 @@ import "forge-std/src/Script.sol";
 import "../src/SliceCore.sol";
 import {Constants} from  "./Constants.sol";
 import {IDeployer} from "./IDeployer.sol";
+import "../src/Structs.sol";
 
 contract SliceCoreDeployer is Script, Constants {
     uint immutable ETH_SEPOLIA_CHAIN_ID = 11155111;
@@ -23,6 +24,8 @@ contract SliceCoreDeployer is Script, Constants {
         address sliceTokenDeployer;
         address owner;
     }
+
+    Position[] public positions;
 
     function run() external {
         string memory _saltString = vm.envString("SALT");
@@ -54,7 +57,19 @@ contract SliceCoreDeployer is Script, Constants {
             salt
         );
 
+        SliceCore(payable(sliceCoreAddress)).changeSliceTokenCreationEnabled(true);
+        SliceCore(payable(sliceCoreAddress)).changeApprovedSliceTokenCreator(c.owner, true);
+        SliceCore(payable(sliceCoreAddress)).changeApprovedSliceTokenCreator(address(this), true);
+        
         // TODO: get all chains and set peer to all of them
+        // only on testnets for now
+        if (block.chainid == 11155111) {
+            SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
+        } else if (block.chainid == 11155420) {
+            SliceCore(payable(sliceCoreAddress)).setPeer(40161, bytes32(uint256(uint160(sliceCoreAddress))));
+            positions.push(Position(11155111,0xB36c4ef1e4Bc67e323581bDd7F48702d016Ebf19,2184000000000000000000));
+            SliceCore(payable(sliceCoreAddress)).createSlice("TEST", "TT", positions);
+        }
 
         vm.stopBroadcast();
 
