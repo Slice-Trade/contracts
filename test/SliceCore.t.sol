@@ -13,6 +13,7 @@ import "../src/SliceToken.sol";
 import "../src/libs/SliceTokenDeployer.sol";
 
 contract SliceCoreTest is Helper {
+    uint256 immutable BLOCK_NUMBER = 19518913;
     SliceCore core;
     SliceToken token;
 
@@ -64,7 +65,7 @@ contract SliceCoreTest is Helper {
     /*    ==================      setup     ===================    */
     /* =========================================================== */
     function setUp() public {
-        forkMainnet(19518913);
+        forkMainnet(BLOCK_NUMBER);
 
         usdc = IERC20(getAddress("mainnet.usdc"));
         wbtc = IERC20(getAddress("mainnet.wbtc"));
@@ -123,7 +124,6 @@ contract SliceCoreTest is Helper {
         // approve address as Slice token creator
         core.changeApprovedSliceTokenCreator(dev, true);
 
-        console.log(address(core));
         usdcWethRoute = abi.encodePacked(usdcWethRoute, address(core));
         usdcWbtcRoute = abi.encodePacked(usdcWbtcRoute, address(core));
         usdcLinkRoute = abi.encodePacked(usdcLinkRoute, address(core));
@@ -232,19 +232,10 @@ contract SliceCoreTest is Helper {
         assertGe(wbtcBalance, wbtcUnits);
         assertGe(linkBalance, linkUnits);
 
-        console.log("wETH Balance: ");
-        console.log(wethBalance);
-
-        console.log("wBTC Balance: ");
-        console.log(wbtcBalance);
-
-        console.log("Link balance: ");
-        console.log(linkBalance);
-
         vm.stopPrank();
     }
 
-    function test_PurchaseUnderlyingAssets_Multichain() public {
+    function test_PurchaseUnderlyingAssets_CrossChain() public {
         vm.startPrank(dev);
 
         vm.deal(dev, 100 ether);
@@ -252,7 +243,38 @@ contract SliceCoreTest is Helper {
         (bool success, ) = address(core).call{value: 1 ether}("");
         assertTrue(success);
 
-        ccToken.mint(1000000000000000000, maxEstCCPrices, ccRoutes);
+        bytes32 mintID = ccToken.mint(1000000000000000000, maxEstCCPrices, ccRoutes);
+
+        SlicePayloadData memory pd = SlicePayloadData(
+            137,
+            mintID,
+            address(weth),
+            10000000000000000000,
+            ""
+        );
+
+        bytes memory pd_enc = abi.encode(pd);
+
+        deal(address(weth), address(core), 10000000000000000000);
+
+        core.setPeer(30109, bytes32(uint256(uint160(address(core)))));
+
+        vm.stopPrank();
+
+        vm.prank(getAddress("mainnet.stargateAdapter"));
+
+        core.onPayloadReceive(pd_enc);
+
+        // forkPolygon(BLOCK_NUMBER);
+
+
+        // make contract persistent
+/*         makePersistent(address(core));
+        makePersistent(address(ccToken));
+
+        // change network 
+        forkOptimism(BLOCK_NUMBER); */
+        // transfer tokens to SliceCore crosschain contract
 
         vm.stopPrank();
     }

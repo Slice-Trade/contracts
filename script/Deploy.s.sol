@@ -6,12 +6,13 @@ import "forge-std/src/Script.sol";
 import "../src/SliceCore.sol";
 import {Constants} from  "./Constants.sol";
 import {IDeployer} from "./IDeployer.sol";
+import "../src/Structs.sol";
 
 contract SliceCoreDeployer is Script, Constants {
     uint immutable ETH_SEPOLIA_CHAIN_ID = 11155111;
     uint immutable OP_SEPOLIA_CHAIN_ID = 11155420;
 
-    bytes32 public salt = 0x74686973697361737570657272616e646f6d737472696e6768656c6c6f000000;
+    bytes32 public salt;
     
     struct ConstructorArgs {
         address paymentToken;
@@ -24,7 +25,11 @@ contract SliceCoreDeployer is Script, Constants {
         address owner;
     }
 
+    Position[] public positions;
+
     function run() external {
+        string memory _saltString = vm.envString("SALT");
+        setSalt(_saltString);
         IDeployer create3Deployer = IDeployer(getAddress("deployer.create3"));
 
         ConstructorArgs memory c = getConstructorArgs();
@@ -52,10 +57,32 @@ contract SliceCoreDeployer is Script, Constants {
             salt
         );
 
+        SliceCore(payable(sliceCoreAddress)).changeSliceTokenCreationEnabled(true);
+        SliceCore(payable(sliceCoreAddress)).changeApprovedSliceTokenCreator(c.owner, true);
+        SliceCore(payable(sliceCoreAddress)).changeApprovedSliceTokenCreator(address(this), true);
+        
+        // TODO: get all chains and set peer to all of them
+        // only on testnets for now
+        if (block.chainid == 11155111) {
+            SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
+        } else if (block.chainid == 11155420) {
+            SliceCore(payable(sliceCoreAddress)).setPeer(40161, bytes32(uint256(uint160(sliceCoreAddress))));
+            positions.push(Position(11155111,0xB36c4ef1e4Bc67e323581bDd7F48702d016Ebf19,2184000000000000000000));
+            SliceCore(payable(sliceCoreAddress)).createSlice("TEST", "TT", positions);
+        }
+
         vm.stopBroadcast();
 
         console.log("Slice Core deployed to: ");
         console.log(sliceCoreAddress);
+    }
+
+    function setSalt(string memory _saltString) internal {
+        bytes32 result;
+        assembly {
+            result := mload(add(_saltString, 32))
+        }
+        salt = result;
     }
 
     function getConstructorArgs() internal view returns (ConstructorArgs memory) {

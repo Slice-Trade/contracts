@@ -38,6 +38,8 @@ esac
 
 if [ "$2" == "--simulate" ]; then
     forge script script/Deploy.s.sol:SliceCoreDeployer --rpc-url $RPC_URL --sender $SENDER
+elif [ "$2" == "--verify" ]; then
+    forge script script/Deploy.s.sol:SliceCoreDeployer --rpc-url $RPC_URL --broadcast --sender $SENDER --etherscan-api-key $ETHERSCAN_API_KEY --verify 
 else
     forge script script/Deploy.s.sol:SliceCoreDeployer --rpc-url $RPC_URL --broadcast --sender $SENDER
 fi
