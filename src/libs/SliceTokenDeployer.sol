@@ -6,13 +6,13 @@ import "../interfaces/ISliceTokenDeployer.sol";
 
 contract SliceTokenDeployer is ISliceTokenDeployer {
     function deploySliceToken(
-        string calldata _name,
-        string calldata _symbol,
-        Position[] calldata _positions,
-        address _paymentToken,
-        address _core
+        string calldata name,
+        string calldata symbol,
+        Position[] calldata positions,
+        address paymentToken,
+        address core
     ) external returns (address) {
-        SliceToken token = new SliceToken(_name, _symbol, _positions, _paymentToken, _core);
+        SliceToken token = new SliceToken(name, symbol, positions, paymentToken, core);
         return address(token);
     }
 }

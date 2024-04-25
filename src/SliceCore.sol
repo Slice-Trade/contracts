@@ -48,7 +48,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
     CrossChainGas public crossChainGas = CrossChainGas(550000, 500000);
 
-    mapping(TransactionType txType => uint128 gas) public lzGasLookup;
+    mapping(CrossChainSignalType ccsType => uint128 gas) public lzGasLookup;
 
     address public sliceTokenDeployer;
 
@@ -69,9 +69,9 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         axelarAdapter = _axelarAdapter;
         sliceTokenDeployer = _sliceTokenDeployer;
 
-        lzGasLookup[TransactionType.MINT] = 120000;
-        lzGasLookup[TransactionType.REDEEM] = 200000;
-        lzGasLookup[TransactionType.REDEEM_COMPLETE] = 150000;
+        lzGasLookup[CrossChainSignalType.MINT] = 120000;
+        lzGasLookup[CrossChainSignalType.REDEEM] = 200000;
+        lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE] = 150000;
     }
 
     receive() external payable {}
@@ -95,11 +95,11 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         }
 
         address token = ISliceTokenDeployer(sliceTokenDeployer).deploySliceToken({
-            _name: _name,
-            _symbol: _symbol,
-            _positions: _positions,
-            _paymentToken: paymentToken,
-            _core: address(this)
+            name: _name,
+            symbol: _symbol,
+            positions: _positions,
+            paymentToken: paymentToken,
+            core: address(this)
         });
 
         registeredSliceTokens[token] = true;
@@ -209,7 +209,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
                 CrossChainSignal memory ccs = CrossChainSignal({
                     id: _redeemID,
                     srcChainId: uint32(block.chainid),
-                    txType: TransactionType.REDEEM,
+                    ccsType: CrossChainSignalType.REDEEM,
                     success: false,
                     user: txInfo.user,
                     underlying: positions[i].token,
@@ -219,7 +219,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
                 bytes memory ccsEncoded = abi.encode(ccs);
 
                 bytes memory _lzSendOpts =
-                    CrossChainData.createLzSendOpts({_gas: lzGasLookup[TransactionType.REDEEM], _value: 0});
+                    CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.REDEEM], _value: 0});
 
                 endpoint.send{value: msg.value}(
                     MessagingParams(
@@ -259,7 +259,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         CrossChainSignal memory ccs = CrossChainSignal({
             id: payloadData.mintID,
             srcChainId: uint32(block.chainid),
-            txType: TransactionType.MINT,
+            ccsType: CrossChainSignalType.MINT,
             success: true,
             user: address(0),
             underlying: address(0),
@@ -268,7 +268,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         // encode to bytes
         bytes memory ccsEncoded = abi.encode(ccs);
 
-        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({_gas: lzGasLookup[TransactionType.MINT], _value: 0});
+        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MINT], _value: 0});
 
         MessagingFee memory _fee = _quote(srcChain.lzEndpointId, ccsEncoded, _lzSendOpts, false);
 
@@ -306,8 +306,8 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         crossChainGas = _crossChainGas;
     }
 
-    function setLzGas(TransactionType _txType, uint128 _gas) external onlyOwner {
-        lzGasLookup[_txType] = _gas;
+    function setLzGas(CrossChainSignalType _ccsType, uint128 _gas) external onlyOwner {
+        lzGasLookup[_ccsType] = _gas;
     }
 
     /* =========================================================== */
@@ -373,11 +373,11 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
         CrossChainSignal memory ccs = abi.decode(payload, (CrossChainSignal));
 
-        if (ccs.txType == TransactionType.MINT) {
+        if (ccs.ccsType == CrossChainSignalType.MINT) {
             handleSwapCompleteSignal(ccs);
-        } else if (ccs.txType == TransactionType.REDEEM) {
+        } else if (ccs.ccsType == CrossChainSignalType.REDEEM) {
             handleRedeemSignal(ccs);
-        } else if (ccs.txType == TransactionType.REDEEM_COMPLETE) {
+        } else if (ccs.ccsType == CrossChainSignalType.REDEEM_COMPLETE) {
             handleRedeemCompleteSignal(ccs);
         }
     }
@@ -418,7 +418,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         CrossChainSignal memory _ccsResponse = CrossChainSignal({
             id: ccs.id,
             srcChainId: uint32(block.chainid),
-            txType: TransactionType.REDEEM_COMPLETE,
+            ccsType: CrossChainSignalType.REDEEM_COMPLETE,
             success: true,
             user: address(0),
             underlying: address(0),
@@ -428,7 +428,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         bytes memory _ccsResponseEncoded = abi.encode(_ccsResponse);
 
         bytes memory _lzSendOpts =
-            CrossChainData.createLzSendOpts({_gas: lzGasLookup[TransactionType.REDEEM_COMPLETE], _value: 0});
+            CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE], _value: 0});
 
         Chain memory srcChain = chainInfo.getChainInfo(ccs.srcChainId);
 
