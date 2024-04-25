@@ -11,8 +11,6 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
     event SliceTokenCreated(address indexed token);
     /* Emitted when the underlying assets of a Slice token are purchased during a Slice token mint */
     event UnderlyingAssetsPurchased(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
-    /* Emitted when the Slice token creator successfully rebalances a Slice token's positions */
-    event UnderlyingAssetsRebalanced(address indexed token);
     /* Emitted when the underlying assets in a Slice token are redeemed by a Slice token owner */
     event UnderlyingAssetsRedeemed(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
 
@@ -35,13 +33,6 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver {
      * @param _maxEstimatedPrices The maximum estimated price for each underlying asset. In USDC (6 decimals)
      */
     function purchaseUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes) external payable;
-
-    /**
-     * @dev Sells/buy the Slice token (msg.sender) underlying assets to rebalance to the new positions
-     * @param _rebalanceID The ID that uniquely identifies this transaction within the system
-     * @param _positions The new positions to rebalance to
-     */
-    //function rebalanceUnderlying(bytes32 _rebalanceID, Position[] calldata _positions) external;
 
     /**
      * @dev Transfers out the underlying assets for a given Slice token to the given user.

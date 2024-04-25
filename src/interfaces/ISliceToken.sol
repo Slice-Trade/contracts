@@ -7,8 +7,6 @@ import "../Structs.sol";
 interface ISliceToken is IERC20 {
     /* Emitted when a new Slice token is minted */
     event SliceMinted(address indexed to, uint256 indexed quantity);
-    /* Emitted when a Slice token is rebalanced by its creator */
-    event SliceRebalanced(address indexed token);
     /* Emitted when a Slice token is exchanged for the underlying assets by the owner */
     event SliceRedeemed(address indexed to, uint256 indexed quantity);
 
@@ -25,19 +23,6 @@ interface ISliceToken is IERC20 {
      * @param _mintID The ID that uniquely identifies this transaction within the system
      */
     function mintComplete(bytes32 _mintID) external;
-
-    /**
-     * @dev Rebalances the underlying positions in the Slice token. Can only be called by contract owner.
-     * @param _positions The new positions to rebalance to
-     * @return bytes32 The rebalance ID
-     */
-    function rebalance(Position[] calldata _positions) external returns (bytes32);
-
-    /**
-     * @dev Called by the SliceCore contract when a rebalance transaction is confirmed completed by all the cross-chain contracts
-     * @param _rebalanceID The ID that uniquely identifies this transaction within the system
-     */
-    function rebalanceComplete(bytes32 _rebalanceID) external;
 
     /**
      * @dev Redeems the underlying assets in a Slice token and burns the Slice token.
@@ -60,8 +45,6 @@ interface ISliceToken is IERC20 {
     function getNumberOfPositions() external view returns (uint256);
 
     function getMint(bytes32 _id) external view returns (SliceTransactionInfo memory);
-
-    function getRebalance(bytes32 _id) external view returns (SliceTransactionInfo memory);
 
     function getRedeem(bytes32 _id) external view returns (SliceTransactionInfo memory);
 }

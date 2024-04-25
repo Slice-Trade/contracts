@@ -40,13 +40,6 @@ contract SliceCoreMock {
     }
 
     /**
-     * @dev See ISliceCore - rebalanceUnderlying
-     */
-    function rebalanceUnderlying(bytes32 _rebalanceID, Position[] calldata _positions) external {
-        // TODO
-    }
-
-    /**
      * @dev See ISliceCore - redeemUnderlying
      */
     function redeemUnderlying(bytes32 _redeemID) external {
@@ -55,10 +48,6 @@ contract SliceCoreMock {
 
     function mintComplete(bytes32 _mintID, address _sliceToken) external {
         ISliceToken(_sliceToken).mintComplete(_mintID);
-    }
-
-    function rebalanceComplete(bytes32 _rebalanceID, address _sliceToken) external {
-        ISliceToken(_sliceToken).rebalanceComplete(_rebalanceID);
     }
 
     function redeemComplete(bytes32 _redeemID, address _sliceToken) external {

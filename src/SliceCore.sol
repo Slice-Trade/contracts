@@ -68,10 +68,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         lzGasLookup[TransactionType.REDEEM_COMPLETE] = 150000;
     }
 
-    function withdraw() external onlyOwner {
-        (bool success,) = msg.sender.call{value: address(this).balance}("");
-        require(success);
-    }
+    receive() external payable {}
 
     /**
      * @dev See ISliceCore - createSlice
@@ -206,34 +203,6 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     }
 
     /**
-     * @dev See ISliceCore - changeSliceTokenCreationEnabled
-     */
-    function changeSliceTokenCreationEnabled(bool _isEnabled) external onlyOwner {
-        isTokenCreationEnabled = _isEnabled;
-    }
-
-    /**
-     * @dev See ISliceCore - changeApprovedSliceTokenCreator
-     */
-    function changeApprovedSliceTokenCreator(address _user, bool _isApproved) external onlyOwner {
-        approvedSliceTokenCreators[_user] = _isApproved;
-    }
-
-    /**
-     * @dev See ISliceCore - canCreateSlice
-     */
-    function canCreateSlice(address _user) public view returns (bool) {
-        return approvedSliceTokenCreators[_user];
-    }
-
-    /**
-     * @dev See ISliceCore - isSliceTokenRegistered
-     */
-    function isSliceTokenRegistered(address _token) public view returns (bool) {
-        return registeredSliceTokens[_token];
-    }
-
-    /**
      * @dev See IPayloadExecutor - onPayloadReceive
      */
     function onPayloadReceive(bytes memory _data) external payable {
@@ -265,6 +234,68 @@ contract SliceCore is ISliceCore, Ownable, OApp {
             ),
             payable(address(this))
         );
+    }
+
+    function withdraw() external onlyOwner {
+        (bool success,) = msg.sender.call{value: address(this).balance}("");
+        require(success);
+    }
+
+    /**
+     * @dev See ISliceCore - changeSliceTokenCreationEnabled
+     */
+    function changeSliceTokenCreationEnabled(bool _isEnabled) external onlyOwner {
+        isTokenCreationEnabled = _isEnabled;
+    }
+
+    /**
+     * @dev See ISliceCore - changeApprovedSliceTokenCreator
+     */
+    function changeApprovedSliceTokenCreator(address _user, bool _isApproved) external onlyOwner {
+        approvedSliceTokenCreators[_user] = _isApproved;
+    }
+
+    function setCrossChainGas(CrossChainGas memory _crossChainGas) external onlyOwner {
+        crossChainGas = _crossChainGas;
+    }
+
+    function setLzGas(TransactionType _txType, uint128 _gas) external onlyOwner {
+        lzGasLookup[_txType] = _gas;
+    }
+
+    /**
+     * @dev See ISliceCore - getRegisteredSliceTokensCount
+     */
+    function getRegisteredSliceTokensCount() external view returns (uint256) {
+        return registeredSliceTokensCount;
+    }
+
+    /**
+     * @dev See ISliceCore - getRegisteredSliceTokens
+     */
+    function getRegisteredSliceTokens() external view returns (address[] memory) {
+        return registeredSliceTokensArray;
+    }
+
+    /**
+     * @dev See ISliceCore - getRegisteredSliceToken
+     */
+    function getRegisteredSliceToken(uint256 _idx) external view returns (address) {
+        return registeredSliceTokensArray[_idx];
+    }
+
+    /**
+     * @dev See ISliceCore - canCreateSlice
+     */
+    function canCreateSlice(address _user) public view returns (bool) {
+        return approvedSliceTokenCreators[_user];
+    }
+
+    /**
+     * @dev See ISliceCore - isSliceTokenRegistered
+     */
+    function isSliceTokenRegistered(address _token) public view returns (bool) {
+        return registeredSliceTokens[_token];
     }
 
     function _lzReceive(
@@ -436,7 +467,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     }
 
     function createAdapterData(Chain memory _dstChain, uint256 _maxEstimatedPrice, uint256 gasForSwap)
-        private
+        internal
         view
         returns (bytes memory _adapterData)
     {
@@ -460,37 +491,4 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         uint256 _numOfPositions = ISliceToken(_transactionCompleteSignal.token).getNumberOfPositions();
         return _transactionCompleteSignal.signals == _numOfPositions;
     }
-
-    /**
-     * @dev See ISliceCore - getRegisteredSliceTokensCount
-     */
-    function getRegisteredSliceTokensCount() external view returns (uint256) {
-        return registeredSliceTokensCount;
-    }
-
-    /**
-     * @dev See ISliceCore - getRegisteredSliceTokens
-     */
-    function getRegisteredSliceTokens() external view returns (address[] memory) {
-        return registeredSliceTokensArray;
-    }
-
-    /**
-     * @dev See ISliceCore - getRegisteredSliceToken
-     */
-    function getRegisteredSliceToken(uint256 _idx) external view returns (address) {
-        return registeredSliceTokensArray[_idx];
-    }
-
-    function setCrossChainGas(CrossChainGas memory _crossChainGas) external onlyOwner {
-        crossChainGas = _crossChainGas;
-    }
-
-    function setLzGas(TransactionType _txType, uint128 _gas) external onlyOwner {
-        lzGasLookup[_txType] = _gas;
-    }
-
-    function rebalanceUnderlying(bytes32 _rebalanceID, Position[] calldata _positions) external {}
-
-    receive() external payable {}
 }

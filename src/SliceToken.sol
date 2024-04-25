@@ -18,7 +18,6 @@ contract SliceToken is ISliceToken, ERC20 {
     string public description;
 
     mapping(bytes32 => SliceTransactionInfo) public mints;
-    mapping(bytes32 => SliceTransactionInfo) public rebalances;
     mapping(bytes32 => SliceTransactionInfo) public redeems;
 
     mapping(address => uint256) public locked;
@@ -104,20 +103,6 @@ contract SliceToken is ISliceToken, ERC20 {
     }
 
     /**
-     * @dev See ISliceToken - rebalance
-     */
-    function rebalance(Position[] calldata _positions) external returns (bytes32) {
-        // TODO
-    }
-
-    /**
-     * @dev See ISliceToken - rebalanceComplete
-     */
-    function rebalanceComplete(bytes32 _rebalanceID) external {
-        // TODO
-    }
-
-    /**
      * @dev See ISliceToken - redeem
      */
     function redeem(uint256 _sliceTokenQuantity) external payable returns (bytes32) {
@@ -192,10 +177,6 @@ contract SliceToken is ISliceToken, ERC20 {
 
     function getRedeem(bytes32 _id) external view returns (SliceTransactionInfo memory) {
         return redeems[_id];
-    }
-
-    function getRebalance(bytes32 _id) external view returns (SliceTransactionInfo memory) {
-        return rebalances[_id];
     }
 
     function verifyTransfer(address _sender, uint256 _amount) internal view returns (bool) {
