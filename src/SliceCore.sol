@@ -3,22 +3,28 @@ pragma solidity ^0.8.22;
 
 import "forge-std/src/console.sol";
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
 import {MessagingParams} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
-import "./external/ISushiXSwapV2.sol";
-import "./external/IRouteProcessor.sol";
-import "./external/IStargateAdapter.sol";
-import "./external/ISushiXSwapV2Adapter.sol";
-import "./interfaces/ISliceCore.sol";
-import "./utils/Utils.sol";
-import "./interfaces/IChainInfo.sol";
-import "./interfaces/ISliceTokenDeployer.sol";
-import "./SliceToken.sol";
 
-import "./libs/RouteVerifier.sol";
-import "./libs/CrossChainData.sol";
+import {ISushiXSwapV2} from "./external/ISushiXSwapV2.sol";
+import {IRouteProcessor} from "./external/IRouteProcessor.sol";
+import {IStargateAdapter} from "./external/IStargateAdapter.sol";
+import {ISushiXSwapV2Adapter} from "./external/ISushiXSwapV2Adapter.sol";
+
+import {ISliceCore} from "./interfaces/ISliceCore.sol";
+import {IChainInfo} from "./interfaces/IChainInfo.sol";
+import {ISliceTokenDeployer} from "./interfaces/ISliceTokenDeployer.sol";
+
+import {Utils} from "./utils/Utils.sol";
+
+import {RouteVerifier} from "./libs/RouteVerifier.sol";
+import {CrossChainData} from "./libs/CrossChainData.sol";
+
+import {SliceToken, ISliceToken} from "./SliceToken.sol";
+
+import "./Structs.sol";
 
 contract SliceCore is ISliceCore, Ownable, OApp {
     address public paymentToken;
