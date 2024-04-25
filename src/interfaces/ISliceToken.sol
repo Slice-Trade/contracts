@@ -10,6 +10,15 @@ interface ISliceToken is IERC20 {
     /* Emitted when a Slice token is exchanged for the underlying assets by the owner */
     event SliceRedeemed(address indexed to, uint256 indexed quantity);
 
+    error NotSliceCore();
+    error AmountLocked();
+    error ZeroTokenQuantity();
+    error IncorrectPricesOrRoutesLength();
+    error MintIdDoesNotExist();
+    error RedeemIdDoesNotExist();
+    error InvalidTransactionState();
+    error InsufficientBalance();
+
     /**
      * @dev Mints a new Slice token
      *
