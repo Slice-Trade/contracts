@@ -220,7 +220,7 @@ contract SliceTokenTest is Helper {
         vm.stopPrank();
 
         vm.startPrank(users[1]);
-        vm.expectRevert("SliceToken: Only Slice Core can call");
+        vm.expectRevert(bytes4(keccak256("NotSliceCore()")));
         // verify that mintComplete fails from non dev address
         sliceToken.mintComplete(mintId);
         vm.stopPrank();
@@ -244,7 +244,7 @@ contract SliceTokenTest is Helper {
 
         coreMock.mintComplete(mintId, address(sliceToken));
 
-        vm.expectRevert("SliceToken: Transaction state is not open");
+        vm.expectRevert(bytes4(keccak256("InvalidTransactionState()")));
         coreMock.mintComplete(mintId, address(sliceToken));
     }
 
@@ -263,7 +263,7 @@ contract SliceTokenTest is Helper {
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
 
         // verify that mintComplete fails with invalid mint ID
-        vm.expectRevert("SliceToken: Invalid mint ID");
+        vm.expectRevert(bytes4(keccak256("MintIdDoesNotExist()")));
         coreMock.mintComplete(bytes32(0), address(sliceToken));
         vm.stopPrank();
     }
@@ -280,7 +280,7 @@ contract SliceTokenTest is Helper {
     }
 
     function test_Cannot_Redeem_InsufficientBalance() public {
-        vm.expectRevert("SliceToken: Trying to redeem more than token balance");
+        vm.expectRevert(bytes4(keccak256("InsufficientBalance()")));
         token.redeem(1);
     }
 
@@ -319,7 +319,7 @@ contract SliceTokenTest is Helper {
 
         sliceToken.redeem(1000000000000000000);
 
-        vm.expectRevert("SliceToken: Trying to transfer locked amount");
+        vm.expectRevert(bytes4(keccak256("AmountLocked()")));
         sliceToken.transfer(users[1], 1000000000000000000);
         vm.stopPrank();
     }
@@ -359,14 +359,14 @@ contract SliceTokenTest is Helper {
     }
 
     function test_Cannot_RedeemComplete_NotAuthorized() public {
-        vm.expectRevert("SliceToken: Only Slice Core can call");
+        vm.expectRevert(bytes4(keccak256("NotSliceCore()")));
         token.redeemComplete(bytes32(0));
     }
 
     function test_Cannot_RedeemComplete_InvalidRedeemID() public {
         vm.startPrank(dev);
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), dev);
-        vm.expectRevert("SliceToken: Invalid redeem ID");
+        vm.expectRevert(bytes4(keccak256("RedeemIdDoesNotExist()")));
         sliceToken.redeemComplete(bytes32(0));
         vm.stopPrank();
     }

@@ -8,6 +8,7 @@ import "../src/external/IWETH.sol";
 
 import "../src/utils/ChainInfo.sol";
 
+import "../src/interfaces/ISliceCoreErrors.sol";
 import "../src/SliceCore.sol";
 import "../src/SliceToken.sol";
 import "../src/libs/SliceTokenDeployer.sol";
@@ -198,7 +199,7 @@ contract SliceCoreTest is Helper {
         // call create Slice token from an unverified address
         vm.prank(users[2]);
         // verify that transaction fails with the correct revert message
-        vm.expectRevert("SliceCore: Unauthorized caller");
+        vm.expectRevert(bytes4(keccak256("UnauthorizedCaller()")));
         core.createSlice("Test Token", "TT", positions);
     }
 
@@ -206,7 +207,8 @@ contract SliceCoreTest is Helper {
         vm.startPrank(dev);
         // enable slice token creation
         core.changeSliceTokenCreationEnabled(false);
-        vm.expectRevert("SliceCore: Slice token creation disabled");
+        
+        vm.expectRevert(bytes4(keccak256("TokenCreationDisabled()")));
         core.createSlice("Test Token", "TT", positions);
         vm.stopPrank();
     }
@@ -281,7 +283,7 @@ contract SliceCoreTest is Helper {
 
     function test_Cannot_PurchaseUnderlyingAssets_NotRegistedSliceToken() public {
         // verify that it reverts with the correct revert msg
-        vm.expectRevert("SliceCore: Only registered Slice token can call");
+        vm.expectRevert(bytes4(keccak256("UnregisteredSliceToken()")));
         // call purchaseUnderlying from a non-registered address
         core.purchaseUnderlyingAssets(bytes32(0), 1, maxEstimatedPrices, routes);
     }
@@ -325,7 +327,7 @@ contract SliceCoreTest is Helper {
 
     function test_Cannot_RedeemUnderlying_NotAuthorized() public {
         // verify that it reverts with the correct reason
-        vm.expectRevert("SliceCore: Only registered Slice token can call");
+        vm.expectRevert(bytes4(keccak256("UnregisteredSliceToken()")));
         // call redeem from not registered slice token
         core.redeemUnderlying(bytes32(0));
     }
@@ -353,7 +355,7 @@ contract SliceCoreTest is Helper {
         // disable slice token creation
         core.changeSliceTokenCreationEnabled(false);
 
-        vm.expectRevert("SliceCore: Slice token creation disabled");
+        vm.expectRevert(bytes4(keccak256("TokenCreationDisabled()")));
         // verify that we cannot create slice tokens
         core.createSlice("New Test Token", "NTT", positions);
         vm.stopPrank();
