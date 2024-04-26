@@ -101,7 +101,7 @@ library CrossChainData {
         return abi.encode(
             ISushiXSwapV2Adapter.PayloadData(
                 _partnerSliceCore,
-                _payloadGas, // TODO verify gas
+                _payloadGas,
                 abi.encode(
                     SlicePayloadData(
                         block.chainid, // src chain id

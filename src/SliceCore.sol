@@ -26,6 +26,10 @@ import {SliceToken, ISliceToken} from "./SliceToken.sol";
 
 import "./Structs.sol";
 
+/**
+ * @author Lajos Deme, Blind Labs
+ * @notice The core logic contract of the architecture, provides cross-chain underlying asset management
+ */
 contract SliceCore is ISliceCore, Ownable, OApp {
     address public paymentToken;
 
@@ -268,7 +272,8 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         // encode to bytes
         bytes memory ccsEncoded = abi.encode(ccs);
 
-        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MINT], _value: 0});
+        bytes memory _lzSendOpts =
+            CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MINT], _value: 0});
 
         MessagingFee memory _fee = _quote(srcChain.lzEndpointId, ccsEncoded, _lzSendOpts, false);
 

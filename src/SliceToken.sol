@@ -12,6 +12,10 @@ import {Utils} from "./utils/Utils.sol";
 
 import "./Structs.sol";
 
+/**
+ * @author Lajos Deme, Blind Labs
+ * @notice ERC20 contract providing exposure to a basket of underlying assets
+ */
 contract SliceToken is ISliceToken, ERC20 {
     IERC20 public paymentToken;
 
@@ -21,10 +25,10 @@ contract SliceToken is ISliceToken, ERC20 {
     string public category;
     string public description;
 
-    mapping(bytes32 => SliceTransactionInfo) public mints;
-    mapping(bytes32 => SliceTransactionInfo) public redeems;
+    mapping(bytes32 mintId => SliceTransactionInfo txInfo) public mints;
+    mapping(bytes32 redeemId => SliceTransactionInfo txInfo) public redeems;
 
-    mapping(address => uint256) public locked;
+    mapping(address user => uint256 lockedAmount) public locked;
 
     modifier onlySliceCore() {
         if (msg.sender != sliceCore) {
@@ -49,20 +53,9 @@ contract SliceToken is ISliceToken, ERC20 {
         }
     }
 
-    function transfer(address to, uint256 amount) public virtual override(ERC20, IERC20) returns (bool) {
-        if (!verifyTransfer(msg.sender, amount)) {
-            revert AmountLocked();
-        }
-
-        bool success = super.transfer(to, amount);
-        return success;
-    }
-
-    function setCategoryAndDescription(string calldata _category, string calldata _description) external {
-        category = _category;
-        description = _description;
-    }
-
+    /* =========================================================== */
+    /*   ===================    EXTERNAL   ====================    */
+    /* =========================================================== */
     /**
      * @dev See ISliceToken - mint
      */
@@ -89,8 +82,13 @@ contract SliceToken is ISliceToken, ERC20 {
             )
         );
 
-        SliceTransactionInfo memory txInfo =
-            SliceTransactionInfo(mintId, _sliceTokenQuantity, msg.sender, TransactionState.OPEN, bytes(""));
+        SliceTransactionInfo memory txInfo = SliceTransactionInfo({
+            id: mintId,
+            quantity: _sliceTokenQuantity,
+            user: msg.sender,
+            state: TransactionState.OPEN,
+            data: bytes("")
+        });
 
         mints[mintId] = txInfo;
 
@@ -146,8 +144,13 @@ contract SliceToken is ISliceToken, ERC20 {
         );
 
         // create tx info
-        SliceTransactionInfo memory txInfo =
-            SliceTransactionInfo(redeemID, _sliceTokenQuantity, msg.sender, TransactionState.OPEN, bytes(""));
+        SliceTransactionInfo memory txInfo = SliceTransactionInfo({
+            id: redeemID,
+            quantity: _sliceTokenQuantity,
+            user: msg.sender,
+            state: TransactionState.OPEN,
+            data: bytes("")
+        });
 
         // record redeem ID + tx info
         redeems[redeemID] = txInfo;
@@ -189,6 +192,18 @@ contract SliceToken is ISliceToken, ERC20 {
         emit SliceRedeemed(_txInfo.user, _txInfo.quantity);
     }
 
+    function setCategoryAndDescription(string calldata _category, string calldata _description) external {
+        if (bytes(category).length != 0 || bytes(description).length != 0) {
+            revert AlreadySet();
+        }
+
+        category = _category;
+        description = _description;
+    }
+
+    /* =========================================================== */
+    /*   =================   EXTERNAL VIEW   ==================    */
+    /* =========================================================== */
     /**
      * @dev See ISliceToken - getPositions
      */
@@ -208,6 +223,21 @@ contract SliceToken is ISliceToken, ERC20 {
         return redeems[_id];
     }
 
+    /* =========================================================== */
+    /*   =====================   PUBLIC   =====================    */
+    /* =========================================================== */
+    function transfer(address to, uint256 amount) public virtual override(ERC20, IERC20) returns (bool) {
+        if (!verifyTransfer(msg.sender, amount)) {
+            revert AmountLocked();
+        }
+
+        bool success = super.transfer(to, amount);
+        return success;
+    }
+
+    /* =========================================================== */
+    /*   ===================    INTERNAL   ====================    */
+    /* =========================================================== */
     function verifyTransfer(address _sender, uint256 _amount) internal view returns (bool) {
         return balanceOf(_sender) - _amount >= locked[_sender];
     }
