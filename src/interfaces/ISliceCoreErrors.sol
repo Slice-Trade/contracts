@@ -27,4 +27,6 @@ interface ISliceCoreErrors {
     error CrossChainSwapFailed();
 
     error CrossChainRedeemFailed();
+
+    error LayerZeroSendFailed();
 }
