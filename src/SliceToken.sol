@@ -20,8 +20,8 @@ contract SliceToken is ISliceToken, ERC20 {
     address public immutable sliceCore;
     Position[] public positions;
 
-    string public category = "";
-    string public description = "";
+    string public category;
+    string public description;
 
     mapping(bytes32 mintId => SliceTransactionInfo txInfo) public mints;
     mapping(bytes32 redeemId => SliceTransactionInfo txInfo) public redeems;

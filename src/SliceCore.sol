@@ -41,13 +41,13 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
     address public immutable sliceTokenDeployer;
 
-    bool public isTokenCreationEnabled = false;
+    bool public isTokenCreationEnabled;
 
     mapping(address creator => bool isApproved) public approvedSliceTokenCreators;
 
     mapping(address token => bool isRegistered) public registeredSliceTokens;
     address[] public registeredSliceTokensArray;
-    uint256 public registeredSliceTokensCount = 0;
+    uint256 public registeredSliceTokensCount;
 
     mapping(bytes32 id => TransactionCompleteSignals signal) public transactionCompleteSignals;
 
@@ -108,7 +108,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         registeredSliceTokens[token] = true;
         registeredSliceTokensArray.push(token);
-        registeredSliceTokensCount++;
+        ++registeredSliceTokensCount;
 
         emit SliceTokenCreated(token);
 
@@ -145,15 +145,16 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         // get the underlying positions from the slice token
         Position[] memory positions = SliceToken(msg.sender).getPositions();
 
-        for (uint256 i = 0; i < positions.length; i++) {
-            // if asset is local execute swap right away: (check block.chainid)
+        uint256 len = positions.length;
+        for (uint256 i = 0; i < len; i++) {
             if (isPositionLocal(positions[i])) {
+                // if asset is local execute swap right away: (check block.chainid)
                 bool success = executeLocalSwap(_sliceTokenQuantity, _maxEstimatedPrices[i], positions[i], _routes[i]);
                 if (!success) {
                     revert LocalSwapFailed();
                 }
                 // increase the ready signal after each local swap
-                transactionCompleteSignals[_mintID].signals++;
+                ++transactionCompleteSignals[_mintID].signals;
             } else {
                 executeCrossChainSwap(
                     _mintID, _sliceTokenQuantity, _maxEstimatedPrices[i], positions[i], txInfo, _routes[i]
@@ -195,17 +196,17 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         // get the underlying positions of the slice token
         Position[] memory positions = SliceToken(msg.sender).getPositions();
 
-        // if the asset is local execute the transfer right away
-        for (uint256 i = 0; i < positions.length; i++) {
+        uint256 len = positions.length;
+        for (uint256 i = 0; i < len; i++) {
             uint256 _amount = CrossChainData.calculateAmountOutMin(txInfo.quantity, positions[i].units);
-
             if (isPositionLocal(positions[i])) {
+                // if the asset is local execute the transfer right away
                 bool success = IERC20(positions[i].token).transfer(txInfo.user, _amount);
                 if (!success) {
                     revert UnderlyingAssetTransferFailed();
                 }
                 // increase ready signal after each local transfer
-                transactionCompleteSignals[_redeemID].signals++;
+                ++transactionCompleteSignals[_redeemID].signals;
             } else {
                 // if asset is not local send lz msg to Core contract on dst chain
                 Chain memory dstChain = chainInfo.getChainInfo(positions[i].chainId);
@@ -405,7 +406,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
 
         // then register complete signal
-        transactionCompleteSignals[ccs.id].signals++;
+        ++transactionCompleteSignals[ccs.id].signals;
 
         if (checkPendingTransactionCompleteSignals(ccs.id)) {
             emit UnderlyingAssetsPurchased({
@@ -468,7 +469,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             revert CrossChainRedeemFailed();
         }
 
-        transactionCompleteSignals[ccs.id].signals++;
+        ++transactionCompleteSignals[ccs.id].signals;
 
         if (checkPendingTransactionCompleteSignals(ccs.id)) {
             emit UnderlyingAssetsRedeemed({
