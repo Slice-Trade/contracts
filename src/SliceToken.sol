@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import "forge-std/src/console.sol";
-
 import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {ISliceCore} from "./interfaces/ISliceCore.sol";
@@ -17,9 +15,9 @@ import "./Structs.sol";
  * @notice ERC20 contract providing exposure to a basket of underlying assets
  */
 contract SliceToken is ISliceToken, ERC20 {
-    IERC20 public paymentToken;
+    IERC20 public immutable paymentToken;
 
-    address public sliceCore;
+    address public immutable sliceCore;
     Position[] public positions;
 
     string public category = "";

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import "forge-std/src/console.sol";
-
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {MessagingParams, MessagingReceipt} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
@@ -32,14 +30,16 @@ import "./Structs.sol";
  * @notice The core logic contract of the architecture, provides cross-chain underlying asset management
  */
 contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
-    address public paymentToken;
+    address public immutable paymentToken;
 
-    ISushiXSwapV2 public sushiXSwap;
+    ISushiXSwapV2 public immutable sushiXSwap;
 
-    address public stargateAdapter;
-    address public axelarAdapter;
+    address public immutable stargateAdapter;
+    address public immutable axelarAdapter;
 
-    IChainInfo public chainInfo;
+    IChainInfo public immutable chainInfo;
+
+    address public immutable sliceTokenDeployer;
 
     bool public isTokenCreationEnabled = false;
 
@@ -54,8 +54,6 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     CrossChainGas public crossChainGas = CrossChainGas(550000, 500000);
 
     mapping(CrossChainSignalType ccsType => uint128 gas) public lzGasLookup;
-
-    address public sliceTokenDeployer;
 
     constructor(
         address _paymentToken,
@@ -125,7 +123,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         uint256 _sliceTokenQuantity,
         uint256[] memory _maxEstimatedPrices,
         bytes[] memory _routes
-    ) external nonReentrant payable {
+    ) external payable nonReentrant {
         // check that slice token (msg.sender) is registered
         if (!registeredSliceTokens[msg.sender]) {
             revert UnregisteredSliceToken();
@@ -177,7 +175,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     /**
      * @dev See ISliceCore - redeemUnderlying
      */
-    function redeemUnderlying(bytes32 _redeemID) external nonReentrant payable {
+    function redeemUnderlying(bytes32 _redeemID) external payable nonReentrant {
         // check that slice token (msg.sender) is registered
         if (!registeredSliceTokens[msg.sender]) {
             revert UnregisteredSliceToken();
@@ -282,8 +280,6 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MINT], _value: 0});
 
         MessagingFee memory _fee = _quote(srcChain.lzEndpointId, ccsEncoded, _lzSendOpts, false);
-
-        console.log(_fee.nativeFee);
 
         // call send on layer zero endpoint
         MessagingReceipt memory _receipt = endpoint.send{value: _fee.nativeFee}(
