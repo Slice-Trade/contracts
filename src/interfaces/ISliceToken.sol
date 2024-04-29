@@ -19,6 +19,7 @@ interface ISliceToken is IERC20 {
     error InvalidTransactionState();
     error InsufficientBalance();
     error AlreadySet();
+    error MintFailed();
 
     /**
      * @dev Mints a new Slice token

@@ -22,8 +22,8 @@ contract SliceToken is ISliceToken, ERC20 {
     address public sliceCore;
     Position[] public positions;
 
-    string public category;
-    string public description;
+    string public category = "";
+    string public description = "";
 
     mapping(bytes32 mintId => SliceTransactionInfo txInfo) public mints;
     mapping(bytes32 redeemId => SliceTransactionInfo txInfo) public redeems;
@@ -74,7 +74,10 @@ contract SliceToken is ISliceToken, ERC20 {
 
         uint256 sumPrice = Utils.sumMaxEstimatedPrices(_maxEstimatedPrices);
 
-        paymentToken.transferFrom(msg.sender, address(sliceCore), sumPrice);
+        bool success = paymentToken.transferFrom(msg.sender, address(sliceCore), sumPrice);
+        if (!success) {
+            revert MintFailed();
+        }
 
         bytes32 mintId = keccak256(
             abi.encodePacked(

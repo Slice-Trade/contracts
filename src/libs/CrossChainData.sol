@@ -74,12 +74,13 @@ library CrossChainData {
         bytes memory swapDataEncoded,
         bytes memory payloadDataEncoded
     ) public view returns (uint256) {
+        uint256 _dustAmount = 0;
         (uint256 gasNeeded,) = IStargateAdapter(stargateAdapter).getFee(
             stargateChainId,
             1,
             stargateAdapter,
             550000,
-            0,
+            _dustAmount,
             abi.encode(
                 partnerSliceCore, // to
                 swapDataEncoded, // swap data

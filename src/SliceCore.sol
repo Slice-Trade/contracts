@@ -5,8 +5,9 @@ import "forge-std/src/console.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {MessagingParams} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
+import {MessagingParams, MessagingReceipt} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
 import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {IRouteProcessor} from "./external/IRouteProcessor.sol";
 import {ISushiXSwapV2} from "./external/ISushiXSwapV2.sol";
@@ -30,7 +31,7 @@ import "./Structs.sol";
  * @author Lajos Deme, Blind Labs
  * @notice The core logic contract of the architecture, provides cross-chain underlying asset management
  */
-contract SliceCore is ISliceCore, Ownable, OApp {
+contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     address public paymentToken;
 
     ISushiXSwapV2 public sushiXSwap;
@@ -40,13 +41,13 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
     IChainInfo public chainInfo;
 
-    bool public isTokenCreationEnabled;
+    bool public isTokenCreationEnabled = false;
 
     mapping(address creator => bool isApproved) public approvedSliceTokenCreators;
 
     mapping(address token => bool isRegistered) public registeredSliceTokens;
     address[] public registeredSliceTokensArray;
-    uint256 public registeredSliceTokensCount;
+    uint256 public registeredSliceTokensCount = 0;
 
     mapping(bytes32 id => TransactionCompleteSignals signal) public transactionCompleteSignals;
 
@@ -88,6 +89,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
      */
     function createSlice(string calldata _name, string calldata _symbol, Position[] calldata _positions)
         external
+        nonReentrant
         returns (address)
     {
         if (!canCreateSlice(msg.sender)) {
@@ -123,7 +125,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         uint256 _sliceTokenQuantity,
         uint256[] memory _maxEstimatedPrices,
         bytes[] memory _routes
-    ) external payable {
+    ) external nonReentrant payable {
         // check that slice token (msg.sender) is registered
         if (!registeredSliceTokens[msg.sender]) {
             revert UnregisteredSliceToken();
@@ -175,7 +177,7 @@ contract SliceCore is ISliceCore, Ownable, OApp {
     /**
      * @dev See ISliceCore - redeemUnderlying
      */
-    function redeemUnderlying(bytes32 _redeemID) external payable {
+    function redeemUnderlying(bytes32 _redeemID) external nonReentrant payable {
         // check that slice token (msg.sender) is registered
         if (!registeredSliceTokens[msg.sender]) {
             revert UnregisteredSliceToken();
@@ -225,12 +227,16 @@ contract SliceCore is ISliceCore, Ownable, OApp {
                 bytes memory _lzSendOpts =
                     CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.REDEEM], _value: 0});
 
-                endpoint.send{value: msg.value}(
+                MessagingFee memory _fee = _quote(dstChain.lzEndpointId, ccsEncoded, _lzSendOpts, false);
+                MessagingReceipt memory _receipt = endpoint.send{value: _fee.nativeFee}(
                     MessagingParams(
                         dstChain.lzEndpointId, _getPeerOrRevert(dstChain.lzEndpointId), ccsEncoded, _lzSendOpts, false
                     ),
                     payable(address(this))
                 );
+                if (_receipt.guid == bytes32(0)) {
+                    revert LayerZeroSendFailed();
+                }
             }
         }
 
@@ -280,12 +286,15 @@ contract SliceCore is ISliceCore, Ownable, OApp {
         console.log(_fee.nativeFee);
 
         // call send on layer zero endpoint
-        endpoint.send{value: _fee.nativeFee}(
+        MessagingReceipt memory _receipt = endpoint.send{value: _fee.nativeFee}(
             MessagingParams(
                 srcChain.lzEndpointId, _getPeerOrRevert(srcChain.lzEndpointId), ccsEncoded, _lzSendOpts, false
             ),
             payable(address(this))
         );
+        if (_receipt.guid == bytes32(0)) {
+            revert LayerZeroSendFailed();
+        }
     }
 
     function withdraw() external onlyOwner {
@@ -439,12 +448,16 @@ contract SliceCore is ISliceCore, Ownable, OApp {
 
         MessagingFee memory _fee = _quote(srcChain.lzEndpointId, _ccsResponseEncoded, _lzSendOpts, false);
 
-        endpoint.send{value: _fee.nativeFee}(
+        MessagingReceipt memory _receipt = endpoint.send{value: _fee.nativeFee}(
             MessagingParams(
                 srcChain.lzEndpointId, _getPeerOrRevert(srcChain.lzEndpointId), _ccsResponseEncoded, _lzSendOpts, false
             ),
             payable(address(this))
         );
+
+        if (_receipt.guid == bytes32(0)) {
+            revert LayerZeroSendFailed();
+        }
     }
 
     function handleRedeemCompleteSignal(CrossChainSignal memory ccs) internal {
