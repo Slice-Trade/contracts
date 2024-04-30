@@ -24,12 +24,15 @@ interface ISliceToken is IERC20 {
     /**
      * @dev Mints a new Slice token
      *
-     * @param _sliceTokenQuantity The quantity of slice tokens to purchase
+     * @param _sliceTokenQuantity The quantity of slice tokens to mint
      * @param _maxEstimatedPrices The maximum estimated price of all the underlying assets combined. In USDC (6 decimals)
      *
      * @return bytes32 The mint ID
      */
-    function mint(uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes) external payable returns (bytes32);
+    function mint(uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes)
+        external
+        payable
+        returns (bytes32);
 
     /**
      * @dev Called by the SliceCore contract when a mint transaction is confirmed completed by all the cross-chain contracts
@@ -43,7 +46,7 @@ interface ISliceToken is IERC20 {
      *
      * @param _sliceTokenQuantity The quantity of slice tokens to redeem
      *
-     * @return bytes32 The redeem ID 
+     * @return bytes32 The redeem ID
      */
     function redeem(uint256 _sliceTokenQuantity) external payable returns (bytes32);
 
@@ -53,6 +56,15 @@ interface ISliceToken is IERC20 {
      * @param _redeemID The ID that uniquely identifies this transaction within the system
      */
     function redeemComplete(bytes32 _redeemID) external;
+
+    /**
+     * @dev Mints a new Slice token using the manual mint flow - assuming the underlying assets are in the user wallet and approved to spend
+     *
+     * @param _sliceTokenQuantity The quantity of slice tokens to mint
+     *
+     * @return bytes32 The mint ID
+     */
+    function manualMint(uint256 _sliceTokenQuantity) external payable returns (bytes32);
 
     /**
      * @dev Returns the Slice token's underlying positions

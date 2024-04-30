@@ -128,6 +128,35 @@ contract SliceToken is ISliceToken, ERC20 {
     }
 
     /**
+     * @dev See ISliceToken - manualMint
+     */
+    function manualMint(uint256 _sliceTokenQuantity) external payable returns (bytes32) {
+        if (_sliceTokenQuantity == 0) {
+            revert ZeroTokenQuantity();
+        }
+
+        bytes32 mintId = keccak256(
+            abi.encodePacked(
+                this.manualMint.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp
+            )
+        );
+
+        SliceTransactionInfo memory txInfo = SliceTransactionInfo({
+            id: mintId,
+            quantity: _sliceTokenQuantity,
+            user: msg.sender,
+            state: TransactionState.OPEN,
+            data: bytes("")
+        });
+
+        mints[mintId] = txInfo;
+
+        ISliceCore(sliceCore).collectUnderlyingAssets{value: msg.value}(mintId, _sliceTokenQuantity);
+
+        return mintId;
+    }
+
+    /**
      * @dev See ISliceToken - redeem
      */
     function redeem(uint256 _sliceTokenQuantity) external payable returns (bytes32) {

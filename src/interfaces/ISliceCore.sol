@@ -14,6 +14,8 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver, ISliceCoreErrors {
     event UnderlyingAssetsPurchased(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
     /* Emitted when the underlying assets in a Slice token are redeemed by a Slice token owner */
     event UnderlyingAssetsRedeemed(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
+    /* Emitted when the underlying assets of a Slice token are transferred to SliceCore during a manual token mint */
+    event UnderlyingAssetsCollected(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
 
     /**
      * @dev Deploys a new Slice token contract. Can only be called by verified addresses.
@@ -48,6 +50,14 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver, ISliceCoreErrors {
         uint256[] memory _maxEstimatedPrices,
         bytes[] memory _routes
     ) external payable;
+
+    /**
+     * @dev Transfers the underlying assets from the user to the contract
+     *
+     * @param _mintID The ID that uniquely identifies this mint transaction within the system
+     * @param _sliceTokenQuantity The quantity of slice tokens to mint to the user
+     */
+    function collectUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity) external payable;
 
     /**
      * @dev Transfers out the underlying assets for a given Slice token to the given user.

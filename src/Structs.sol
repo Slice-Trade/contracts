@@ -11,6 +11,7 @@ enum TransactionState {
 /// @notice 
 enum CrossChainSignalType {
     MINT,
+    MANUAL_MINT,
     REDEEM,
     REDEEM_COMPLETE
 }
@@ -86,9 +87,9 @@ struct TransactionCompleteSignals {
  * @param srcChainId Chain ID of the chain that is sending the signal
  * @param ccsType CrossChainSignal type
  * @param success If the operation that resulted in this signal was successful or not
- * @param user The user who initiated the transaction (only used for redeemUnderlying)
- * @param underlying The underlying token the user is redeeming (only used for redeemUnderlying)
- * @param units The units of the underlying token being redeemed (only used for redeemUnderlying) 
+ * @param user The user who initiated the transaction (only used for redeemUnderlying/ manual mint)
+ * @param underlying The underlying token the user is redeeming/manual minting (only used for redeemUnderlying/manual mint)
+ * @param units The units of the underlying token being redeemed/manual minted (only used for redeemUnderlying/manual mint) 
  */
 struct CrossChainSignal {
     bytes32 id;
