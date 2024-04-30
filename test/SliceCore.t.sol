@@ -221,7 +221,7 @@ contract SliceCoreTest is Helper {
 
         vm.expectEmit(true, true, true, false);
         // verify that event is emitted
-        emit ISliceCore.UnderlyingAssetsPurchased(address(token), 1000000000000000000, dev);
+        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1000000000000000000, dev);
 
         token.mint(1000000000000000000, maxEstimatedPrices, routes);
 

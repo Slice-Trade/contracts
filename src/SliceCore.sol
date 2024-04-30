@@ -165,7 +165,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         // if all signals are in -> call mintComplete on token contract
         if (checkPendingTransactionCompleteSignals(_mintID)) {
-            emit UnderlyingAssetsPurchased({
+            emit UnderlyingAssetsProcured({
                 token: msg.sender,
                 sliceTokenQuantity: _sliceTokenQuantity,
                 owner: txInfo.user
@@ -230,7 +230,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
 
         if (checkPendingTransactionCompleteSignals(_mintID)) {
-            emit UnderlyingAssetsCollected({
+            emit UnderlyingAssetsProcured({
                 token: msg.sender,
                 sliceTokenQuantity: _sliceTokenQuantity,
                 owner: txInfo.user
@@ -431,7 +431,9 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         CrossChainSignal memory ccs = abi.decode(payload, (CrossChainSignal));
 
         if (ccs.ccsType == CrossChainSignalType.MINT) {
-            handleSwapCompleteSignal(ccs);
+            handleUnderlyingProcureCompleteSignal(ccs);
+        } else if (ccs.ccsType == CrossChainSignalType.MANUAL_MINT) {
+            handleManualMintSignal(ccs);
         } else if (ccs.ccsType == CrossChainSignalType.REDEEM) {
             handleRedeemSignal(ccs);
         } else if (ccs.ccsType == CrossChainSignalType.REDEEM_COMPLETE) {
@@ -439,7 +441,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
     }
 
-    function handleSwapCompleteSignal(CrossChainSignal memory ccs) internal {
+    function handleUnderlyingProcureCompleteSignal(CrossChainSignal memory ccs) internal {
         TransactionCompleteSignals memory txCompleteSignals = transactionCompleteSignals[ccs.id];
         // verify that the mint id from the payload exists
         if (!isSliceTokenRegistered(txCompleteSignals.token)) {
@@ -448,14 +450,14 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         // verify that the payload status is OK
         if (!ccs.success) {
-            revert CrossChainSwapFailed();
+            revert CrossChainSwapFailed(); // TODO: Refund logic here
         }
 
         // then register complete signal
         ++transactionCompleteSignals[ccs.id].signals;
 
         if (checkPendingTransactionCompleteSignals(ccs.id)) {
-            emit UnderlyingAssetsPurchased({
+            emit UnderlyingAssetsProcured({
                 token: txCompleteSignals.token,
                 sliceTokenQuantity: txCompleteSignals.sliceTokenQuantity,
                 owner: txCompleteSignals.user
@@ -463,6 +465,32 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             // if all complete signals received: call mintComplete on token
             SliceToken(txCompleteSignals.token).mintComplete(ccs.id);
         }
+    }
+
+    function handleManualMintSignal(CrossChainSignal memory ccs) internal {
+        // transfer the given amount of the given token from given user to core
+        bool success = IERC20(ccs.underlying).transferFrom(ccs.user, address(this), ccs.units);
+
+        // create cross chain signal
+        CrossChainSignal memory _ccsResponse = CrossChainSignal({
+            id: ccs.id,
+            srcChainId: uint32(block.chainid),
+            ccsType: CrossChainSignalType.MINT,
+            success: success,
+            user: ccs.user,
+            underlying: ccs.underlying,
+            units: ccs.units
+        });
+
+        bytes memory ccsEncoded = abi.encode(_ccsResponse);
+
+        bytes memory _lzSendOpts =
+            CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MINT], _value: 0});
+
+        Chain memory srcChain = chainInfo.getChainInfo(ccs.srcChainId);
+
+        // send LZ message
+        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded);
     }
 
     function handleRedeemSignal(CrossChainSignal memory ccs) internal {
@@ -482,14 +510,14 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             units: 0
         });
 
-        bytes memory _ccsResponseEncoded = abi.encode(_ccsResponse);
+        bytes memory ccsEncoded = abi.encode(_ccsResponse);
 
         bytes memory _lzSendOpts =
             CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE], _value: 0});
 
         Chain memory srcChain = chainInfo.getChainInfo(ccs.srcChainId);
 
-        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, _ccsResponseEncoded);
+        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded);
     }
 
     function handleRedeemCompleteSignal(CrossChainSignal memory ccs) internal {

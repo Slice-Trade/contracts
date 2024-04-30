@@ -136,7 +136,7 @@ contract SliceTokenTest is Helper {
 
         // verify that purchase event in Core contract is emitted
         vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsPurchased(address(token), 2, dev);
+        emit ISliceCore.UnderlyingAssetsProcured(address(token), 2, dev);
 
         // call mint
         bytes32 mintId = token.mint(2, maxEstimatedPrices, routes);
