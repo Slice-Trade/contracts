@@ -18,7 +18,7 @@ contract Constants {
         setAddress("eth_sepolia.axelarAdapter", 0x9d56C29Fc58F06B5846503C225C09090c8661BeF);
         setAddress("eth_sepolia.lzEndpoint", 0x6EDCE65403992e310A62460808c4b910D972f10f);
         setAddress("eth_sepolia.chainInfo", 0x3187F6AC207c6c58031Abc018d74399c0a8860AC);
-        setAddress("eth_sepolia.tokenDeployer", 0xaA00a929E78f73F63bfe208bFc0ac452F636b10e);
+        setAddress("eth_sepolia.tokenDeployer", 0x6A4a0AAfE10A27096bdf9233a9538ae933762C29);
 
         setAddress("op_sepolia.paymentToken", 0x488327236B65C61A6c083e8d811a4E0D3d1D4268);
         setAddress("op_sepolia.sushiXSwap", 0x6C1aeA2C4933f040007a43Bc5683B0e068452c46);
@@ -26,7 +26,7 @@ contract Constants {
         setAddress("op_sepolia.axelarAdapter", 0x58143BB43d57BfFAf4Ef47149a9be319D76c960b);
         setAddress("op_sepolia.lzEndpoint", 0x6EDCE65403992e310A62460808c4b910D972f10f);
         setAddress("op_sepolia.chainInfo", 0xB1c883daf4ed666aa7caDC3f8dD0180addE0C3ba);
-        setAddress("op_sepolia.tokenDeployer", 0x107EA81c7894305BE7179d3424A4C22684Dca961);
+        setAddress("op_sepolia.tokenDeployer", 0x77c39c09C1A732A5996DA29809f6d72C51fFfa12);
 
         setAddress("deployer.create3", 0x6513Aedb4D1593BA12e50644401D976aebDc90d8);
     }

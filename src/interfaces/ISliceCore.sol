@@ -4,7 +4,6 @@ pragma solidity ^0.8.22;
 import "../external/IPayloadExecutor.sol";
 import "@lz-oapp-v2/interfaces/ILayerZeroReceiver.sol";
 import "../Structs.sol";
-import "./ISliceToken.sol";
 import "./ISliceCoreErrors.sol";
 
 interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver, ISliceCoreErrors {

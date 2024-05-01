@@ -75,7 +75,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         lzGasLookup[CrossChainSignalType.MINT] = 120000;
         lzGasLookup[CrossChainSignalType.REDEEM] = 200000;
         lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE] = 150000;
-        lzGasLookup[CrossChainSignalType.MANUAL_MINT] = 150000;
+        lzGasLookup[CrossChainSignalType.MANUAL_MINT] = 200000;
     }
 
     receive() external payable {}
