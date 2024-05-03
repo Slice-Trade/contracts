@@ -135,7 +135,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
 
         SliceTransactionInfo memory txInfo = ISliceToken(msg.sender).getMint(_mintID);
-        if (txInfo.id != _mintID) {
+        if (txInfo.id != _mintID || txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
 
@@ -184,7 +184,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
 
         SliceTransactionInfo memory txInfo = ISliceToken(msg.sender).getMint(_mintID);
-        if (txInfo.id != _mintID) {
+        if (txInfo.id != _mintID || txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
 
@@ -201,7 +201,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             uint256 _amountOut = CrossChainData.calculateAmountOutMin(_sliceTokenQuantity, positions[i].units);
             if (isPositionLocal(positions[i])) {
                 // transfer
-                bool success = IERC20(positions[i].token).transferFrom(msg.sender, address(this), _amountOut);
+                bool success = IERC20(positions[i].token).transferFrom(txInfo.user, address(this), _amountOut);
                 if (!success) {
                     revert LocalAssetTransferFailed();
                 }
@@ -251,7 +251,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         // get redeem tx info
         SliceTransactionInfo memory txInfo = ISliceToken(msg.sender).getRedeem(_redeemID);
         // check that redeem ID exists
-        if (txInfo.id != _redeemID) {
+        if (txInfo.id != _redeemID || txInfo.id == bytes32(0)) {
             revert RedeemIdDoesNotExist();
         }
 
