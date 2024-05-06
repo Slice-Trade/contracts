@@ -8,6 +8,15 @@ abstract contract Helper is Test, Constants {
     address payable dev;
     address payable[] users;
 
+    enum Forks {
+        MAINNET,
+        OPTIMISM,
+        ARBITRUM,
+        POLYGON
+    }
+
+    mapping (Forks forkedChain => uint256 forkId) forkIds;
+
     constructor() {
         Users helper = new Users();
         users = helper.create(20);
@@ -24,24 +33,83 @@ abstract contract Helper is Test, Constants {
         vm.warp(timestamp);
     }
 
+    // ======= CREATE FORKS ======= 
     function forkMainnet() internal {
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
+        uint256 _forkId = vm.createFork(vm.envString("MAINNET_RPC_URL"));
+        forkIds[Forks.MAINNET] = _forkId;
     }
 
     function forkMainnet(uint256 blockNumber) internal {
-        vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), blockNumber);
+        uint256 _forkId = vm.createFork(vm.envString("MAINNET_RPC_URL"), blockNumber);
+        forkIds[Forks.MAINNET] = _forkId;
     }
 
     function forkOptimism(uint256 blockNumber) internal {
-        vm.createSelectFork(vm.envString("OPTIMISM_RPC_URL"), blockNumber);
+        uint256 _forkId = vm.createFork(vm.envString("OPTIMISM_RPC_URL"), blockNumber);
+        forkIds[Forks.OPTIMISM] = _forkId;
     }
 
     function forkArbitrum(uint256 blockNumber) internal {
-        vm.createSelectFork(vm.envString("ARBITRUM_RPC_URL"), blockNumber);
+        uint256 _forkId = vm.createFork(vm.envString("ARBITRUM_RPC_URL"), blockNumber);
+        forkIds[Forks.ARBITRUM] = _forkId;
     }
 
     function forkPolygon(uint256 blockNumber) internal {
-        vm.createSelectFork(vm.envString("POLYGON_RPC_URL"), blockNumber);
+        uint256 _forkId = vm.createFork(vm.envString("POLYGON_RPC_URL"), blockNumber);
+        forkIds[Forks.POLYGON] = _forkId;
+    }
+
+    // ======= SELECT FORKS =======
+    function selectMainnet() internal {
+        uint256 forkId = forkIds[Forks.MAINNET];
+        vm.selectFork(forkId);
+    }
+
+    function selectOptimism() internal {
+        uint256 forkId = forkIds[Forks.OPTIMISM];
+        if (forkId == 0) {
+            revert("Create a fork first");
+        }
+        vm.selectFork(forkId);
+    }
+
+    function selectArbitrum() internal {
+        uint256 forkId = forkIds[Forks.ARBITRUM];
+        if (forkId == 0) {
+            revert("Create a fork first");
+        }
+        vm.selectFork(forkId);
+    }
+
+    function selectPolygon() internal {
+        uint256 forkId = forkIds[Forks.POLYGON];
+        vm.selectFork(forkId);
+    }
+
+    // ======= CREATE AND SELECT FORKS =======
+    function forkSelectMainnet() internal {
+        uint256 _forkId = vm.createSelectFork(vm.envString("MAINNET_RPC_URL"));
+        forkIds[Forks.MAINNET] = _forkId;
+    }
+
+    function forkSelectMainnet(uint256 blockNumber) internal {
+        uint256 _forkId = vm.createSelectFork(vm.envString("MAINNET_RPC_URL"), blockNumber);
+        forkIds[Forks.MAINNET] = _forkId;
+    }
+
+    function forkSelectOptimism(uint256 blockNumber) internal {
+        uint256 _forkId = vm.createSelectFork(vm.envString("OPTIMISM_RPC_URL"), blockNumber);
+        forkIds[Forks.OPTIMISM] = _forkId;
+    }
+
+    function forkSelectArbitrum(uint256 blockNumber) internal {
+        uint256 _forkId = vm.createSelectFork(vm.envString("ARBITRUM_RPC_URL"), blockNumber);
+        forkIds[Forks.ARBITRUM] = _forkId;
+    }
+
+    function forkSelectPolygon(uint256 blockNumber) internal {
+        uint256 _forkId = vm.createSelectFork(vm.envString("POLYGON_RPC_URL"), blockNumber);
+        forkIds[Forks.POLYGON] = _forkId;
     }
 
     function makePersistent(address contractAddress) internal {

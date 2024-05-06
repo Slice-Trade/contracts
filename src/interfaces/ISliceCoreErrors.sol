@@ -29,4 +29,6 @@ interface ISliceCoreErrors {
     error CrossChainRedeemFailed();
 
     error LayerZeroSendFailed();
+
+    error LocalAssetTransferFailed();
 }

@@ -4,14 +4,13 @@ pragma solidity ^0.8.22;
 import "../external/IPayloadExecutor.sol";
 import "@lz-oapp-v2/interfaces/ILayerZeroReceiver.sol";
 import "../Structs.sol";
-import "./ISliceToken.sol";
 import "./ISliceCoreErrors.sol";
 
 interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver, ISliceCoreErrors {
     /* Emitted when a new slice token is created */
     event SliceTokenCreated(address indexed token);
-    /* Emitted when the underlying assets of a Slice token are purchased during a Slice token mint */
-    event UnderlyingAssetsPurchased(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
+    /* Emitted when the underlying assets of a Slice token are purchased or transferred during a Slice token mint or manual mint */
+    event UnderlyingAssetsProcured(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
     /* Emitted when the underlying assets in a Slice token are redeemed by a Slice token owner */
     event UnderlyingAssetsRedeemed(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
 
@@ -48,6 +47,14 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver, ISliceCoreErrors {
         uint256[] memory _maxEstimatedPrices,
         bytes[] memory _routes
     ) external payable;
+
+    /**
+     * @dev Transfers the underlying assets from the user to the contract
+     *
+     * @param _mintID The ID that uniquely identifies this mint transaction within the system
+     * @param _sliceTokenQuantity The quantity of slice tokens to mint to the user
+     */
+    function collectUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity) external payable;
 
     /**
      * @dev Transfers out the underlying assets for a given Slice token to the given user.

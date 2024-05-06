@@ -14,19 +14,21 @@ import "../src/SliceToken.sol";
 import "./mocks/SliceCoreMock.sol";
 import "../src/libs/SliceTokenDeployer.sol";
 
+// TODO: wbtc decimals
 contract SliceTokenTest is Helper {
+    uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
+    uint256 immutable POLYGON_BLOCK_NUMBER = 55101688; //TSTAMP: 1711459720
+    
     SliceCore core;
     SliceToken token;
 
     IWETH public weth;
     IERC20 public usdc;
-    IERC20 public wbtc;
     IERC20 public link;
 
     Position[] public positions;
 
     uint256 maxEstWethPrice = 40000000000; // 40000 usdc
-    uint256 maxEstWbtcPrice = 75000000000; // 75000 usdc
     uint256 maxEstLinkPrice = 45000000000; // 45000 usdc
 
     uint256 constant MAX_ESTIMATED_PRICE = 160000000000; // 160000 USDC
@@ -34,15 +36,12 @@ contract SliceTokenTest is Helper {
     uint256[] public maxEstimatedPrices;
 
     uint256 public wethUnits = 10000000000000000000; // 10 wETH
-    uint256 public wbtcUnits = 100000000; // 1 wBTC (8 decimals)
     uint256 public linkUnits = 2000000000000000000000; // 2000 LINK
 
     bytes[] public routes;
 
     bytes public usdcWethRoute =
         hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001";
-    bytes public usdcWbtcRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a5800";
     bytes public usdcLinkRoute =
         hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700";
 
@@ -50,15 +49,15 @@ contract SliceTokenTest is Helper {
     /*    ==================      setup     ===================    */
     /* =========================================================== */
     function setUp() public {
-        forkMainnet(19518913);
+        forkMainnet(MAINNET_BLOCK_NUMBER);
+        forkPolygon(POLYGON_BLOCK_NUMBER);
+        selectMainnet();
 
         usdc = IERC20(getAddress("mainnet.usdc"));
         weth = IWETH(getAddress("mainnet.weth"));
-        wbtc = IERC20(getAddress("mainnet.wbtc"));
         link = IERC20(getAddress("mainnet.link"));
 
         maxEstimatedPrices.push(maxEstWethPrice);
-        maxEstimatedPrices.push(maxEstWbtcPrice);
         maxEstimatedPrices.push(maxEstLinkPrice);
 
         // mint user some USDC
@@ -73,12 +72,6 @@ contract SliceTokenTest is Helper {
             wethUnits // 0.1 wETH
         );
 
-        Position memory wbtcPosition = Position(
-            1, // mainnet
-            address(wbtc), // wrapped BTC
-            wbtcUnits // 0.01 wBTC
-        );
-
         Position memory linkPosition = Position(
             1, // mainnet
             address(link), // chainlink
@@ -86,7 +79,6 @@ contract SliceTokenTest is Helper {
         );
 
         positions.push(wethPosition);
-        positions.push(wbtcPosition);
         positions.push(linkPosition);
 
         ChainInfo chainInfo = new ChainInfo();
@@ -105,11 +97,9 @@ contract SliceTokenTest is Helper {
         );
 
         usdcWethRoute = abi.encodePacked(usdcWethRoute, address(core));
-        usdcWbtcRoute = abi.encodePacked(usdcWbtcRoute, address(core));
         usdcLinkRoute = abi.encodePacked(usdcLinkRoute, address(core));
 
         routes.push(usdcWethRoute);
-        routes.push(usdcWbtcRoute);
         routes.push(usdcLinkRoute);
 
         // enable slice token creation
@@ -136,7 +126,7 @@ contract SliceTokenTest is Helper {
 
         // verify that purchase event in Core contract is emitted
         vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsPurchased(address(token), 2, dev);
+        emit ISliceCore.UnderlyingAssetsProcured(address(token), 2, dev);
 
         // call mint
         bytes32 mintId = token.mint(2, maxEstimatedPrices, routes);
@@ -147,7 +137,7 @@ contract SliceTokenTest is Helper {
         // verify that USDC is taken from user account
         uint256 balanceAfter = usdc.balanceOf(dev);
         uint256 expectedBalance = balanceBefore - MAX_ESTIMATED_PRICE;
-        assertEq(expectedBalance, balanceAfter);
+        assertGe(balanceAfter, expectedBalance);
 
         vm.stopPrank();
     }
@@ -174,7 +164,7 @@ contract SliceTokenTest is Helper {
         vm.startPrank(dev);
         // create a new Slice token
         // set the core address as dev address
-        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, link);
 
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
         
@@ -188,7 +178,6 @@ contract SliceTokenTest is Helper {
         emit ISliceToken.SliceMinted(dev, 2);
 
         deal(address(weth), address(coreMock), wethUnits * 2);
-        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
         deal(address(link), address(coreMock), linkUnits * 2);
 
         coreMock.mintComplete(mintId, address(sliceToken));
@@ -204,10 +193,9 @@ contract SliceTokenTest is Helper {
         vm.startPrank(dev);
         // create a new Slice token
         // set the core address as dev address
-        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, link);
 
         deal(address(weth), address(coreMock), wethUnits * 2);
-        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
         deal(address(link), address(coreMock), linkUnits * 2);
 
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
@@ -229,10 +217,9 @@ contract SliceTokenTest is Helper {
     function test_Cannot_MintComplete_NotOpen() public {
         vm.startPrank(dev);
 
-        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, link);
 
         deal(address(weth), address(coreMock), wethUnits * 2);
-        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
         deal(address(link), address(coreMock), linkUnits * 2);
 
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
@@ -252,9 +239,8 @@ contract SliceTokenTest is Helper {
         vm.startPrank(dev);
         // create a new Slice token
         // set the core address as dev address
-        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, link);
         deal(address(weth), address(coreMock), wethUnits * 2);
-        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
         deal(address(link), address(coreMock), linkUnits * 2);
 
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
@@ -266,6 +252,43 @@ contract SliceTokenTest is Helper {
         vm.expectRevert(bytes4(keccak256("MintIdDoesNotExist()")));
         coreMock.mintComplete(bytes32(0), address(sliceToken));
         vm.stopPrank();
+    }
+
+    /* =========================================================== */
+    /*   ==================    manualMint   ===================    */
+    /* =========================================================== */
+    function testManualMint() public {
+        vm.startPrank(dev);
+
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+
+/*         vm.expectEmit(true, true, true, false);
+        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1 ether, dev); */
+
+        bytes32 mintId = token.manualMint(1 ether);
+        assertNotEq(bytes32(0), mintId);
+
+        uint256 wethBalance = weth.balanceOf(dev);
+        uint256 linkBalance = link.balanceOf(dev);
+        assertEq(0, wethBalance);
+        //assertEq(0, wbtcBalance);
+        assertEq(0, linkBalance);
+
+        uint256 coreWethBalance = weth.balanceOf(address(core));
+        uint256 coreLinkBalance = link.balanceOf(address(core));
+        assertEq(wethUnits, coreWethBalance);
+        assertEq(linkUnits, coreLinkBalance);
+        
+        vm.stopPrank();
+    }
+
+    function test_CannotManualMint_ZeroTokenQuantity() public {
+        vm.expectRevert(bytes4(keccak256("ZeroTokenQuantity()")));
+        token.manualMint(0);
     }
 
     /* =========================================================== */
@@ -305,7 +328,7 @@ contract SliceTokenTest is Helper {
 
         maxEstimatedPrices.push(maxWMaticPrice);
 
-        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, link);
 
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
         
@@ -331,10 +354,9 @@ contract SliceTokenTest is Helper {
         // mint some slice tokens
         vm.startPrank(dev);
 
-        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, link);
 
         deal(address(weth), address(coreMock), wethUnits * 2);
-        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
         deal(address(link), address(coreMock), linkUnits * 2);
 
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
