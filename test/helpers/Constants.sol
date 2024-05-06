@@ -51,7 +51,7 @@ contract Constants {
 
     setAddress("polygon.usdc", 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359);
     setAddress("polygon.stargateAdapter", 0xFF51a7C624Eb866917102707F3dA8bFb99Db8692);
-    setAddress("polygon.lzEndpoint", 0x1a44076050125825900e736c501f859c50fE728c);
+    setAddress("polygon.layerZeroEndpoint", 0x1a44076050125825900e736c501f859c50fE728c);
     setAddress("polygon.sushiXSwap", 0x804b526e5bF4349819fe2Db65349d0825870F8Ee);
     setAddress("polygon.axelarAdapter", 0xA62eC622DbA415Aa94110739B1f951B1202Cf322);
   } 

@@ -17,10 +17,9 @@ contract SliceCoreMock {
     uint256 public wbtcUnits = 100000000; // 1 wBTC (8 decimals)
     uint256 public linkUnits = 2000000000000000000000; // 2000 LINK
 
-    constructor(IERC20 _usdc, IWETH _weth, IERC20 _wbtc, IERC20 _link) {
+    constructor(IERC20 _usdc, IWETH _weth, IERC20 _link) {
         usdc = _usdc;
         weth = _weth;
-        wbtc = _wbtc;
         link = _link;
     }
 

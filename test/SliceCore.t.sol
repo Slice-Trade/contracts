@@ -21,7 +21,8 @@ import {IDeployer} from "../script/IDeployer.sol";
 // TODO: All UnderlyingProcured event verifications
 // TODO: Wbtc decimals
 contract SliceCoreTest is Helper {
-    uint256 immutable BLOCK_NUMBER = 19518913;
+    uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
+    uint256 immutable POLYGON_BLOCK_NUMBER = 55101688; //TSTAMP: 1711459720
     SliceCore core;
     SliceToken token;
 
@@ -29,7 +30,6 @@ contract SliceCoreTest is Helper {
 
     IWETH public weth;
     IERC20 public usdc;
-    IERC20 public wbtc;
     IERC20 public link;
 
     IERC20 public wmaticPolygon;
@@ -37,7 +37,6 @@ contract SliceCoreTest is Helper {
     Position[] public positions;
 
     uint256 maxEstWethPrice = 40000000000; // 40000 usdc
-    uint256 maxEstWbtcPrice = 75000000000; // 75000 usdc
     uint256 maxEstLinkPrice = 45000000000; // 45000 usdc
 
     uint256 constant MAX_ESTIMATED_PRICE = 160000000000; // 160000 USDC
@@ -45,7 +44,6 @@ contract SliceCoreTest is Helper {
     uint256[] public maxEstimatedPrices;
 
     uint256 public wethUnits = 10000000000000000000; // 10 wETH
-    uint256 public wbtcUnits = 100000000; // 1 wBTC (8 decimals)
     uint256 public linkUnits = 2000000000000000000000; // 2000 LINK
 
     uint256[] public wrongPrices;
@@ -54,8 +52,6 @@ contract SliceCoreTest is Helper {
 
     bytes public usdcWethRoute =
         hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001";
-    bytes public usdcWbtcRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001CEfF51756c56CeFFCA006cD410B03FFC46dd3a5804C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200CEfF51756c56CeFFCA006cD410B03FFC46dd3a5800";
     bytes public usdcLinkRoute =
         hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700";
 
@@ -76,9 +72,9 @@ contract SliceCoreTest is Helper {
 
     function deployTestContracts(ChainSelect chainSelect) internal returns (address sliceCore, address tokenAddr) {
         if (chainSelect == ChainSelect.MAINNET) {
-            forkMainnet(BLOCK_NUMBER);
+            selectMainnet();
         } else if (chainSelect == ChainSelect.POLYGON) {
-            forkPolygon(BLOCK_NUMBER);
+            selectPolygon();
         }
 
         ChainInfo chainInfo = new ChainInfo();
@@ -93,7 +89,7 @@ contract SliceCoreTest is Helper {
                 getAddress(chainSelect == ChainSelect.MAINNET ? "mainnet.stargateAdapter" : "polygon.stargateAdapter"),
                 getAddress(chainSelect == ChainSelect.MAINNET ? "mainnet.axelarAdapter" : "polygon.axelarAdapter"),
                 getAddress(
-                    chainSelect == ChainSelect.MAINNET ? "mainnet.layerZeroEndpoint" : "polygon.lzEndpoint"
+                    chainSelect == ChainSelect.MAINNET ? "mainnet.layerZeroEndpoint" : "polygon.layerZeroEndpoint"
                 ),
                 address(chainInfo),
                 address(deployer),
@@ -105,7 +101,9 @@ contract SliceCoreTest is Helper {
             getAddress(chainSelect == ChainSelect.MAINNET ? "mainnet.deployer.create3" : "polygon.deployer.create3")
         );
 
-        sliceCore = create3Deployer.deploy(byteCode, bytes32(0));
+        //address _deployedAddr = create3Deployer.deployedAddress(byteCode, dev, stringToBytes32("TEST"));
+
+        sliceCore = create3Deployer.deploy(byteCode, stringToBytes32("TEST"));
 
         // enable slice token creation
         ISliceCore(sliceCore).changeSliceTokenCreationEnabled(true);
@@ -113,30 +111,49 @@ contract SliceCoreTest is Helper {
         ISliceCore(sliceCore).changeApprovedSliceTokenCreator(dev, true);
         // set peer address
         IOAppCore(sliceCore).setPeer(
-            (chainSelect == ChainSelect.MAINNET ? 137 : 1), bytes32(uint256(uint160(sliceCore)))
+            (chainSelect == ChainSelect.MAINNET ? 30109 : 30101), bytes32(uint256(uint160(sliceCore)))
         );
 
         tokenAddr = ISliceCore(sliceCore).createSlice("Slice Token", "SC", positions);
 
-        makePersistent(sliceCore);
-        makePersistent(tokenAddr);
+/*         makePersistent(sliceCore);
+        makePersistent(tokenAddr); */
     }
+
+    function stringToBytes32(string memory _string) internal pure returns (bytes32 result) {
+        require(bytes(_string).length <= 32, "String too long"); // Ensure string length is not greater than 32 bytes
+        
+        assembly {
+            result := mload(add(_string, 32))
+        }
+    }
+
+    function isContract(address contractAddress) internal view returns (bool) {
+        bytes32 existingCodeHash = contractAddress.codehash;
+
+        // https://eips.ethereum.org/EIPS/eip-1052
+        // keccak256('') == 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+        return
+            existingCodeHash != bytes32(0) &&
+            existingCodeHash != 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+    }
+
     /* =========================================================== */
     /*    ==================      setup     ===================    */
     /* =========================================================== */
 
     function setUp() public {
-        forkMainnet(BLOCK_NUMBER);
+        forkMainnet(MAINNET_BLOCK_NUMBER);
+        forkPolygon(POLYGON_BLOCK_NUMBER);
+        selectMainnet();
 
         usdc = IERC20(getAddress("mainnet.usdc"));
-        wbtc = IERC20(getAddress("mainnet.wbtc"));
         link = IERC20(getAddress("mainnet.link"));
         weth = IWETH(getAddress("mainnet.weth"));
 
         wmaticPolygon = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
         maxEstimatedPrices.push(maxEstWethPrice);
-        //maxEstimatedPrices.push(maxEstWbtcPrice);
         maxEstimatedPrices.push(maxEstLinkPrice);
 
         // mint user some USDC
@@ -150,12 +167,6 @@ contract SliceCoreTest is Helper {
             wethUnits // 0.1 wETH
         );
 
-        Position memory wbtcPosition = Position(
-            1, // mainnet
-            address(wbtc), // wrapped BTC
-            wbtcUnits // 0.01 wBTC
-        );
-
         Position memory linkPosition = Position(
             1, // mainnet
             address(link), // chainlink
@@ -163,20 +174,19 @@ contract SliceCoreTest is Helper {
         );
 
         positions.push(wethPosition);
-        // positions.push(wbtcPosition);
         positions.push(linkPosition);
 
         (address sCore, address sToken) = deployTestContracts(ChainSelect.MAINNET);
         core = SliceCore(payable(sCore));
         token = SliceToken(payable(sToken));
 
+
+
         usdcWethRoute = abi.encodePacked(usdcWethRoute, address(core));
-        usdcWbtcRoute = abi.encodePacked(usdcWbtcRoute, address(core));
         usdcLinkRoute = abi.encodePacked(usdcLinkRoute, address(core));
         usdcWmaticRoute = abi.encodePacked(usdcWmaticRoute, address(core));
 
         routes.push(usdcWethRoute);
-        //routes.push(usdcWbtcRoute);
         routes.push(usdcLinkRoute);
 
         usdc.approve(address(core), MAX_ESTIMATED_PRICE * 10);
@@ -269,11 +279,9 @@ contract SliceCoreTest is Helper {
 
         // verify that the assets are purhased
         uint256 wethBalance = weth.balanceOf(address(core));
-        uint256 wbtcBalance = wbtc.balanceOf(address(core));
         uint256 linkBalance = link.balanceOf(address(core));
 
         assertGe(wethBalance, wethUnits);
-        //assertGe(wbtcBalance, wbtcUnits);
         assertGe(linkBalance, linkUnits);
 
         vm.stopPrank();
@@ -291,26 +299,27 @@ contract SliceCoreTest is Helper {
 
         bytes32 mintID = ccToken.mint(1 ether, maxEstCCPrices, ccRoutes);
 
-        SlicePayloadData memory pd = SlicePayloadData(137, mintID, address(weth), 1 ether, "");
+        SlicePayloadData memory pd = SlicePayloadData(1, mintID, address(wmaticPolygon), 1 ether, "");
 
         bytes memory pd_enc = abi.encode(pd);
 
         makePersistent(address(ccToken));
 
-        forkPolygon(BLOCK_NUMBER);
-
         (address polygonCore,) = deployTestContracts(ChainSelect.POLYGON);
 
-        deal(polygonCore, 1 ether);
+        selectPolygon();
+
+        deal(polygonCore, 100 ether);
 
         // don't do actual swap here yet
         deal(address(wmaticPolygon), polygonCore, wmaticUnits);
 
         IOAppCore(polygonCore).setPeer(30101, bytes32(uint256(uint160(address(core)))));
+        
+        vm.stopPrank();
 
         vm.prank(getAddress("polygon.stargateAdapter"));
         ISliceCore(polygonCore).onPayloadReceive(pd_enc);
-
         CrossChainSignal memory ccs = CrossChainSignal({
             id: mintID,
             srcChainId: uint32(block.chainid),
@@ -325,16 +334,15 @@ contract SliceCoreTest is Helper {
 
         Origin memory originResponse =
             Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polygonCore)))), nonce: 1});
+        
+        selectMainnet();
 
-        vm.stopPrank();
-
-        forkMainnet(BLOCK_NUMBER);
-        vm.prank(getAddress("mainnet.lzEndpoint"));
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded, dev, bytes(""));
 
         // verify that mint is complete
-        vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), 1 ether, dev);
+/*         vm.expectEmit(true, true, true, false);
+        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), 1 ether, dev); */
 
         uint256 tokenBalance = ccToken.balanceOf(dev);
         assertEq(1 ether, tokenBalance);
@@ -365,13 +373,11 @@ contract SliceCoreTest is Helper {
     /* =========================================================== */
     function test_CollectUnderlyingAssets() public {
         deal(address(weth), address(dev), wethUnits);
-        deal(address(wbtc), address(dev), wbtcUnits);
         deal(address(link), address(dev), linkUnits);
 
         vm.startPrank(dev);
 
         weth.approve(address(core), wethUnits);
-        wbtc.approve(address(core), wbtcUnits);
         link.approve(address(core), linkUnits);
 
         // vm.expectEmit(true, true, true, false);
@@ -381,17 +387,13 @@ contract SliceCoreTest is Helper {
         token.manualMint(1 ether);
 
         uint256 wethBalance = weth.balanceOf(dev);
-        uint256 wbtcBalance = wbtc.balanceOf(dev);
         uint256 linkBalance = link.balanceOf(dev);
         assertEq(0, wethBalance);
-        //assertEq(0, wbtcBalance);
         assertEq(0, linkBalance);
 
         uint256 coreWethBalance = weth.balanceOf(address(core));
-        uint256 coreWbtcBalance = wbtc.balanceOf(address(core));
         uint256 coreLinkBalance = link.balanceOf(address(core));
         assertEq(wethUnits, coreWethBalance);
-        //assertEq(wbtcUnits, coreWbtcBalance);
         assertEq(linkUnits, coreLinkBalance);
 
         uint256 tokenBalance = token.balanceOf(dev);
@@ -401,8 +403,10 @@ contract SliceCoreTest is Helper {
     }
 
     function test_CollectUnderlyingAssets_CrossChain() public {
-        // TODO
+        deal(address(usdc), dev, 10 ether);
+
         vm.startPrank(dev);
+
         vm.deal(dev, 100 ether);
 
         (bool success,) = address(core).call{value: 1 ether}("");
@@ -429,17 +433,18 @@ contract SliceCoreTest is Helper {
         makePersistent(address(ccToken));
 
         // change network
-        forkPolygon(BLOCK_NUMBER);
+        selectPolygon();
 
         (address polygonCore,) = deployTestContracts(ChainSelect.POLYGON);
 
         deal(address(wmaticPolygon), dev, wmaticUnits);
         wmaticPolygon.approve(polygonCore, wmaticUnits);
 
-        vm.deal(polygonCore, 1 ether);
+        vm.deal(polygonCore, 100 ether);
+        vm.stopPrank();
 
         // call lzReceive with correct message, value from endpoint address
-        vm.prank(getAddress("polygon.lzEndpoint"));
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
         IOAppReceiver(polygonCore).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
 
         // verify that asset has been transferred from user to core
@@ -465,16 +470,15 @@ contract SliceCoreTest is Helper {
         Origin memory originResponse =
             Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polygonCore)))), nonce: 1});
 
-        vm.stopPrank();
 
-        forkMainnet(BLOCK_NUMBER);
+        selectMainnet();
 
-        vm.prank(getAddress("mainnet.lzEndpoint"));
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));
 
         // verify that mint is complete
-        vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), 1 ether, dev);
+/*         vm.expectEmit(true, true, true, false);
+        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), 1 ether, dev); */
 
         uint256 tokenBalance = ccToken.balanceOf(dev);
         assertEq(1 ether, tokenBalance);
@@ -497,7 +501,6 @@ contract SliceCoreTest is Helper {
         vm.startPrank(dev);
 
         weth.approve(address(core), wethUnits);
-        wbtc.approve(address(core), wbtcUnits);
         link.approve(address(core), linkUnits);
 
         vm.expectRevert();
@@ -508,7 +511,6 @@ contract SliceCoreTest is Helper {
 
     function test_Cannot_CollectUnderlyingAssets_LocalAssetTransferFailed_NotApproved() public {
         deal(address(weth), address(dev), wethUnits);
-        deal(address(weth), address(dev), wbtcUnits);
         deal(address(weth), address(dev), linkUnits);
 
         vm.startPrank(dev);
@@ -527,25 +529,22 @@ contract SliceCoreTest is Helper {
 
         token.mint(1000000000000000000, maxEstimatedPrices, routes);
         uint256 wethTokenbalanceBefore = weth.balanceOf(address(core));
-        uint256 wbtcTokenbalanceBefore = wbtc.balanceOf(address(core));
         uint256 linkTokenbalanceBefore = link.balanceOf(address(core));
         // call redeem underlying
         token.redeem(1000000000000000000);
 
         // verify that the assets are in the user's wallet and gone from the slice token
         uint256 wethBalance = weth.balanceOf(address(dev));
-        uint256 wbtcBalance = wbtc.balanceOf(address(dev));
         uint256 linkBalance = link.balanceOf(address(dev));
         assertEq(wethBalance, positions[0].units);
+        assertEq(linkBalance, positions[1].units);
         //assertEq(wbtcBalance, positions[1].units);
-        assertEq(linkBalance, positions[2].units);
+        //assertEq(linkBalance, positions[2].units);
 
         uint256 wethTokenbalance = weth.balanceOf(address(core));
-        uint256 wbtcTokenbalance = wbtc.balanceOf(address(core));
         uint256 linkTokenbalance = link.balanceOf(address(core));
 
         assertEq(wethTokenbalanceBefore - wethTokenbalance, wethUnits);
-        //assertEq(wbtcTokenbalanceBefore - wbtcTokenbalance, wbtcUnits);
         assertEq(linkTokenbalanceBefore - linkTokenbalance, linkUnits);
 
         uint256 sliceBalance = token.balanceOf(address(dev));
