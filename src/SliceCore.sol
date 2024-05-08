@@ -469,7 +469,10 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
     function handleManualMintSignal(CrossChainSignal memory ccs) internal {
         // transfer the given amount of the given token from given user to core
-        bool success = IERC20(ccs.underlying).transferFrom(ccs.user, address(this), ccs.units);
+        bool success;
+        try IERC20(ccs.underlying).transferFrom(ccs.user, address(this), ccs.units) {
+            success = true;
+        } catch {}
 
         // create cross chain signal
         CrossChainSignal memory _ccsResponse = CrossChainSignal({

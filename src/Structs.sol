@@ -5,7 +5,8 @@ pragma solidity ^0.8.22;
 enum TransactionState {
     UNREGISTERED,
     OPEN,
-    FULFILLED
+    FULFILLED,
+    FAILED
 }
 
 /// @notice 
@@ -13,7 +14,8 @@ enum CrossChainSignalType {
     MINT,
     MANUAL_MINT,
     REDEEM,
-    REDEEM_COMPLETE
+    REDEEM_COMPLETE,
+    REFUND
 }
 
 /**
