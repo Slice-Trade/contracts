@@ -74,12 +74,14 @@ struct SliceTransactionInfo {
   * @param signals The number of complete signals received
   * @param sliceTokenQuantity The quantity of slice tokens in the transaction
   * @param user The user who initiated the transaction
+  * @param positionOkIdxs Indices in the slice tokens positions array for those tokens where the transfer was successful
   */
 struct TransactionCompleteSignals {
     address token;
     uint256 signals;
     uint256 sliceTokenQuantity;
     address user;
+    address[] positionOkIdxs; 
 }
 
 /**

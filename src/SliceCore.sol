@@ -201,11 +201,13 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             uint256 _amountOut = CrossChainData.calculateAmountOutMin(_sliceTokenQuantity, positions[i].units);
             if (isPositionLocal(positions[i])) {
                 // transfer
-                bool success = IERC20(positions[i].token).transferFrom(txInfo.user, address(this), _amountOut);
-                if (!success) {
+                try IERC20(positions[i].token).transferFrom(txInfo.user, address(this), _amountOut) {
+                    ++transactionCompleteSignals[_mintID].signals;
+                    // We have to record the the address of the successful position
+                    transactionCompleteSignals[_mintID].positionOkIdxs.push(positions[i].token);
+                } catch {
                     revert LocalAssetTransferFailed();
                 }
-                ++transactionCompleteSignals[_mintID].signals;
             } else {
                 // if asset is not local send lz msg to Core contract on dst chain
                 Chain memory dstChain = chainInfo.getChainInfo(positions[i].chainId);
@@ -450,11 +452,22 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         // verify that the payload status is OK
         if (!ccs.success) {
-            revert CrossChainSwapFailed(); // TODO: Refund logic here
+            // update the tx state to failed
+            SliceToken(txCompleteSignals.token).mintFailed(ccs.id);
+            // refund each already transferred underyling asset
+            _refundManualMints(txCompleteSignals);
+        }
+        // we have to check the transaction state as well: if it is already FAILED -->
+        SliceTransactionInfo memory txInfo = ISliceToken(txCompleteSignals.token).getMint(ccs.id);
+        if (txInfo.state == TransactionState.FAILED) {
+            // refund the token, even if the transfer was successful
+            // TODO: send layer zero message with type refund to given chain
         }
 
         // then register complete signal
         ++transactionCompleteSignals[ccs.id].signals;
+        // We have to record the the address of the successful position
+        transactionCompleteSignals[ccs.id].positionOkIdxs.push(ccs.underlying);
 
         if (checkPendingTransactionCompleteSignals(ccs.id)) {
             emit UnderlyingAssetsProcured({
@@ -669,5 +682,11 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         if (_receipt.guid == bytes32(0)) {
             revert LayerZeroSendFailed();
         }
+    }
+
+    function _refundManualMints(TransactionCompleteSignals memory _txCompleteSignal) private {
+        // TODO:
+        // we have to get the address of all the successful transfers
+        // transfer them back to the user
     }
 }

@@ -9,6 +9,8 @@ interface ISliceToken is IERC20 {
     event SliceMinted(address indexed to, uint256 indexed quantity);
     /* Emitted when a Slice token is exchanged for the underlying assets by the owner */
     event SliceRedeemed(address indexed to, uint256 indexed quantity);
+    /* Emitted when a Slice token manual mint has failed */
+    event SliceMintFailed(address indexed to, uint256 indexed quantity);
 
     error NotSliceCore();
     error AmountLocked();
@@ -65,6 +67,12 @@ interface ISliceToken is IERC20 {
      * @return bytes32 The mint ID
      */
     function manualMint(uint256 _sliceTokenQuantity) external payable returns (bytes32);
+
+    /**
+     * @dev Called by the SliceCore contract when a manual mint transaction has failed
+     * @param _mintID The ID that uniquely identifies this transaction within the system
+     */
+    function mintFailed(bytes32 _mintID) external;
 
     /**
      * @dev Returns the Slice token's underlying positions

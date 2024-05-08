@@ -136,9 +136,7 @@ contract SliceToken is ISliceToken, ERC20 {
         }
 
         bytes32 mintId = keccak256(
-            abi.encodePacked(
-                this.manualMint.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp
-            )
+            abi.encodePacked(this.manualMint.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp)
         );
 
         SliceTransactionInfo memory txInfo = SliceTransactionInfo({
@@ -154,6 +152,25 @@ contract SliceToken is ISliceToken, ERC20 {
         ISliceCore(sliceCore).collectUnderlyingAssets{value: msg.value}(mintId, _sliceTokenQuantity);
 
         return mintId;
+    }
+
+    /**
+     * @dev See ISliceToken - mintFailed
+     */
+    function mintFailed(bytes32 _mintID) external onlySliceCore {
+        SliceTransactionInfo memory _txInfo = mints[_mintID];
+
+        if (_txInfo.id == bytes32(0)) {
+            revert MintIdDoesNotExist();
+        }
+
+        if (_txInfo.state != TransactionState.OPEN) {
+            revert InvalidTransactionState();
+        }
+
+        mints[_mintID].state = TransactionState.FAILED;
+
+        emit SliceMintFailed(_txInfo.user, _txInfo.quantity);
     }
 
     /**
