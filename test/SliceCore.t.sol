@@ -18,7 +18,6 @@ import "../src/libs/SliceTokenDeployer.sol";
 
 import {IDeployer} from "../script/IDeployer.sol";
 
-// TODO: All UnderlyingProcured event verifications
 // TODO: Wbtc decimals
 contract SliceCoreTest is Helper {
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
@@ -115,14 +114,11 @@ contract SliceCoreTest is Helper {
         );
 
         tokenAddr = ISliceCore(sliceCore).createSlice("Slice Token", "SC", positions);
-
-/*         makePersistent(sliceCore);
-        makePersistent(tokenAddr); */
     }
 
     function stringToBytes32(string memory _string) internal pure returns (bytes32 result) {
         require(bytes(_string).length <= 32, "String too long"); // Ensure string length is not greater than 32 bytes
-        
+
         assembly {
             result := mload(add(_string, 32))
         }
@@ -133,9 +129,8 @@ contract SliceCoreTest is Helper {
 
         // https://eips.ethereum.org/EIPS/eip-1052
         // keccak256('') == 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
-        return
-            existingCodeHash != bytes32(0) &&
-            existingCodeHash != 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+        return existingCodeHash != bytes32(0)
+            && existingCodeHash != 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
     }
 
     /* =========================================================== */
@@ -179,8 +174,6 @@ contract SliceCoreTest is Helper {
         (address sCore, address sToken) = deployTestContracts(ChainSelect.MAINNET);
         core = SliceCore(payable(sCore));
         token = SliceToken(payable(sToken));
-
-
 
         usdcWethRoute = abi.encodePacked(usdcWethRoute, address(core));
         usdcLinkRoute = abi.encodePacked(usdcLinkRoute, address(core));
@@ -271,9 +264,9 @@ contract SliceCoreTest is Helper {
         // call mint -> call purchase underlying assets
         usdc.approve(address(token), 10 ether);
         usdc.approve(address(core), 10 ether);
-        /*         vm.expectEmit(true, true, true, false);
+        vm.expectEmit(true, true, true, false);
         // verify that event is emitted
-        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1000000000000000000, dev); */
+        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1000000000000000000, dev);
 
         token.mint(1000000000000000000, maxEstimatedPrices, routes);
 
@@ -315,7 +308,7 @@ contract SliceCoreTest is Helper {
         deal(address(wmaticPolygon), polygonCore, wmaticUnits);
 
         IOAppCore(polygonCore).setPeer(30101, bytes32(uint256(uint160(address(core)))));
-        
+
         vm.stopPrank();
 
         vm.prank(getAddress("polygon.stargateAdapter"));
@@ -334,15 +327,15 @@ contract SliceCoreTest is Helper {
 
         Origin memory originResponse =
             Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polygonCore)))), nonce: 1});
-        
+
         selectMainnet();
 
+        // verify that mint is complete
+        vm.expectEmit(true, true, true, false);
+        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), 1 ether, dev);
+        
         vm.prank(getAddress("mainnet.layerZeroEndpoint"));
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded, dev, bytes(""));
-
-        // verify that mint is complete
-/*         vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), 1 ether, dev); */
 
         uint256 tokenBalance = ccToken.balanceOf(dev);
         assertEq(1 ether, tokenBalance);
@@ -369,7 +362,7 @@ contract SliceCoreTest is Helper {
     }
 
     /* =========================================================== */
-    /*   ===========   purchaseUnderlyingAssets   =============    */
+    /*   ============   collectUnderlyingAssets   =============    */
     /* =========================================================== */
     function test_CollectUnderlyingAssets() public {
         deal(address(weth), address(dev), wethUnits);
@@ -380,9 +373,9 @@ contract SliceCoreTest is Helper {
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
 
-        // vm.expectEmit(true, true, true, false);
+        vm.expectEmit(true, true, true, false);
         // verify that event is emitted
-        // emit ISliceCore.UnderlyingAssetsProcured(address(token), 1 ether, dev);
+        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1 ether, dev);
 
         token.manualMint(1 ether);
 
@@ -470,15 +463,14 @@ contract SliceCoreTest is Helper {
         Origin memory originResponse =
             Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polygonCore)))), nonce: 1});
 
-
         selectMainnet();
 
+        // verify that mint is complete
+        vm.expectEmit(true, true, true, false);
+        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), 1 ether, dev);
+        
         vm.prank(getAddress("mainnet.layerZeroEndpoint"));
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));
-
-        // verify that mint is complete
-/*         vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), 1 ether, dev); */
 
         uint256 tokenBalance = ccToken.balanceOf(dev);
         assertEq(1 ether, tokenBalance);
@@ -560,6 +552,29 @@ contract SliceCoreTest is Helper {
     }
 
     /* =========================================================== */
+    /*   ====================    refund    ====================    */
+    /* =========================================================== */
+    function test_Refund() public {
+
+    }
+
+    function test_Refund_CrossChain() public {
+
+    }
+
+    function test_Cannot_Refund_NotSliceToken() public {
+
+    }
+
+    function test_Cannot_Refund_InvalidState() public{
+
+    }
+
+    function test_Cannot_Refund_NotAllCrossChainSignalsReceived() public {
+        
+    }
+
+    /* =========================================================== */
     /*  =========   changeSliceTokenCreationEnabled   ===========  */
     /* =========================================================== */
     function test_ChangeSliceTokenCreationEnabled() public {
@@ -595,52 +610,4 @@ contract SliceCoreTest is Helper {
         // try changing enable/disable with non-owner address
         core.changeSliceTokenCreationEnabled(false);
     }
-
-    /* =========================================================== */
-    /*   =============    rebalanceUnderlying   ===============    */
-    /* =========================================================== */
-    /*     function testRebalanceUnderlying() public {
-        // mint some tokens
-        vm.startPrank(dev);
-        token.mint(2, maxEstimatedPrices, routes);
-
-        // rebalance
-        positions[0].units = 130346080000000000; // increase by a hundred bucks
-        positions[1].units = 8415120000000000; // decrease by a hundred bucks
-
-        // verify that event has been emitted
-        vm.expectEmit(true, false, false, false);
-        emit ISliceCore.UnderlyingAssetsRebalanced(address(token));
-        token.rebalance(positions);
-
-        // verify that positions info is updated
-        Position[] memory newPositions = token.getPositions();
-        assertEq(130346080000000000, newPositions[0].units);
-        assertEq(8415120000000000, newPositions[1].units);
-
-        // verify that underlying assets have been sold/bought correctly
-        uint256 wethBalance = weth.balanceOf(address(core));
-        uint256 wbtcBalance = wbtc.balanceOf(address(core));
-        assertEq(wethBalance, newPositions[0].units * 2);
-        assertEq(wbtcBalance, newPositions[1].units * 2);
-        vm.stopPrank();
-    }
-
-    function testCannotRebalanceUnderlying_NotAuthorized() public {
-        // verify that it reverts with correct reason
-        vm.expectRevert("SliceCore: Only registered Slice token can call");
-        // call rebalance from non-owner address
-        core.rebalanceUnderlying(bytes32(0), positions);
-    }
-
-    function testCannotRebalanceUnderlying_InvalidUnits() public {
-        vm.startPrank(dev);
-        // call rebalance with invalid values (can't sell enough to buy the other)
-        positions[0].units = 2000000000000000000;
-        positions[1].units = 2000000000000000000;
-        // verify that it reverts with the correct reason
-        vm.expectRevert("SliceCore: Invalid positions after rebalance");
-        token.rebalance(positions);
-        vm.stopPrank();
-    } */
 }

@@ -393,75 +393,33 @@ contract SliceTokenTest is Helper {
         vm.stopPrank();
     }
 
+    /* =========================================================== */
+    /*   ====================    refund    ====================    */
+    /* =========================================================== */
+    function test_Refund() public {
 
-    /* =========================================================== */
-    /*    ==================    rebalance   ===================    */
-    /* =========================================================== */
-/*     function testRebalance() public {
-        vm.prank(dev);
-        bytes32 rebalanceId = token.rebalance(positions);
-        assertNotEq(bytes32(0), rebalanceId);
     }
 
-    function testCannotRebalance_NotAuthorized() public {
-        // verify that reverts with correct msg
-        vm.prank(users[1]);
-        vm.expectRevert("SliceToken: Only contract owner can call");
-        token.rebalance(positions);
-    } */
+    function test_Cannot_Refund_MintIdDoesNotExist() public {
 
-    /* =========================================================== */
-    /*  ================   rebalanceComplete   =================   */
-    /* =========================================================== */
-/*     function testRebalanceComplete() public {
-        vm.startPrank(dev);
-
-        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
-
-        deal(address(weth), address(coreMock), wethUnits * 2);
-        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
-        deal(address(link), address(coreMock), linkUnits * 2);
-
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
-
-        coreMock.setToken(address(sliceToken));
-
-        // mint some slice tokens
-        sliceToken.mint(2, maxEstimatedPrices, routes);
-
-        positions[0].units = 130346080000000000; // increase by a hundred bucks
-        positions[1].units = 8415120000000000; // decrease by a hundred bucks
-        // call rebalance from token creator address
-        bytes32 rebalanceId = sliceToken.rebalance(positions);
-
-        // verify that positions only updates in rebalanceComplete call
-        Position[] memory notUpdatedPositions = sliceToken.getPositions();
-        assertEq(wethUnits, notUpdatedPositions[0].units);
-        assertEq(wbtcUnits, notUpdatedPositions[1].units);
-
-        vm.expectEmit(true, false, false, false);
-        emit ISliceToken.SliceRebalanced(address(sliceToken));
-
-        coreMock.rebalanceComplete(rebalanceId, address(sliceToken));
-
-        // verify that positions info is updated in token
-        Position[] memory updatedPositions = sliceToken.getPositions();
-        assertEq(130346080000000000, updatedPositions[0].units);
-        assertEq(8415120000000000, updatedPositions[1].units);
-
-        vm.stopPrank();
     }
 
-    function testCannotRebalanceComplete_NotAuthorized() public {
-        vm.prank(users[1]);
-        vm.expectRevert("SliceToken: Only SliceCore can call");
-        // try to call rebalance from non registered address
-        token.rebalanceComplete(bytes32(0));
+    function test_Cannot_Refund_InvalidTransactionState() public {
+
     }
 
-    function testCannotRebalanceComplete_InvalidRebalanceID() public {
-        vm.prank(dev);
-        vm.expectRevert("SliceToken: Invalid rebalance ID");
-        token.rebalanceComplete(bytes32(0));
-    } */
+    /* =========================================================== */
+    /*  ==================   refundComplete   ==================   */
+    /* =========================================================== */ 
+    function test_RefundComplete() public {
+
+    }  
+
+    function test_RefundComplete_MintIdDoesNotExist() public {
+
+    }
+
+    function test_RefundComplete_InvalidTransactionState() public {
+        
+    }
 }
