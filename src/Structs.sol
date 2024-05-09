@@ -7,6 +7,7 @@ enum TransactionState {
     OPEN,
     FULFILLED,
     FAILED,
+    REFUNDING,
     REFUNDED
 }
 
@@ -59,6 +60,7 @@ struct Position {
  * @param id The mint/rebalance/redeem ID created by the token contract
  * @param quantity The quantity of slice tokens being minted/redeemed (not used for rebalance)
  * @param user Address of the user who initiated the transaction
+ * @param state the current state of the slice transaction
  * @param data Arbitrary data. Initially empty, later can be used to pass in non-EVM user addresses.
  */
 struct SliceTransactionInfo {

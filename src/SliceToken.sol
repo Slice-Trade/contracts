@@ -166,6 +166,10 @@ contract SliceToken is ISliceToken, ERC20 {
             revert MintIdDoesNotExist();
         }
 
+        if (_txInfo.state == TransactionState.FAILED) {
+            return;
+        }
+
         if (_txInfo.state != TransactionState.OPEN) {
             revert InvalidTransactionState();
         }
@@ -241,17 +245,34 @@ contract SliceToken is ISliceToken, ERC20 {
         emit SliceRedeemed(_txInfo.user, _txInfo.quantity);
     }
 
+    function refund(bytes32 _mintID) external {
+        SliceTransactionInfo memory _txInfo = mints[_mintID];
+
+         if (_txInfo.id == bytes32(0)) {
+            revert MintIdDoesNotExist();
+        }
+
+        if (_txInfo.state != TransactionState.FAILED) {
+            revert InvalidTransactionState();
+        }
+
+        _txInfo.state = TransactionState.REFUNDING;
+        mints[_mintID].state = _txInfo.state;
+
+        ISliceCore(sliceCore).refund(_txInfo);
+
+    }
     function refundComplete(bytes32 _mintID) external onlySliceCore {
         // get transaction info
         SliceTransactionInfo memory _txInfo = mints[_mintID];
          if (_txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
-        if (_txInfo.state != TransactionState.FAILED) {
+        if (_txInfo.state != TransactionState.REFUNDING) {
             revert InvalidTransactionState();
         }
 
-        redeems[_mintID].state = TransactionState.REFUNDED;
+        mints[_mintID].state = TransactionState.REFUNDED;
 
         emit SliceMintRefunded(_txInfo.user, _txInfo.quantity);
     }

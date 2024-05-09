@@ -33,4 +33,6 @@ interface ISliceCoreErrors {
     error LocalAssetTransferFailed();
 
     error InvalidTransactionState();
+
+    error NotAllCrossChainSignalsReceived();
 }

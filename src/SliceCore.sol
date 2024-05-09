@@ -74,10 +74,11 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         sliceTokenDeployer = _sliceTokenDeployer;
 
         lzGasLookup[CrossChainSignalType.MINT] = 120000;
+        lzGasLookup[CrossChainSignalType.MANUAL_MINT] = 200000;
         lzGasLookup[CrossChainSignalType.REDEEM] = 200000;
         lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE] = 150000;
-        lzGasLookup[CrossChainSignalType.MANUAL_MINT] = 200000;
         lzGasLookup[CrossChainSignalType.REFUND] = 250000;
+        lzGasLookup[CrossChainSignalType.REFUND_COMPLETE] = 200000;
     }
 
     receive() external payable {}
@@ -344,38 +345,44 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded);
     }
 
-    function refund(bytes32 _mintID) external {
+    function refund(SliceTransactionInfo memory _txInfo) external nonReentrant {
+        if (isSliceTokenRegistered(msg.sender)) {
+            revert UnregisteredSliceToken();
+        }
         // get the tx complete signal info
-        TransactionCompleteSignals memory _txCompleteSignal = transactionCompleteSignals[_mintID];
-        // get the mint tx info from the slice token
-        SliceTransactionInfo memory _txInfo = SliceToken(_txCompleteSignal.token).getMint(_mintID);
-        // if state is not FAILED revert
-        if (_txInfo.state != TransactionState.FAILED) {
+        TransactionCompleteSignals memory _txCompleteSignal = transactionCompleteSignals[_txInfo.id];
+        // if state is not REFUNDING revert
+        if (_txInfo.state != TransactionState.REFUNDING) {
             revert InvalidTransactionState();
         }
-
+        
         Position[] memory _positions = SliceToken(_txCompleteSignal.token).getPositions();
+
+        // check that cross-chain signals for all underyling positions have been received - both OK and not OK
+        bool _allSignalsReceived = _txCompleteSignal.signalsOk + _txCompleteSignal.signalsFailed == _positions.length;
+        if (!_allSignalsReceived) {
+            revert NotAllCrossChainSignalsReceived();
+        }
+
         // loop through all the positions that have already been transferred to the contract
         for (uint256 i = 0; i < _txCompleteSignal.positionsOkIdxs.length; i++) {
             uint256 _posIdx = _txCompleteSignal.positionsOkIdxs[i];
             uint256 _amountOut = CrossChainData.calculateAmountOutMin(_txInfo.quantity, _positions[_posIdx].units);
             // if it is local, refund back to user
             if (isPositionLocal(_positions[_posIdx])) {
-                _refundLocal(_mintID, _positions[_posIdx], _amountOut, _txInfo.user);
+                _refundLocal(_txInfo.id, _positions[_posIdx], _amountOut, _txInfo.user);
             } else {
                 // if it is not local send cross chain msg
-                _refundCrossChain(_mintID, _positions[_posIdx], _amountOut, _txInfo.user);
+                _refundCrossChain(_txInfo.id, _positions[_posIdx], _amountOut, _txInfo.user);
             }
         }
 
-        // check that cross-chain signals for all underyling positions have been received - both OK and not OK
-        bool _allSignalsReceived = _txCompleteSignal.signalsOk + _txCompleteSignal.signalsFailed == _positions.length;
         // check that all the failed transfers have been refunded
-        bool _allFailedRefunded = _txCompleteSignal.signalsFailed == refundSignals[_mintID];
+        bool _allFailedRefunded = _txCompleteSignal.signalsFailed == refundSignals[_txInfo.id];
 
         // if yes update state to REFUNDED in slice token
         if (_allSignalsReceived && _allFailedRefunded) {
-            SliceToken(_txCompleteSignal.token).refundComplete(_mintID);
+            SliceToken(_txCompleteSignal.token).refundComplete(_txInfo.id);
         }
     }
 
@@ -477,6 +484,10 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             handleRedeemSignal(ccs);
         } else if (ccs.ccsType == CrossChainSignalType.REDEEM_COMPLETE) {
             handleRedeemCompleteSignal(ccs);
+        } else if (ccs.ccsType == CrossChainSignalType.REFUND) {
+            handleRefundSignal(ccs);
+        } else if (ccs.ccsType == CrossChainSignalType.REFUND_COMPLETE) {
+            handleRefundCompleteSignal(ccs);
         }
     }
 
@@ -490,8 +501,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         // verify that the payload status is OK
         if (!ccs.success) {
             // update the tx state to failed
-            SliceToken(txCompleteSignals.token).mintFailed(ccs.id);
             ++transactionCompleteSignals[ccs.id].signalsFailed;
+            SliceToken(txCompleteSignals.token).mintFailed(ccs.id);
             return;
         }
 
@@ -596,15 +607,52 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     }
 
     function handleRefundSignal(CrossChainSignal memory ccs) internal {
-        // TODO: refund the given amount to the user
+        bool success;
+        try IERC20(ccs.underlying).transfer(ccs.user, ccs.units) {
+            success = true;
+        } catch {}
+
+        CrossChainSignal memory _ccsResponse = CrossChainSignal({
+            id: ccs.id,
+            srcChainId: uint32(block.chainid),
+            ccsType: CrossChainSignalType.REFUND_COMPLETE,
+            success: success,
+            user: ccs.user,
+            underlying: ccs.underlying,
+            units: ccs.units
+        });
 
         // Send cross-chain msg with OK
+        bytes memory ccsEncoded = abi.encode(_ccsResponse);
+
+        bytes memory _lzSendOpts =
+            CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.REFUND_COMPLETE], _value: 0});
+
+        Chain memory srcChain = chainInfo.getChainInfo(ccs.srcChainId);
+
+        // send LZ message
+        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded);
     }
 
     function handleRefundCompleteSignal(CrossChainSignal memory ccs) internal {
+        TransactionCompleteSignals memory _txCompleteSignal = transactionCompleteSignals[ccs.id];
+        if (!isSliceTokenRegistered(_txCompleteSignal.token)) {
+            revert UnregisteredSliceToken();
+        }
         // increment refund signals count
+        ++refundSignals[ccs.id];
+
+        uint256 _numberOfPos = SliceToken(_txCompleteSignal.token).getNumberOfPositions();
+        // check that cross-chain signals for all underyling positions have been received - both OK and not OK
+        bool _allSignalsReceived = _txCompleteSignal.signalsOk + _txCompleteSignal.signalsFailed == _numberOfPos;
+        // check that all the failed transfers have been refunded
+        bool _allFailedRefunded = _txCompleteSignal.signalsFailed == refundSignals[ccs.id];
 
         // if all received call slice token
+        // if yes update state to REFUNDED in slice token
+        if (_allSignalsReceived && _allFailedRefunded) {
+            SliceToken(_txCompleteSignal.token).refundComplete(ccs.id);
+        }
     }
 
     function executeLocalSwap(
