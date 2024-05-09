@@ -11,6 +11,8 @@ interface ISliceToken is IERC20 {
     event SliceRedeemed(address indexed to, uint256 indexed quantity);
     /* Emitted when a Slice token manual mint has failed */
     event SliceMintFailed(address indexed to, uint256 indexed quantity);
+    /* Emitted when a Slice token manual mint that failed has been refunded */
+    event SliceMintRefunded(address indexed to, uint256 indexed quantity);
 
     error NotSliceCore();
     error AmountLocked();
@@ -74,6 +76,8 @@ interface ISliceToken is IERC20 {
      */
     function mintFailed(bytes32 _mintID) external;
 
+    function refundComplete(bytes32 _mintID) external;
+
     /**
      * @dev Returns the Slice token's underlying positions
      *
@@ -105,4 +109,8 @@ interface ISliceToken is IERC20 {
      * @return SliceTransactionInfo Struct holding the information about the mint
      */
     function getRedeem(bytes32 _id) external view returns (SliceTransactionInfo memory);
+
+    function getPosIdx(address _token) external view returns (uint256);
+
+    function getPosAtIdx(uint256 _idx) external view returns (Position memory);
 }

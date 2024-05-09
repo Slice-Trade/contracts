@@ -6,7 +6,8 @@ enum TransactionState {
     UNREGISTERED,
     OPEN,
     FULFILLED,
-    FAILED
+    FAILED,
+    REFUNDED
 }
 
 /// @notice 
@@ -15,7 +16,8 @@ enum CrossChainSignalType {
     MANUAL_MINT,
     REDEEM,
     REDEEM_COMPLETE,
-    REFUND
+    REFUND,
+    REFUND_COMPLETE
 }
 
 /**
@@ -71,17 +73,18 @@ struct SliceTransactionInfo {
   * @notice Used for recording info about complete signals received for a pending transaction
   *
   * @param token The slice token on which the transaction is happening
-  * @param signals The number of complete signals received
+  * @param signalsOk The number of success complete signals received
+  * @param signalsFailed The number of failed complete signals received
   * @param sliceTokenQuantity The quantity of slice tokens in the transaction
   * @param user The user who initiated the transaction
-  * @param positionOkIdxs Indices in the slice tokens positions array for those tokens where the transfer was successful
   */
 struct TransactionCompleteSignals {
     address token;
-    uint256 signals;
+    uint256 signalsOk;
+    uint256 signalsFailed;
     uint256 sliceTokenQuantity;
     address user;
-    address[] positionOkIdxs; 
+    uint256[] positionsOkIdxs;
 }
 
 /**
