@@ -12,7 +12,7 @@ interface ISliceToken is IERC20 {
     /* Emitted when a Slice token manual mint has failed */
     event SliceMintFailed(address indexed to, uint256 indexed quantity);
     /* Emitted when a Slice token manual mint that failed has been refunded */
-    event SliceMintRefunded(address indexed to, uint256 indexed quantity);
+    event RefundCompleted(address indexed to, uint256 indexed quantity);
 
     error NotSliceCore();
     error AmountLocked();

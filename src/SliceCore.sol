@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
+import "forge-std/src/console.sol";
+
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {MessagingParams, MessagingReceipt} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
@@ -346,7 +348,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     }
 
     function refund(SliceTransactionInfo memory _txInfo) external nonReentrant {
-        if (isSliceTokenRegistered(msg.sender)) {
+        console.log(msg.sender);
+        if (!isSliceTokenRegistered(msg.sender)) {
             revert UnregisteredSliceToken();
         }
         // get the tx complete signal info

@@ -248,7 +248,7 @@ contract SliceToken is ISliceToken, ERC20 {
     function refund(bytes32 _mintID) external {
         SliceTransactionInfo memory _txInfo = mints[_mintID];
 
-         if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
+        if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
 
@@ -260,12 +260,12 @@ contract SliceToken is ISliceToken, ERC20 {
         mints[_mintID].state = _txInfo.state;
 
         ISliceCore(sliceCore).refund(_txInfo);
-
     }
+
     function refundComplete(bytes32 _mintID) external onlySliceCore {
         // get transaction info
         SliceTransactionInfo memory _txInfo = mints[_mintID];
-         if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
+        if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
         if (_txInfo.state != TransactionState.REFUNDING) {
@@ -274,7 +274,7 @@ contract SliceToken is ISliceToken, ERC20 {
 
         mints[_mintID].state = TransactionState.REFUNDED;
 
-        emit SliceMintRefunded(_txInfo.user, _txInfo.quantity);
+        emit RefundCompleted(_txInfo.user, _txInfo.quantity);
     }
 
     function setCategoryAndDescription(string calldata _category, string calldata _description) external {
