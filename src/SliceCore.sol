@@ -348,7 +348,6 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     }
 
     function refund(SliceTransactionInfo memory _txInfo) external nonReentrant {
-        console.log(msg.sender);
         if (!isSliceTokenRegistered(msg.sender)) {
             revert UnregisteredSliceToken();
         }
