@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
+import {IOAppCore} from "@lz-oapp-v2/interfaces/IOAppCore.sol";
+
 import "forge-std/src/console.sol";
 import "forge-std/src/Test.sol";
 import "./helpers/Helper.sol";
@@ -44,6 +46,9 @@ contract SliceTokenTest is Helper {
         hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001";
     bytes public usdcLinkRoute =
         hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700";
+
+    SliceToken ccToken;
+    Position[] public ccPositions;
 
     /* =========================================================== */
     /*    ==================      setup     ===================    */
@@ -112,6 +117,13 @@ contract SliceTokenTest is Helper {
 
         usdc.approve(address(core), MAX_ESTIMATED_PRICE * 10);
         usdc.approve(address(token), MAX_ESTIMATED_PRICE * 10);
+
+        Position memory ccPos = Position(137, 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270, 95000000000000000000);
+        ccPositions.push(ccPos);
+        address ccTokenAddr = core.createSlice("CC Slice", "CC", ccPositions);
+
+        ccToken = SliceToken(ccTokenAddr);
+        usdc.approve(address(ccToken), MAX_ESTIMATED_PRICE * 10);
 
         vm.stopPrank();
     }
@@ -394,9 +406,115 @@ contract SliceTokenTest is Helper {
     }
 
     /* =========================================================== */
+    /*   ===================   mintFailed   ====================   */
+    /* =========================================================== */
+    function test_mintFailed() public {
+        // start the cross chain mint from the token
+        deal(address(usdc), dev, 10 ether);
+        vm.startPrank(dev);
+        vm.deal(dev, 100 ether);
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+        IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
+
+        bytes32 mintID = ccToken.manualMint(1 ether);
+        vm.stopPrank();
+
+        // switch to slice core
+        vm.prank(address(core));
+
+        // make sure that event is emitted
+        vm.expectEmit(true, true, false, false);
+        emit ISliceToken.SliceMintFailed(dev, 1 ether);
+
+        // call mint failed for the mint ID
+        ccToken.mintFailed(mintID);
+
+        // make sure that state is updated to FAILED
+        SliceTransactionInfo memory txInfo = ccToken.getMint(mintID);
+        bool isStateFailed = txInfo.state == TransactionState.FAILED;
+        assertTrue(isStateFailed);
+    }
+
+    function test_mintFailed_StateAlreadyFailed() public {
+        // make sure that if the tx state is FAILED the function returns and does not revert
+        // start the cross chain mint from the token
+        deal(address(usdc), dev, 10 ether);
+        vm.startPrank(dev);
+        vm.deal(dev, 100 ether);
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+        IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
+
+        bytes32 mintID = ccToken.manualMint(1 ether);
+        vm.stopPrank();
+
+        // switch to slice core
+        vm.prank(address(core));
+
+        // call mint failed for the mint ID
+        ccToken.mintFailed(mintID);
+
+        vm.prank(address(core));
+        // make sure call goes through again
+        ccToken.mintFailed(mintID);
+    }
+
+    function test_Cannot_MintFailed_NotSliceCore() public {
+        // make sure only slice core can call
+        deal(address(usdc), dev, 10 ether);
+        vm.startPrank(dev);
+        vm.deal(dev, 100 ether);
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+        IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
+        bytes32 mintID = ccToken.manualMint(1 ether);
+        vm.stopPrank();
+
+        vm.expectRevert(bytes4(keccak256("NotSliceCore()")));
+        ccToken.mintFailed(mintID);
+    }
+
+    function test_Cannot_MintFailed_MintIdDoesNotExist() public {
+        // make sure it fails when invalid mint id
+        vm.prank(address(core));
+        vm.expectRevert(bytes4(keccak256("MintIdDoesNotExist()")));
+        token.mintFailed(bytes32(0));
+    }
+
+    function test_Cannot_MintFailed_InvalidTransactionState() public {
+        // make sure it fails when not open state
+        // make sure only slice core can call
+        deal(address(usdc), dev, 10 ether);
+        vm.startPrank(dev);
+        vm.deal(dev, 100 ether);
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+        IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
+        bytes32 mintID = ccToken.manualMint(1 ether);
+        vm.stopPrank();
+
+        vm.startPrank(address(core));
+        ccToken.mintComplete(mintID);
+
+        vm.expectRevert(bytes4(keccak256("InvalidTransactionState()")));
+        ccToken.mintFailed(mintID);
+
+        vm.stopPrank();
+    }
+
+    /* =========================================================== */
     /*   ====================    refund    ====================    */
     /* =========================================================== */
     function test_Refund() public {
+        // transfer one of the assets to the user
+
+        // make sure that the balance of the other asset is 0
+
+        // call the lzReceive on the slicecore with a failed mint msg
+
+        // make sure that mint failed is called on sliceToken and event emitted
+
 
     }
 
@@ -415,11 +533,15 @@ contract SliceTokenTest is Helper {
 
     }  
 
-    function test_RefundComplete_MintIdDoesNotExist() public {
+    function test_Cannot_RefundComplete_NotSliceCore() public {
 
     }
 
-    function test_RefundComplete_InvalidTransactionState() public {
-        
+    function test_Cannot_RefundComplete_MintIdDoesNotExist() public {
+
+    }
+
+    function test_Cannot_RefundComplete_InvalidTransactionState() public {
+
     }
 }

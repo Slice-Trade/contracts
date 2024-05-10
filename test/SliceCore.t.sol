@@ -555,7 +555,15 @@ contract SliceCoreTest is Helper {
     /*   ====================    refund    ====================    */
     /* =========================================================== */
     function test_Refund() public {
+        // transfer one of the assets to a new account
 
+        // make sure the balance of the other asset is 0
+
+        // approve that 1 asset
+
+        // make sure that the whole process fails with the correct error
+
+        // make sure that all balances are unchanged
     }
 
     function test_Refund_CrossChain() public {
@@ -563,15 +571,21 @@ contract SliceCoreTest is Helper {
     }
 
     function test_Cannot_Refund_NotSliceToken() public {
-
+        // make sure that refund can only be called by slice token
     }
 
     function test_Cannot_Refund_InvalidState() public{
-
+        // make sure that refund can only be called if state is refunding
     }
 
     function test_Cannot_Refund_NotAllCrossChainSignalsReceived() public {
-        
+        // do the cross chain testing logic but do not send 1 of the signals
+
+        // make sure it fails with the correct error
+    }
+
+    function test_RefundComplete_NotAllRefunded() public {
+        // make sure that refund complete is not called if not all have been refunded
     }
 
     /* =========================================================== */

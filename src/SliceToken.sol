@@ -110,7 +110,7 @@ contract SliceToken is ISliceToken, ERC20 {
         SliceTransactionInfo memory _txInfo = mints[_mintID];
 
         // check that mint ID is valid
-        if (_txInfo.id == bytes32(0)) {
+        if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
 
@@ -162,7 +162,7 @@ contract SliceToken is ISliceToken, ERC20 {
     function mintFailed(bytes32 _mintID) external onlySliceCore {
         SliceTransactionInfo memory _txInfo = mints[_mintID];
 
-        if (_txInfo.id == bytes32(0)) {
+        if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
 
@@ -223,7 +223,7 @@ contract SliceToken is ISliceToken, ERC20 {
         SliceTransactionInfo memory _txInfo = redeems[_redeemID];
 
         // check that redeem ID is valid
-        if (_txInfo.id == bytes32(0)) {
+        if (_txInfo.id != _redeemID || _txInfo.id == bytes32(0)) {
             revert RedeemIdDoesNotExist();
         }
 
@@ -248,7 +248,7 @@ contract SliceToken is ISliceToken, ERC20 {
     function refund(bytes32 _mintID) external {
         SliceTransactionInfo memory _txInfo = mints[_mintID];
 
-         if (_txInfo.id == bytes32(0)) {
+         if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
 
@@ -265,7 +265,7 @@ contract SliceToken is ISliceToken, ERC20 {
     function refundComplete(bytes32 _mintID) external onlySliceCore {
         // get transaction info
         SliceTransactionInfo memory _txInfo = mints[_mintID];
-         if (_txInfo.id == bytes32(0)) {
+         if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
         if (_txInfo.state != TransactionState.REFUNDING) {
