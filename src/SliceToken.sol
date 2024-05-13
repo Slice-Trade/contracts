@@ -19,7 +19,7 @@ contract SliceToken is ISliceToken, ERC20 {
 
     address public immutable sliceCore;
     Position[] public positions;
-    mapping(address => uint256) private posIdx;
+    mapping(address => uint256) public posIdx;
 
     string public category;
     string public description;
