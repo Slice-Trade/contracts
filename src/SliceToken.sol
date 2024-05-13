@@ -19,6 +19,7 @@ contract SliceToken is ISliceToken, ERC20 {
 
     address public immutable sliceCore;
     Position[] public positions;
+    mapping(address => uint256) public posIdx;
 
     string public category;
     string public description;
@@ -48,6 +49,7 @@ contract SliceToken is ISliceToken, ERC20 {
 
         for (uint256 i = 0; i < _positions.length; i++) {
             positions.push(_positions[i]);
+            posIdx[_positions[i].token] = i;
         }
     }
 
@@ -108,7 +110,7 @@ contract SliceToken is ISliceToken, ERC20 {
         SliceTransactionInfo memory _txInfo = mints[_mintID];
 
         // check that mint ID is valid
-        if (_txInfo.id == bytes32(0)) {
+        if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
 
@@ -136,9 +138,7 @@ contract SliceToken is ISliceToken, ERC20 {
         }
 
         bytes32 mintId = keccak256(
-            abi.encodePacked(
-                this.manualMint.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp
-            )
+            abi.encodePacked(this.manualMint.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp)
         );
 
         SliceTransactionInfo memory txInfo = SliceTransactionInfo({
@@ -154,6 +154,29 @@ contract SliceToken is ISliceToken, ERC20 {
         ISliceCore(sliceCore).collectUnderlyingAssets{value: msg.value}(mintId, _sliceTokenQuantity);
 
         return mintId;
+    }
+
+    /**
+     * @dev See ISliceToken - mintFailed
+     */
+    function mintFailed(bytes32 _mintID) external onlySliceCore {
+        SliceTransactionInfo memory _txInfo = mints[_mintID];
+
+        if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
+            revert MintIdDoesNotExist();
+        }
+
+        if (_txInfo.state == TransactionState.FAILED) {
+            return;
+        }
+
+        if (_txInfo.state != TransactionState.OPEN) {
+            revert InvalidTransactionState();
+        }
+
+        mints[_mintID].state = TransactionState.FAILED;
+
+        emit SliceMintFailed(_txInfo.user, _txInfo.quantity);
     }
 
     /**
@@ -200,7 +223,7 @@ contract SliceToken is ISliceToken, ERC20 {
         SliceTransactionInfo memory _txInfo = redeems[_redeemID];
 
         // check that redeem ID is valid
-        if (_txInfo.id == bytes32(0)) {
+        if (_txInfo.id != _redeemID || _txInfo.id == bytes32(0)) {
             revert RedeemIdDoesNotExist();
         }
 
@@ -220,6 +243,38 @@ contract SliceToken is ISliceToken, ERC20 {
 
         // emit event
         emit SliceRedeemed(_txInfo.user, _txInfo.quantity);
+    }
+
+    function refund(bytes32 _mintID) external {
+        SliceTransactionInfo memory _txInfo = mints[_mintID];
+
+        if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
+            revert MintIdDoesNotExist();
+        }
+
+        if (_txInfo.state != TransactionState.FAILED) {
+            revert InvalidTransactionState();
+        }
+
+        _txInfo.state = TransactionState.REFUNDING;
+        mints[_mintID].state = _txInfo.state;
+
+        ISliceCore(sliceCore).refund(_txInfo);
+    }
+
+    function refundComplete(bytes32 _mintID) external onlySliceCore {
+        // get transaction info
+        SliceTransactionInfo memory _txInfo = mints[_mintID];
+        if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
+            revert MintIdDoesNotExist();
+        }
+        if (_txInfo.state != TransactionState.REFUNDING) {
+            revert InvalidTransactionState();
+        }
+
+        mints[_mintID].state = TransactionState.REFUNDED;
+
+        emit RefundCompleted(_txInfo.user, _txInfo.quantity);
     }
 
     function setCategoryAndDescription(string calldata _category, string calldata _description) external {
@@ -251,6 +306,17 @@ contract SliceToken is ISliceToken, ERC20 {
 
     function getRedeem(bytes32 _id) external view returns (SliceTransactionInfo memory) {
         return redeems[_id];
+    }
+
+    function getPosIdx(address _token) external view returns (uint256) {
+        return posIdx[_token];
+    }
+
+    function getPosAtIdx(uint256 _idx) external view returns (Position memory) {
+        if (_idx >= positions.length) {
+            revert();
+        }
+        return positions[_idx];
     }
 
     /* =========================================================== */

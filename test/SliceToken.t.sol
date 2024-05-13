@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
+import {IOAppCore} from "@lz-oapp-v2/interfaces/IOAppCore.sol";
+import {IOAppReceiver, Origin} from "@lz-oapp-v2/interfaces/IOAppReceiver.sol";
+
 import "forge-std/src/console.sol";
 import "forge-std/src/Test.sol";
 import "./helpers/Helper.sol";
@@ -18,13 +21,15 @@ import "../src/libs/SliceTokenDeployer.sol";
 contract SliceTokenTest is Helper {
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
     uint256 immutable POLYGON_BLOCK_NUMBER = 55101688; //TSTAMP: 1711459720
-    
+
     SliceCore core;
     SliceToken token;
 
     IWETH public weth;
     IERC20 public usdc;
     IERC20 public link;
+
+    IERC20 wmaticPolygon;
 
     Position[] public positions;
 
@@ -44,6 +49,9 @@ contract SliceTokenTest is Helper {
         hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001";
     bytes public usdcLinkRoute =
         hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700";
+
+    SliceToken ccToken;
+    Position[] public ccPositions;
 
     /* =========================================================== */
     /*    ==================      setup     ===================    */
@@ -83,7 +91,7 @@ contract SliceTokenTest is Helper {
 
         ChainInfo chainInfo = new ChainInfo();
 
-        SliceTokenDeployer deployer = new SliceTokenDeployer(); 
+        SliceTokenDeployer deployer = new SliceTokenDeployer();
 
         core = new SliceCore(
             address(usdc),
@@ -112,6 +120,13 @@ contract SliceTokenTest is Helper {
 
         usdc.approve(address(core), MAX_ESTIMATED_PRICE * 10);
         usdc.approve(address(token), MAX_ESTIMATED_PRICE * 10);
+
+        Position memory ccPos = Position(137, 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270, 95000000000000000000);
+        ccPositions.push(ccPos);
+        address ccTokenAddr = core.createSlice("CC Slice", "CC", ccPositions);
+
+        ccToken = SliceToken(ccTokenAddr);
+        usdc.approve(address(ccToken), MAX_ESTIMATED_PRICE * 10);
 
         vm.stopPrank();
     }
@@ -167,7 +182,7 @@ contract SliceTokenTest is Helper {
         SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, link);
 
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
-        
+
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
         // call mint
@@ -266,7 +281,7 @@ contract SliceTokenTest is Helper {
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
 
-/*         vm.expectEmit(true, true, true, false);
+        /*         vm.expectEmit(true, true, true, false);
         emit ISliceCore.UnderlyingAssetsProcured(address(token), 1 ether, dev); */
 
         bytes32 mintId = token.manualMint(1 ether);
@@ -282,7 +297,7 @@ contract SliceTokenTest is Helper {
         uint256 coreLinkBalance = link.balanceOf(address(core));
         assertEq(wethUnits, coreWethBalance);
         assertEq(linkUnits, coreLinkBalance);
-        
+
         vm.stopPrank();
     }
 
@@ -313,17 +328,14 @@ contract SliceTokenTest is Helper {
         /* CROSS_CHAIN */
         uint256 maxWMaticPrice = 100000000; //100usdc
         uint256 wmaticUnits = 95000000000000000000; // 95matic
-        
-        bytes memory usdcWmaticRoute = hex"012791Bca1f2de4661ED88A30C99A7a9449Aa8417402555500cd353F79d9FADe311fC3119B841e1f456b54e85800eeb3e0999D01f0d1Ed465513E414725a357F6ae4ffff0121988C9CFD08db3b5793c2C6782271dC9474925100eeb3e0999D01f0d1Ed465513E414725a357F6ae4";
+
+        bytes memory usdcWmaticRoute =
+            hex"012791Bca1f2de4661ED88A30C99A7a9449Aa8417402555500cd353F79d9FADe311fC3119B841e1f456b54e85800eeb3e0999D01f0d1Ed465513E414725a357F6ae4ffff0121988C9CFD08db3b5793c2C6782271dC9474925100eeb3e0999D01f0d1Ed465513E414725a357F6ae4";
         routes.push(usdcWmaticRoute);
 
-        IERC20 wmaticPolygon = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
+        wmaticPolygon = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
-        Position memory ccPos = Position(
-            137,
-            address(wmaticPolygon),
-            wmaticUnits
-        );
+        Position memory ccPos = Position(137, address(wmaticPolygon), wmaticUnits);
         positions.push(ccPos);
 
         maxEstimatedPrices.push(maxWMaticPrice);
@@ -331,12 +343,11 @@ contract SliceTokenTest is Helper {
         SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, link);
 
         SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
-        
+
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
         // call mint
         bytes32 mintId = sliceToken.mint(1000000000000000000, maxEstimatedPrices, routes);
-
 
         coreMock.mintComplete(mintId, address(sliceToken));
 
@@ -393,75 +404,249 @@ contract SliceTokenTest is Helper {
         vm.stopPrank();
     }
 
+    /* =========================================================== */
+    /*   ===================   mintFailed   ====================   */
+    /* =========================================================== */
+    function test_mintFailed() public {
+        // start the cross chain mint from the token
+        deal(address(usdc), dev, 10 ether);
+        vm.startPrank(dev);
+        vm.deal(dev, 100 ether);
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+        IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
 
-    /* =========================================================== */
-    /*    ==================    rebalance   ===================    */
-    /* =========================================================== */
-/*     function testRebalance() public {
-        vm.prank(dev);
-        bytes32 rebalanceId = token.rebalance(positions);
-        assertNotEq(bytes32(0), rebalanceId);
+        bytes32 mintID = ccToken.manualMint(1 ether);
+        vm.stopPrank();
+
+        // switch to slice core
+        vm.prank(address(core));
+
+        // make sure that event is emitted
+        vm.expectEmit(true, true, false, false);
+        emit ISliceToken.SliceMintFailed(dev, 1 ether);
+
+        // call mint failed for the mint ID
+        ccToken.mintFailed(mintID);
+
+        // make sure that state is updated to FAILED
+        SliceTransactionInfo memory txInfo = ccToken.getMint(mintID);
+        bool isStateFailed = txInfo.state == TransactionState.FAILED;
+        assertTrue(isStateFailed);
     }
 
-    function testCannotRebalance_NotAuthorized() public {
-        // verify that reverts with correct msg
-        vm.prank(users[1]);
-        vm.expectRevert("SliceToken: Only contract owner can call");
-        token.rebalance(positions);
-    } */
-
-    /* =========================================================== */
-    /*  ================   rebalanceComplete   =================   */
-    /* =========================================================== */
-/*     function testRebalanceComplete() public {
+    function test_mintFailed_StateAlreadyFailed() public {
+        // make sure that if the tx state is FAILED the function returns and does not revert
+        // start the cross chain mint from the token
+        deal(address(usdc), dev, 10 ether);
         vm.startPrank(dev);
+        vm.deal(dev, 100 ether);
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+        IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
 
-        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, wbtc, link);
+        bytes32 mintID = ccToken.manualMint(1 ether);
+        vm.stopPrank();
 
-        deal(address(weth), address(coreMock), wethUnits * 2);
-        deal(address(wbtc), address(coreMock), wbtcUnits * 2);
-        deal(address(link), address(coreMock), linkUnits * 2);
+        // switch to slice core
+        vm.prank(address(core));
 
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+        // call mint failed for the mint ID
+        ccToken.mintFailed(mintID);
 
-        coreMock.setToken(address(sliceToken));
+        vm.prank(address(core));
+        // make sure call goes through again
+        ccToken.mintFailed(mintID);
+    }
 
-        // mint some slice tokens
-        sliceToken.mint(2, maxEstimatedPrices, routes);
+    function test_Cannot_MintFailed_NotSliceCore() public {
+        // make sure only slice core can call
+        deal(address(usdc), dev, 10 ether);
+        vm.startPrank(dev);
+        vm.deal(dev, 100 ether);
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+        IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
+        bytes32 mintID = ccToken.manualMint(1 ether);
+        vm.stopPrank();
 
-        positions[0].units = 130346080000000000; // increase by a hundred bucks
-        positions[1].units = 8415120000000000; // decrease by a hundred bucks
-        // call rebalance from token creator address
-        bytes32 rebalanceId = sliceToken.rebalance(positions);
+        vm.expectRevert(bytes4(keccak256("NotSliceCore()")));
+        ccToken.mintFailed(mintID);
+    }
 
-        // verify that positions only updates in rebalanceComplete call
-        Position[] memory notUpdatedPositions = sliceToken.getPositions();
-        assertEq(wethUnits, notUpdatedPositions[0].units);
-        assertEq(wbtcUnits, notUpdatedPositions[1].units);
+    function test_Cannot_MintFailed_MintIdDoesNotExist() public {
+        // make sure it fails when invalid mint id
+        vm.prank(address(core));
+        vm.expectRevert(bytes4(keccak256("MintIdDoesNotExist()")));
+        token.mintFailed(bytes32(0));
+    }
 
-        vm.expectEmit(true, false, false, false);
-        emit ISliceToken.SliceRebalanced(address(sliceToken));
+    function test_Cannot_MintFailed_InvalidTransactionState() public {
+        // make sure it fails when not open state
+        // make sure only slice core can call
+        deal(address(usdc), dev, 10 ether);
+        vm.startPrank(dev);
+        vm.deal(dev, 100 ether);
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+        IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
+        bytes32 mintID = ccToken.manualMint(1 ether);
+        vm.stopPrank();
 
-        coreMock.rebalanceComplete(rebalanceId, address(sliceToken));
+        vm.startPrank(address(core));
+        ccToken.mintComplete(mintID);
 
-        // verify that positions info is updated in token
-        Position[] memory updatedPositions = sliceToken.getPositions();
-        assertEq(130346080000000000, updatedPositions[0].units);
-        assertEq(8415120000000000, updatedPositions[1].units);
+        vm.expectRevert(bytes4(keccak256("InvalidTransactionState()")));
+        ccToken.mintFailed(mintID);
 
         vm.stopPrank();
     }
 
-    function testCannotRebalanceComplete_NotAuthorized() public {
-        vm.prank(users[1]);
-        vm.expectRevert("SliceToken: Only SliceCore can call");
-        // try to call rebalance from non registered address
-        token.rebalanceComplete(bytes32(0));
+    /* =========================================================== */
+    /*   ====================    refund    ====================    */
+    /* =========================================================== */
+    function test_Refund() public {
+        // start a mint
+        deal(address(usdc), dev, 10 ether);
+        vm.startPrank(dev);
+        vm.deal(dev, 100 ether);
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+        IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
+        bytes32 mintID = ccToken.manualMint(1 ether);
+        vm.stopPrank();
+
+        // call mint failed
+        vm.prank(address(core));
+        ccToken.mintFailed(mintID);
+
+        CrossChainSignal memory ccs = CrossChainSignal({
+            id: mintID,
+            srcChainId: uint32(137),
+            ccsType: CrossChainSignalType.MINT,
+            success: false,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            units: 1 ether
+        });
+
+        bytes memory ccsEncoded = abi.encode(ccs);
+
+        Origin memory originResponse =
+            Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
+
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+        IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        // call refund
+        vm.prank(dev);
+        ccToken.refund(mintID);
+
+        // make state is updated
+        SliceTransactionInfo memory txInfo = ccToken.getMint(mintID);
+        bool isMintStateUpdated = txInfo.state == TransactionState.REFUNDING;
+        assertTrue(isMintStateUpdated);
     }
 
-    function testCannotRebalanceComplete_InvalidRebalanceID() public {
+    function test_Cannot_Refund_MintIdDoesNotExist() public {
+        vm.expectRevert(bytes4(keccak256("MintIdDoesNotExist()")));
+        token.refund(bytes32(0));
+    }
+
+    function test_Cannot_Refund_InvalidTransactionState() public {
+        deal(address(usdc), dev, 10 ether);
+        vm.startPrank(dev);
+        vm.deal(dev, 100 ether);
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+        IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
+        bytes32 mintID = ccToken.manualMint(1 ether);
+
+        vm.expectRevert(bytes4(keccak256("InvalidTransactionState()")));
+        ccToken.refund(mintID);
+        vm.stopPrank();
+    }
+
+    /* =========================================================== */
+    /*  ==================   refundComplete   ==================   */
+    /* =========================================================== */
+    function test_RefundComplete() public {
+        // start a mint
+        deal(address(usdc), dev, 10 ether);
+        vm.startPrank(dev);
+        vm.deal(dev, 100 ether);
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+        IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
+        bytes32 mintID = ccToken.manualMint(1 ether);
+        vm.stopPrank();
+
+        // call mint failed
+        vm.prank(address(core));
+        ccToken.mintFailed(mintID);
+
+        CrossChainSignal memory ccs = CrossChainSignal({
+            id: mintID,
+            srcChainId: uint32(137),
+            ccsType: CrossChainSignalType.MINT,
+            success: false,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            units: 1 ether
+        });
+
+        bytes memory ccsEncoded = abi.encode(ccs);
+
+        Origin memory originResponse =
+            Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
+
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+        IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        // call refund
         vm.prank(dev);
-        vm.expectRevert("SliceToken: Invalid rebalance ID");
-        token.rebalanceComplete(bytes32(0));
-    } */
+        ccToken.refund(mintID);
+
+        // make sure event is emitted
+        vm.expectEmit(true, true, false, false);
+        emit ISliceToken.RefundCompleted(dev, 1 ether);
+
+        // call refund complete
+        vm.prank(address(core));
+        ccToken.refundComplete(mintID);
+
+        // make sure state updated
+        SliceTransactionInfo memory txInfo = ccToken.getMint(mintID);
+
+        bool isMintStateUpdated = txInfo.state == TransactionState.REFUNDED;
+
+        assertTrue(isMintStateUpdated);
+    }
+
+    function test_Cannot_RefundComplete_NotSliceCore() public {
+        vm.expectRevert(bytes4(keccak256("NotSliceCore()")));
+        ccToken.refundComplete(bytes32(0));
+    }
+
+    function test_Cannot_RefundComplete_MintIdDoesNotExist() public {
+        vm.prank(address(core));
+        vm.expectRevert(bytes4(keccak256("MintIdDoesNotExist()")));
+        ccToken.refundComplete(bytes32(0));
+    }
+
+    function test_Cannot_RefundComplete_InvalidTransactionState() public {
+        // start a mint
+        deal(address(usdc), dev, 10 ether);
+        vm.startPrank(dev);
+        vm.deal(dev, 100 ether);
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+        IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
+        bytes32 mintID = ccToken.manualMint(1 ether);
+        vm.stopPrank();
+
+        vm.prank(address(core));
+        vm.expectRevert(bytes4(keccak256("InvalidTransactionState()")));
+        ccToken.refundComplete(mintID);
+    }
 }

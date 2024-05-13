@@ -5,7 +5,10 @@ pragma solidity ^0.8.22;
 enum TransactionState {
     UNREGISTERED,
     OPEN,
-    FULFILLED
+    FULFILLED,
+    FAILED,
+    REFUNDING,
+    REFUNDED
 }
 
 /// @notice 
@@ -13,7 +16,9 @@ enum CrossChainSignalType {
     MINT,
     MANUAL_MINT,
     REDEEM,
-    REDEEM_COMPLETE
+    REDEEM_COMPLETE,
+    REFUND,
+    REFUND_COMPLETE
 }
 
 /**
@@ -55,6 +60,7 @@ struct Position {
  * @param id The mint/rebalance/redeem ID created by the token contract
  * @param quantity The quantity of slice tokens being minted/redeemed (not used for rebalance)
  * @param user Address of the user who initiated the transaction
+ * @param state the current state of the slice transaction
  * @param data Arbitrary data. Initially empty, later can be used to pass in non-EVM user addresses.
  */
 struct SliceTransactionInfo {
@@ -69,15 +75,18 @@ struct SliceTransactionInfo {
   * @notice Used for recording info about complete signals received for a pending transaction
   *
   * @param token The slice token on which the transaction is happening
-  * @param signals The number of complete signals received
+  * @param signalsOk The number of success complete signals received
+  * @param signalsFailed The number of failed complete signals received
   * @param sliceTokenQuantity The quantity of slice tokens in the transaction
   * @param user The user who initiated the transaction
   */
 struct TransactionCompleteSignals {
     address token;
-    uint256 signals;
+    uint256 signalsOk;
+    uint256 signalsFailed;
     uint256 sliceTokenQuantity;
     address user;
+    uint256[] positionsOkIdxs;
 }
 
 /**

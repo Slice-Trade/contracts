@@ -18,7 +18,6 @@ import "../src/libs/SliceTokenDeployer.sol";
 
 import {IDeployer} from "../script/IDeployer.sol";
 
-// TODO: All UnderlyingProcured event verifications
 // TODO: Wbtc decimals
 contract SliceCoreTest is Helper {
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
@@ -70,6 +69,8 @@ contract SliceCoreTest is Helper {
         POLYGON
     }
 
+    address polygonLink = 0xb0897686c545045aFc77CF20eC7A532E3120E0F1;
+
     function deployTestContracts(ChainSelect chainSelect) internal returns (address sliceCore, address tokenAddr) {
         if (chainSelect == ChainSelect.MAINNET) {
             selectMainnet();
@@ -115,14 +116,11 @@ contract SliceCoreTest is Helper {
         );
 
         tokenAddr = ISliceCore(sliceCore).createSlice("Slice Token", "SC", positions);
-
-/*         makePersistent(sliceCore);
-        makePersistent(tokenAddr); */
     }
 
     function stringToBytes32(string memory _string) internal pure returns (bytes32 result) {
         require(bytes(_string).length <= 32, "String too long"); // Ensure string length is not greater than 32 bytes
-        
+
         assembly {
             result := mload(add(_string, 32))
         }
@@ -133,9 +131,8 @@ contract SliceCoreTest is Helper {
 
         // https://eips.ethereum.org/EIPS/eip-1052
         // keccak256('') == 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
-        return
-            existingCodeHash != bytes32(0) &&
-            existingCodeHash != 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
+        return existingCodeHash != bytes32(0)
+            && existingCodeHash != 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
     }
 
     /* =========================================================== */
@@ -179,8 +176,6 @@ contract SliceCoreTest is Helper {
         (address sCore, address sToken) = deployTestContracts(ChainSelect.MAINNET);
         core = SliceCore(payable(sCore));
         token = SliceToken(payable(sToken));
-
-
 
         usdcWethRoute = abi.encodePacked(usdcWethRoute, address(core));
         usdcLinkRoute = abi.encodePacked(usdcLinkRoute, address(core));
@@ -271,9 +266,9 @@ contract SliceCoreTest is Helper {
         // call mint -> call purchase underlying assets
         usdc.approve(address(token), 10 ether);
         usdc.approve(address(core), 10 ether);
-        /*         vm.expectEmit(true, true, true, false);
+        vm.expectEmit(true, true, true, false);
         // verify that event is emitted
-        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1000000000000000000, dev); */
+        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1000000000000000000, dev);
 
         token.mint(1000000000000000000, maxEstimatedPrices, routes);
 
@@ -315,7 +310,7 @@ contract SliceCoreTest is Helper {
         deal(address(wmaticPolygon), polygonCore, wmaticUnits);
 
         IOAppCore(polygonCore).setPeer(30101, bytes32(uint256(uint160(address(core)))));
-        
+
         vm.stopPrank();
 
         vm.prank(getAddress("polygon.stargateAdapter"));
@@ -334,15 +329,15 @@ contract SliceCoreTest is Helper {
 
         Origin memory originResponse =
             Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polygonCore)))), nonce: 1});
-        
+
         selectMainnet();
+
+        // verify that mint is complete
+        vm.expectEmit(true, true, true, false);
+        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), 1 ether, dev);
 
         vm.prank(getAddress("mainnet.layerZeroEndpoint"));
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded, dev, bytes(""));
-
-        // verify that mint is complete
-/*         vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), 1 ether, dev); */
 
         uint256 tokenBalance = ccToken.balanceOf(dev);
         assertEq(1 ether, tokenBalance);
@@ -369,7 +364,7 @@ contract SliceCoreTest is Helper {
     }
 
     /* =========================================================== */
-    /*   ===========   purchaseUnderlyingAssets   =============    */
+    /*   ============   collectUnderlyingAssets   =============    */
     /* =========================================================== */
     function test_CollectUnderlyingAssets() public {
         deal(address(weth), address(dev), wethUnits);
@@ -380,9 +375,9 @@ contract SliceCoreTest is Helper {
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
 
-        // vm.expectEmit(true, true, true, false);
+        vm.expectEmit(true, true, true, false);
         // verify that event is emitted
-        // emit ISliceCore.UnderlyingAssetsProcured(address(token), 1 ether, dev);
+        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1 ether, dev);
 
         token.manualMint(1 ether);
 
@@ -470,15 +465,14 @@ contract SliceCoreTest is Helper {
         Origin memory originResponse =
             Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polygonCore)))), nonce: 1});
 
-
         selectMainnet();
+
+        // verify that mint is complete
+        vm.expectEmit(true, true, true, false);
+        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), 1 ether, dev);
 
         vm.prank(getAddress("mainnet.layerZeroEndpoint"));
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));
-
-        // verify that mint is complete
-/*         vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), 1 ether, dev); */
 
         uint256 tokenBalance = ccToken.balanceOf(dev);
         assertEq(1 ether, tokenBalance);
@@ -560,6 +554,179 @@ contract SliceCoreTest is Helper {
     }
 
     /* =========================================================== */
+    /*   ====================    refund    ====================    */
+    /* =========================================================== */
+    function test_Refund() public {
+        // transfer one of the assets to a new account
+        deal(address(weth), address(dev), wethUnits);
+
+        // make sure the balance of the other asset is 0
+        uint256 balance = link.balanceOf(dev);
+        assertEq(balance, 0);
+        // approve that 1 asset
+        vm.startPrank(dev);
+        weth.approve(address(core), wethUnits);
+
+        // make sure that the whole process fails with the correct error
+        vm.expectRevert(bytes4(keccak256("LocalAssetTransferFailed()")));
+
+        // make sure that all balances are unchanged
+        token.manualMint(1 ether);
+    }
+
+    function test_Refund_CrossChain_refundLocal() public {
+        bytes32 mintId = _prepareCrossChainRefund();
+
+        address polygonCore = _doFailedMintOnPolygon(mintId);
+
+        // send the response msg
+        // create cross chain signal
+        CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
+            id: mintId,
+            srcChainId: uint32(block.chainid),
+            ccsType: CrossChainSignalType.MINT,
+            success: false,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            units: wmaticUnits
+        });
+        bytes memory ccsEncoded2 = abi.encode(_ccsResponse2);
+
+        Origin memory originResponse =
+            Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polygonCore)))), nonce: 1});
+
+        selectMainnet();
+
+        // expect the mint failed call to slice token here and event emit
+        vm.expectEmit(true, true, false, false);
+        emit ISliceToken.SliceMintFailed(dev, 1 ether);
+
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+        IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));
+
+        // make sure that the refund process is set in place
+        (address _adrr, uint256 signalsOk, uint256 signalsFailed, uint256 _quantity, address _user) =
+            SliceCore(core).transactionCompleteSignals(mintId);
+
+        assertEq(signalsFailed, 1);
+        assertEq(signalsOk, 1);
+
+        uint256 wethBalanceBefore = weth.balanceOf(dev);
+        assertEq(wethBalanceBefore, 0);
+
+        // get the mint info from the slice token
+        SliceTransactionInfo memory txInfo = ccToken.getMint(mintId);
+        bool isStateFailed = txInfo.state == TransactionState.FAILED;
+        assertEq(isStateFailed, true);
+
+        vm.expectEmit(true, true, false, false);
+        emit ISliceToken.RefundCompleted(dev, 1 ether);
+        // do the refund calls
+        ccToken.refund(mintId);
+
+        // get the mint info from the slice token
+        SliceTransactionInfo memory txInfo2 = ccToken.getMint(mintId);
+        bool isStateRefunded = txInfo2.state == TransactionState.REFUNDED;
+        assertEq(isStateRefunded, true);
+
+        uint256 wethBalanceAfter = weth.balanceOf(dev);
+        assertEq(wethBalanceAfter, 1 ether);
+    }
+
+    function test_Refund_CrossChain_refundRemote() public {
+        bytes32 mintId = _prepareCrossChainRefund2();
+
+        address polygonCore = _doFailedMintOnPolygon2(mintId);
+
+        _handleMainnetResponseOnFailedMint(mintId, polygonCore);
+
+        CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
+            id: mintId,
+            srcChainId: uint32(block.chainid),
+            ccsType: CrossChainSignalType.REFUND,
+            success: false,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            units: wmaticUnits
+        });
+
+        bytes memory ccsEncoded4 = abi.encode(_ccsResponse2);
+
+        Origin memory origin2 = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
+
+        selectPolygon();
+        vm.deal(polygonCore, 100 ether);
+
+        uint256 balanceBefore = wmaticPolygon.balanceOf(dev);
+        assertEq(balanceBefore, 0);
+
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(polygonCore).lzReceive(origin2, bytes32(0), ccsEncoded4, dev, bytes(""));
+
+        uint256 balanceAfter = wmaticPolygon.balanceOf(dev);
+        assertEq(balanceAfter, wmaticUnits);
+
+        _ccsResponse2.srcChainId = uint32(block.chainid);
+        _ccsResponse2.ccsType = CrossChainSignalType.REFUND_COMPLETE;
+        _ccsResponse2.success = true;
+
+        bytes memory ccsEncoded5 = abi.encode(_ccsResponse2);
+
+        Origin memory origin3 = Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
+
+        selectMainnet();
+
+        vm.expectEmit(true, true, false, false);
+        emit ISliceToken.RefundCompleted(dev, 1 ether);
+
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+        IOAppReceiver(core).lzReceive(origin3, bytes32(0), ccsEncoded5, dev, bytes(""));
+
+        // get the mint info from the slice token
+        SliceTransactionInfo memory txInfo3 = ccToken.getMint(mintId);
+        bool isStateRefunded = txInfo3.state == TransactionState.REFUNDED;
+        assertEq(isStateRefunded, true);
+    }
+
+    function test_Cannot_Refund_NotSliceToken() public {
+        // make sure that refund can only be called by slice token
+        SliceTransactionInfo memory _txInfo;
+        vm.expectRevert(bytes4(keccak256("UnregisteredSliceToken()")));
+        core.refund(_txInfo);
+    }
+
+    function test_Cannot_Refund_InvalidState() public {
+        // make sure that refund can only be called if state is refunding
+        vm.expectRevert(bytes4(keccak256("InvalidTransactionState()")));
+
+        SliceTransactionInfo memory _txInfo = SliceTransactionInfo({
+            id: bytes32(0),
+            quantity: 1 ether,
+            user: dev,
+            state: TransactionState.OPEN,
+            data: bytes("")
+        });
+
+        vm.prank(address(token));
+        core.refund(_txInfo);
+    }
+
+    function test_Cannot_Refund_NotAllCrossChainSignalsReceived() public {
+        // do the cross chain testing logic but do not send 1 of the signals
+        bytes32 mintId = _prepareCrossChainRefund();
+        address polygonCore = _doFailedMintOnPolygon(mintId);
+
+        selectMainnet();
+
+        vm.prank(address(core));
+        ccToken.mintFailed(mintId);
+
+        // make sure it fails with the correct error
+        vm.expectRevert(bytes4(keccak256("NotAllCrossChainSignalsReceived()")));
+        ccToken.refund(mintId);
+    }
+
+    /* =========================================================== */
     /*  =========   changeSliceTokenCreationEnabled   ===========  */
     /* =========================================================== */
     function test_ChangeSliceTokenCreationEnabled() public {
@@ -596,51 +763,192 @@ contract SliceCoreTest is Helper {
         core.changeSliceTokenCreationEnabled(false);
     }
 
-    /* =========================================================== */
-    /*   =============    rebalanceUnderlying   ===============    */
-    /* =========================================================== */
-    /*     function testRebalanceUnderlying() public {
-        // mint some tokens
+    function _prepareCrossChainRefund() private returns (bytes32 mintId) {
         vm.startPrank(dev);
-        token.mint(2, maxEstimatedPrices, routes);
 
-        // rebalance
-        positions[0].units = 130346080000000000; // increase by a hundred bucks
-        positions[1].units = 8415120000000000; // decrease by a hundred bucks
+        Position memory wethPosition = Position(
+            1, // mainnet
+            address(weth), // wrapped ETH
+            1 ether // 0.1 wETH
+        );
 
-        // verify that event has been emitted
-        vm.expectEmit(true, false, false, false);
-        emit ISliceCore.UnderlyingAssetsRebalanced(address(token));
-        token.rebalance(positions);
+        ccPositions.push(wethPosition);
 
-        // verify that positions info is updated
-        Position[] memory newPositions = token.getPositions();
-        assertEq(130346080000000000, newPositions[0].units);
-        assertEq(8415120000000000, newPositions[1].units);
+        address ccTokenAddr = core.createSlice("CC Slice", "CC", ccPositions);
 
-        // verify that underlying assets have been sold/bought correctly
-        uint256 wethBalance = weth.balanceOf(address(core));
-        uint256 wbtcBalance = wbtc.balanceOf(address(core));
-        assertEq(wethBalance, newPositions[0].units * 2);
-        assertEq(wbtcBalance, newPositions[1].units * 2);
+        ccToken = SliceToken(ccTokenAddr);
+        usdc.approve(address(ccToken), MAX_ESTIMATED_PRICE * 10);
+        weth.approve(address(ccToken), 10 ether);
+        weth.approve(address(core), 10 ether);
+
+        // run the cross-chain flow
+        deal(address(usdc), dev, 10 ether);
+        deal(address(weth), dev, 1 ether);
+
+        vm.deal(dev, 100 ether);
+
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+
+        mintId = ccToken.manualMint(1 ether);
+        assertNotEq(bytes32(0), mintId);
+
         vm.stopPrank();
     }
 
-    function testCannotRebalanceUnderlying_NotAuthorized() public {
-        // verify that it reverts with correct reason
-        vm.expectRevert("SliceCore: Only registered Slice token can call");
-        // call rebalance from non-owner address
-        core.rebalanceUnderlying(bytes32(0), positions);
+    function _doFailedMintOnPolygon(bytes32 mintId) private returns (address) {
+        vm.startPrank(dev);
+        // prepare cross chain logic
+        CrossChainSignal memory ccs = CrossChainSignal({
+            id: mintId,
+            srcChainId: uint32(block.chainid),
+            ccsType: CrossChainSignalType.MANUAL_MINT,
+            success: false,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            units: wmaticUnits
+        });
+
+        bytes memory ccsEncoded = abi.encode(ccs);
+
+        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
+
+        makePersistent(address(ccToken));
+
+        // change network
+        selectPolygon();
+
+        (address polygonCore,) = deployTestContracts(ChainSelect.POLYGON);
+
+        // make sure that the user has no wmatic on dst chain
+        uint256 balance = wmaticPolygon.balanceOf(dev);
+        assertEq(0, balance);
+
+        vm.deal(polygonCore, 100 ether);
+        vm.stopPrank();
+
+        // send the cross-chain msg: call lzReceive
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(polygonCore).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+        // TODO: make sure that it fails correctly
+        // handleManualMintSignal => transfer fail => create cross chain signal w success false
+        return polygonCore;
     }
 
-    function testCannotRebalanceUnderlying_InvalidUnits() public {
+    function _prepareCrossChainRefund2() internal returns (bytes32 mintId) {
         vm.startPrank(dev);
-        // call rebalance with invalid values (can't sell enough to buy the other)
-        positions[0].units = 2000000000000000000;
-        positions[1].units = 2000000000000000000;
-        // verify that it reverts with the correct reason
-        vm.expectRevert("SliceCore: Invalid positions after rebalance");
-        token.rebalance(positions);
+
+        Position memory polygonLinkPosition = Position(
+            137, // polygon
+            polygonLink, // link
+            1 ether
+        );
+
+        ccPositions.push(polygonLinkPosition);
+
+        address ccTokenAddr = core.createSlice("CC Slice", "CC", ccPositions);
+
+        ccToken = SliceToken(ccTokenAddr);
+        usdc.approve(address(ccToken), MAX_ESTIMATED_PRICE * 10);
+        weth.approve(address(ccToken), 10 ether);
+        weth.approve(address(core), 10 ether);
+
+        vm.deal(dev, 100 ether);
+
+        (bool success,) = address(core).call{value: 1 ether}("");
+        assertTrue(success);
+
+        mintId = ccToken.manualMint(1 ether);
+        assertNotEq(bytes32(0), mintId);
+
         vm.stopPrank();
-    } */
+    }
+
+    function _doFailedMintOnPolygon2(bytes32 mintId) internal returns (address) {
+        vm.startPrank(dev);
+        // prepare cross chain logic
+        CrossChainSignal memory ccs = CrossChainSignal({
+            id: mintId,
+            srcChainId: uint32(block.chainid),
+            ccsType: CrossChainSignalType.MANUAL_MINT,
+            success: false,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            units: wmaticUnits
+        });
+
+        bytes memory ccsEncoded = abi.encode(ccs);
+
+        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
+
+        makePersistent(address(ccToken));
+
+        // change network
+        selectPolygon();
+
+        (address polygonCore,) = deployTestContracts(ChainSelect.POLYGON);
+
+        deal(address(wmaticPolygon), dev, wmaticUnits);
+        wmaticPolygon.approve(polygonCore, wmaticUnits);
+
+        vm.deal(polygonCore, 100 ether);
+        vm.stopPrank();
+
+        // call lzReceive with correct message, value from endpoint address
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(polygonCore).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        uint256 wmaticBalanceCore = wmaticPolygon.balanceOf(address(polygonCore));
+        assertEq(wmaticUnits, wmaticBalanceCore);
+
+        return polygonCore;
+    }
+
+    function _handleMainnetResponseOnFailedMint(bytes32 mintId, address polygonCore) private {
+        CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
+            id: mintId,
+            srcChainId: uint32(block.chainid),
+            ccsType: CrossChainSignalType.MINT,
+            success: true,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            units: wmaticUnits
+        });
+        bytes memory ccsEncoded2 = abi.encode(_ccsResponse2);
+
+        _ccsResponse2.success = false;
+        _ccsResponse2.underlying = polygonLink;
+        _ccsResponse2.units = 1 ether;
+        bytes memory ccsEncoded3 = abi.encode(_ccsResponse2);
+
+        Origin memory originResponse =
+            Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polygonCore)))), nonce: 1});
+
+        selectMainnet();
+
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+        IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));
+
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+        IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded3, dev, bytes(""));
+
+        // make sure that the refund process is set in place
+        (address _adrr, uint256 signalsOk, uint256 signalsFailed, uint256 _quantity, address _user) =
+            SliceCore(core).transactionCompleteSignals(mintId);
+
+        assertEq(signalsFailed, 1);
+        assertEq(signalsOk, 1);
+
+        // get the mint info from the slice token
+        SliceTransactionInfo memory txInfo = ccToken.getMint(mintId);
+        bool isStateFailed = txInfo.state == TransactionState.FAILED;
+        assertEq(isStateFailed, true);
+
+        ccToken.refund(mintId);
+
+        // get the mint info from the slice token
+        SliceTransactionInfo memory txInfo2 = ccToken.getMint(mintId);
+        bool isStateRefunding = txInfo2.state == TransactionState.REFUNDING;
+        assertEq(isStateRefunding, true);
+    }
 }
