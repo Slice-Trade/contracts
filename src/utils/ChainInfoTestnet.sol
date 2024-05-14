@@ -26,6 +26,15 @@ contract ChainInfo is Ownable {
             40232,
             0x2B798E5a0cE8018EDd5532fF4899E2f241271ab0,
             0x488327236B65C61A6c083e8d811a4E0D3d1D4268);
+
+        // Base Sepolia
+        chains[84532] = Chain(
+            84532, 
+            StringToBytes32.toBytes32("base-sepolia"), 
+            10160, 
+            40245,
+            0x0000000000000000000000000000000000000000,
+            0x0000000000000000000000000000000000000000);
     }
 
     function addChain(Chain memory _chain) external onlyOwner {

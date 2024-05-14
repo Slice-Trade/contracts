@@ -11,6 +11,7 @@ import "../src/Structs.sol";
 contract SliceCoreDeployer is Script, Constants {
     uint immutable ETH_SEPOLIA_CHAIN_ID = 11155111;
     uint immutable OP_SEPOLIA_CHAIN_ID = 11155420;
+    uint immutable BASE_SEPOLIA_CHAIN_ID = 84532;
 
     bytes32 public salt;
     
@@ -67,8 +68,10 @@ contract SliceCoreDeployer is Script, Constants {
             SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
         } else if (block.chainid == 11155420) {
             SliceCore(payable(sliceCoreAddress)).setPeer(40161, bytes32(uint256(uint160(sliceCoreAddress))));
-            positions.push(Position(11155111,0xB36c4ef1e4Bc67e323581bDd7F48702d016Ebf19,2184000000000000000000));
-            SliceCore(payable(sliceCoreAddress)).createSlice("TEST", "TT", positions);
+/*             positions.push(Position(11155111,0xB36c4ef1e4Bc67e323581bDd7F48702d016Ebf19,2184000000000000000000));
+            SliceCore(payable(sliceCoreAddress)).createSlice("TEST", "TT", positions); */
+        } else if (block.chainid == 84532) {
+            SliceCore(payable(sliceCoreAddress)).setPeer(40245, bytes32(uint256(uint160(sliceCoreAddress))));
         }
 
         vm.stopBroadcast();
@@ -106,6 +109,17 @@ contract SliceCoreDeployer is Script, Constants {
                 getAddress("op_sepolia.lzEndpoint"),
                 getAddress("op_sepolia.chainInfo"),
                 getAddress("op_sepolia.tokenDeployer"),
+                getAddress("owner")
+            );
+        } else if (block.chainid == BASE_SEPOLIA_CHAIN_ID) {
+            return ConstructorArgs(
+                getAddress("base_sepolia.paymentToken"),
+                getAddress("base_sepolia.sushiXSwap"),
+                getAddress("base_sepolia.stargateAdapter"),
+                getAddress("base_sepolia.axelarAdapter"),
+                getAddress("base_sepolia.lzEndpoint"),
+                getAddress("base_sepolia.chainInfo"),
+                getAddress("base_sepolia.tokenDeployer"),
                 getAddress("owner")
             );
         }

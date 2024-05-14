@@ -30,6 +30,10 @@ case $1 in
         RPC_URL=$OP_SEPOLIA_RPC_URL
         echo "Deploying to Optimism Sepolia Testnet"
         ;;
+    "base-sepolia")
+        RPC_URL=$BASE_SEPOLIA_RPC_URL
+        echo "Deploying to Base Sepolia Testnet"
+        ;;
     *)
         echo "Chain not implemented"
         exit 1

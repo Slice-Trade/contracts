@@ -380,10 +380,10 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
 
         // check that all the failed transfers have been refunded
-        bool _allFailedRefunded = _txCompleteSignal.signalsFailed == refundSignals[_txInfo.id];
+        bool _allTransfersRefunded = _txCompleteSignal.signalsOk == refundSignals[_txInfo.id];
 
         // if yes update state to REFUNDED in slice token
-        if (_allSignalsReceived && _allFailedRefunded) {
+        if (_allSignalsReceived && _allTransfersRefunded) {
             SliceToken(_txCompleteSignal.token).refundComplete(_txInfo.id);
         }
     }
@@ -648,11 +648,11 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         // check that cross-chain signals for all underyling positions have been received - both OK and not OK
         bool _allSignalsReceived = _txCompleteSignal.signalsOk + _txCompleteSignal.signalsFailed == _numberOfPos;
         // check that all the failed transfers have been refunded
-        bool _allFailedRefunded = _txCompleteSignal.signalsFailed == refundSignals[ccs.id];
+        bool _allTransfersRefunded = _txCompleteSignal.signalsOk == refundSignals[ccs.id];
 
         // if all received call slice token
         // if yes update state to REFUNDED in slice token
-        if (_allSignalsReceived && _allFailedRefunded) {
+        if (_allSignalsReceived && _allTransfersRefunded) {
             SliceToken(_txCompleteSignal.token).refundComplete(ccs.id);
         }
     }
