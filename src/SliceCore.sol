@@ -75,8 +75,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         axelarAdapter = _axelarAdapter;
         sliceTokenDeployer = _sliceTokenDeployer;
 
-        lzGasLookup[CrossChainSignalType.MINT] = 120000;
-        lzGasLookup[CrossChainSignalType.MANUAL_MINT] = 200000;
+        lzGasLookup[CrossChainSignalType.MINT] = 150000;
+        lzGasLookup[CrossChainSignalType.MANUAL_MINT] = 300000;
         lzGasLookup[CrossChainSignalType.REDEEM] = 200000;
         lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE] = 150000;
         lzGasLookup[CrossChainSignalType.REFUND] = 250000;
@@ -199,7 +199,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         // get the underlying positions from the slice token
         Position[] memory positions = SliceToken(msg.sender).getPositions();
-
+        // TODO: can we optimize this? Batch all similar chain tokens together and send only 1 message
+        
         uint256 len = positions.length;
         for (uint256 i = 0; i < len; i++) {
             // calc amount out

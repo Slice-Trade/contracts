@@ -272,7 +272,7 @@ contract SliceTokenTest is Helper {
     /* =========================================================== */
     /*   ==================    manualMint   ===================    */
     /* =========================================================== */
-    function testManualMint() public {
+    function test_ManualMint() public {
         vm.startPrank(dev);
 
         deal(address(weth), address(dev), wethUnits);
@@ -281,11 +281,17 @@ contract SliceTokenTest is Helper {
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
 
-        /*         vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1 ether, dev); */
+        vm.expectEmit(true, true, true, false);
+        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1 ether, dev);
+
+        vm.expectEmit(true, true, true, false);
+        emit IERC20.Transfer(address(0), dev, 1 ether);
 
         bytes32 mintId = token.manualMint(1 ether);
         assertNotEq(bytes32(0), mintId);
+
+        uint256 tokenBalance = token.balanceOf(dev);
+        assertEq(tokenBalance, 1 ether);
 
         uint256 wethBalance = weth.balanceOf(dev);
         uint256 linkBalance = link.balanceOf(dev);
@@ -309,11 +315,25 @@ contract SliceTokenTest is Helper {
     /* =========================================================== */
     /*    ===================    redeem    ====================    */
     /* =========================================================== */
-    function test_Redeem() public {
+    function test_Redeemz() public {
         vm.startPrank(dev);
+
         token.mint(1000000000000000000, maxEstimatedPrices, routes);
+
+        uint256 balanceBeforeRedeem = token.balanceOf(dev);
+        assertEq(1000000000000000000, balanceBeforeRedeem);
+
+        vm.expectEmit(true, true, true, false);
+        emit IERC20.Transfer(dev, address(0), 1000000000000000000);
+
+        vm.expectEmit(true, true, false, false);
+        emit ISliceToken.SliceRedeemed(dev, 1000000000000000000);
+
         bytes32 redeemId = token.redeem(1000000000000000000);
+
         assertNotEq(bytes32(0), redeemId);
+        uint256 balanceAfterRedeem = token.balanceOf(dev);
+        assertEq(0, balanceAfterRedeem);
         vm.stopPrank();
     }
 
