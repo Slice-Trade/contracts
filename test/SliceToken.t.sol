@@ -544,7 +544,7 @@ contract SliceTokenTest is Helper {
 
         // make state is updated
         SliceTransactionInfo memory txInfo = ccToken.getMint(mintID);
-        bool isMintStateUpdated = txInfo.state == TransactionState.REFUNDING;
+        bool isMintStateUpdated = txInfo.state == TransactionState.REFUNDED;
         assertTrue(isMintStateUpdated);
     }
 
@@ -603,17 +603,13 @@ contract SliceTokenTest is Helper {
         vm.prank(getAddress("mainnet.layerZeroEndpoint"));
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded, dev, bytes(""));
 
-        // call refund
-        vm.prank(dev);
-        ccToken.refund(mintID);
-
         // make sure event is emitted
         vm.expectEmit(true, true, false, false);
         emit ISliceToken.RefundCompleted(dev, 1 ether);
 
-        // call refund complete
-        vm.prank(address(core));
-        ccToken.refundComplete(mintID);
+        // call refund
+        vm.prank(dev);
+        ccToken.refund(mintID);
 
         // make sure state updated
         SliceTransactionInfo memory txInfo = ccToken.getMint(mintID);
