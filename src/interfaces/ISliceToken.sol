@@ -76,6 +76,8 @@ interface ISliceToken is IERC20 {
      */
     function mintFailed(bytes32 _mintID) external;
 
+    function refund(bytes32 _mintID) external payable;
+
     function refundComplete(bytes32 _mintID) external;
 
     /**

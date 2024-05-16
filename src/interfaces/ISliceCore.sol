@@ -63,7 +63,7 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver, ISliceCoreErrors {
      */
     function redeemUnderlying(bytes32 _redeemID) external payable;
 
-    function refund(SliceTransactionInfo memory _txInfo) external;
+    function refund(SliceTransactionInfo memory _txInfo) external payable;
 
     /**
      * @dev Enables/disables the creation of new Slice tokens. Can only be called by contract owner.

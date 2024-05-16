@@ -348,7 +348,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded);
     }
 
-    function refund(SliceTransactionInfo memory _txInfo) external nonReentrant {
+    function refund(SliceTransactionInfo memory _txInfo) external payable nonReentrant {
         if (!isSliceTokenRegistered(msg.sender)) {
             revert UnregisteredSliceToken();
         }

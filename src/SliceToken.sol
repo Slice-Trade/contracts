@@ -245,7 +245,7 @@ contract SliceToken is ISliceToken, ERC20 {
         emit SliceRedeemed(_txInfo.user, _txInfo.quantity);
     }
 
-    function refund(bytes32 _mintID) external {
+    function refund(bytes32 _mintID) external payable {
         SliceTransactionInfo memory _txInfo = mints[_mintID];
 
         if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
@@ -259,7 +259,7 @@ contract SliceToken is ISliceToken, ERC20 {
         _txInfo.state = TransactionState.REFUNDING;
         mints[_mintID].state = _txInfo.state;
 
-        ISliceCore(sliceCore).refund(_txInfo);
+        ISliceCore(sliceCore).refund{value: msg.value}(_txInfo);
     }
 
     function refundComplete(bytes32 _mintID) external onlySliceCore {
