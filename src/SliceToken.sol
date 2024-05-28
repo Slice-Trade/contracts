@@ -57,52 +57,6 @@ contract SliceToken is ISliceToken, ERC20 {
     /*   ===================    EXTERNAL   ====================    */
     /* =========================================================== */
     /**
-     * @dev See ISliceToken - mint
-     */
-    function mint(uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes)
-        external
-        payable
-        returns (bytes32)
-    {
-        if (_sliceTokenQuantity == 0) {
-            revert ZeroTokenQuantity();
-        }
-
-        if (_maxEstimatedPrices.length != _routes.length || _maxEstimatedPrices.length != positions.length) {
-            revert IncorrectPricesOrRoutesLength();
-        }
-
-        uint256 sumPrice = Utils.sumMaxEstimatedPrices(_maxEstimatedPrices);
-
-        bool success = paymentToken.transferFrom(msg.sender, address(sliceCore), sumPrice);
-        if (!success) {
-            revert MintFailed();
-        }
-
-        bytes32 mintId = keccak256(
-            abi.encodePacked(
-                this.mint.selector, msg.sender, address(this), _sliceTokenQuantity, sumPrice, block.timestamp
-            )
-        );
-
-        SliceTransactionInfo memory txInfo = SliceTransactionInfo({
-            id: mintId,
-            quantity: _sliceTokenQuantity,
-            user: msg.sender,
-            state: TransactionState.OPEN,
-            data: bytes("")
-        });
-
-        mints[mintId] = txInfo;
-
-        ISliceCore(sliceCore).purchaseUnderlyingAssets{value: msg.value}(
-            mintId, _sliceTokenQuantity, _maxEstimatedPrices, _routes
-        );
-
-        return mintId;
-    }
-
-    /**
      * @dev See ISliceToken - mintComplete
      */
     function mintComplete(bytes32 _mintID) external onlySliceCore {
@@ -245,7 +199,7 @@ contract SliceToken is ISliceToken, ERC20 {
         emit SliceRedeemed(_txInfo.user, _txInfo.quantity);
     }
 
-    function refund(bytes32 _mintID) external {
+    function refund(bytes32 _mintID) external payable {
         SliceTransactionInfo memory _txInfo = mints[_mintID];
 
         if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
@@ -259,7 +213,7 @@ contract SliceToken is ISliceToken, ERC20 {
         _txInfo.state = TransactionState.REFUNDING;
         mints[_mintID].state = _txInfo.state;
 
-        ISliceCore(sliceCore).refund(_txInfo);
+        ISliceCore(sliceCore).refund{value: msg.value}(_txInfo);
     }
 
     function refundComplete(bytes32 _mintID) external onlySliceCore {

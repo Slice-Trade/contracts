@@ -25,18 +25,12 @@ contract SliceCoreMock {
 
     function setToken(address _token) external {
         token = _token;
-    } 
+    }
 
     /**
      * @dev See ISliceCore - purchaseUnderlyingAssets
      */
-    function purchaseUnderlyingAssets(
-        bytes32 /* _mintID */,
-        uint256 /* _sliceTokenQuantity */,
-        uint256[] memory _maxEstimatedPrices,
-        bytes[] memory /* _routes */
-    ) external {
-    }
+    function collectUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity) external payable {}
 
     /**
      * @dev See ISliceCore - redeemUnderlying

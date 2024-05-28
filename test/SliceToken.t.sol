@@ -132,47 +132,6 @@ contract SliceTokenTest is Helper {
     }
 
     /* =========================================================== */
-    /*    ==================      mint     ====================    */
-    /* =========================================================== */
-    function testMint() public {
-        vm.startPrank(dev);
-
-        uint256 balanceBefore = usdc.balanceOf(dev);
-
-        // verify that purchase event in Core contract is emitted
-        vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsProcured(address(token), 2, dev);
-
-        // call mint
-        bytes32 mintId = token.mint(2, maxEstimatedPrices, routes);
-
-        // check that mint ID is properly recorded
-        assertNotEq(bytes32(0), mintId);
-
-        // verify that USDC is taken from user account
-        uint256 balanceAfter = usdc.balanceOf(dev);
-        uint256 expectedBalance = balanceBefore - MAX_ESTIMATED_PRICE;
-        assertGe(balanceAfter, expectedBalance);
-
-        vm.stopPrank();
-    }
-
-    function test_Cannot_Mint_NotEnoughMoney() public {
-        // verify that correct revert message is emitted
-        vm.startPrank(users[1]);
-
-        usdc.approve(address(token), MAX_ESTIMATED_PRICE);
-
-        vm.expectRevert("ERC20: transfer amount exceeds balance");
-        token.mint(20000000000000000000, maxEstimatedPrices, routes);
-
-        // verify that user Slice balance has not been increased
-        uint256 sliceTokenBalance = token.balanceOf(users[1]);
-        assertEq(0, sliceTokenBalance);
-        vm.stopPrank();
-    }
-
-    /* =========================================================== */
     /*   =================    mintComplete   ==================    */
     /* =========================================================== */
     function test_MintComplete() public {
@@ -186,7 +145,7 @@ contract SliceTokenTest is Helper {
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
         // call mint
-        bytes32 mintId = sliceToken.mint(2, maxEstimatedPrices, routes);
+        bytes32 mintId = sliceToken.manualMint(2);
 
         // verify that SliceMinted event emitted
         vm.expectEmit(true, true, false, false);
@@ -219,7 +178,7 @@ contract SliceTokenTest is Helper {
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
 
         // call mint
-        bytes32 mintId = sliceToken.mint(2, maxEstimatedPrices, routes);
+        bytes32 mintId = sliceToken.manualMint(1 ether);
         vm.stopPrank();
 
         vm.startPrank(users[1]);
@@ -242,7 +201,7 @@ contract SliceTokenTest is Helper {
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
 
-        bytes32 mintId = sliceToken.mint(2, maxEstimatedPrices, routes);
+        bytes32 mintId = sliceToken.manualMint(2);
 
         coreMock.mintComplete(mintId, address(sliceToken));
 
@@ -272,7 +231,7 @@ contract SliceTokenTest is Helper {
     /* =========================================================== */
     /*   ==================    manualMint   ===================    */
     /* =========================================================== */
-    function testManualMint() public {
+    function test_ManualMint() public {
         vm.startPrank(dev);
 
         deal(address(weth), address(dev), wethUnits);
@@ -281,11 +240,17 @@ contract SliceTokenTest is Helper {
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
 
-        /*         vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1 ether, dev); */
+        vm.expectEmit(true, true, true, false);
+        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1 ether, dev);
+
+        vm.expectEmit(true, true, true, false);
+        emit IERC20.Transfer(address(0), dev, 1 ether);
 
         bytes32 mintId = token.manualMint(1 ether);
         assertNotEq(bytes32(0), mintId);
+
+        uint256 tokenBalance = token.balanceOf(dev);
+        assertEq(tokenBalance, 1 ether);
 
         uint256 wethBalance = weth.balanceOf(dev);
         uint256 linkBalance = link.balanceOf(dev);
@@ -311,9 +276,29 @@ contract SliceTokenTest is Helper {
     /* =========================================================== */
     function test_Redeem() public {
         vm.startPrank(dev);
-        token.mint(1000000000000000000, maxEstimatedPrices, routes);
+
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+
+        token.manualMint(1 ether);
+
+        uint256 balanceBeforeRedeem = token.balanceOf(dev);
+        assertEq(1000000000000000000, balanceBeforeRedeem);
+
+        vm.expectEmit(true, true, true, false);
+        emit IERC20.Transfer(dev, address(0), 1000000000000000000);
+
+        vm.expectEmit(true, true, false, false);
+        emit ISliceToken.SliceRedeemed(dev, 1000000000000000000);
+
         bytes32 redeemId = token.redeem(1000000000000000000);
+
         assertNotEq(bytes32(0), redeemId);
+        uint256 balanceAfterRedeem = token.balanceOf(dev);
+        assertEq(0, balanceAfterRedeem);
         vm.stopPrank();
     }
 
@@ -347,7 +332,7 @@ contract SliceTokenTest is Helper {
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
         // call mint
-        bytes32 mintId = sliceToken.mint(1000000000000000000, maxEstimatedPrices, routes);
+        bytes32 mintId = sliceToken.manualMint(1000000000000000000);
 
         coreMock.mintComplete(mintId, address(sliceToken));
 
@@ -374,7 +359,7 @@ contract SliceTokenTest is Helper {
 
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
-        bytes32 _mintID = sliceToken.mint(1000000000000000000, maxEstimatedPrices, routes);
+        bytes32 _mintID = sliceToken.manualMint(1000000000000000000);
 
         coreMock.mintComplete(_mintID, address(sliceToken));
 

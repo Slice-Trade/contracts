@@ -9,11 +9,6 @@ import {MessagingParams, MessagingReceipt} from "@lz-oapp-v2/interfaces/ILayerZe
 import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-import {IRouteProcessor} from "./external/IRouteProcessor.sol";
-import {ISushiXSwapV2} from "./external/ISushiXSwapV2.sol";
-import {ISushiXSwapV2Adapter} from "./external/ISushiXSwapV2Adapter.sol";
-import {IStargateAdapter} from "./external/IStargateAdapter.sol";
-
 import {IChainInfo} from "./interfaces/IChainInfo.sol";
 import {ISliceCore} from "./interfaces/ISliceCore.sol";
 import {ISliceTokenDeployer} from "./interfaces/ISliceTokenDeployer.sol";
@@ -21,7 +16,6 @@ import {ISliceTokenDeployer} from "./interfaces/ISliceTokenDeployer.sol";
 import {Utils} from "./utils/Utils.sol";
 
 import {CrossChainData} from "./libs/CrossChainData.sol";
-import {RouteVerifier} from "./libs/RouteVerifier.sol";
 
 import {SliceToken, ISliceToken} from "./SliceToken.sol";
 
@@ -33,11 +27,6 @@ import "./Structs.sol";
  */
 contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     address public immutable paymentToken;
-
-    ISushiXSwapV2 public immutable sushiXSwap;
-
-    address public immutable stargateAdapter;
-    address public immutable axelarAdapter;
 
     IChainInfo public immutable chainInfo;
 
@@ -69,14 +58,11 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         address _owner
     ) Ownable(_owner) OApp(_lzEndpoint, _owner) {
         paymentToken = _paymentToken;
-        sushiXSwap = ISushiXSwapV2(_sushiXSwap);
         chainInfo = IChainInfo(_chainInfo);
-        stargateAdapter = _stargateAdapter;
-        axelarAdapter = _axelarAdapter;
         sliceTokenDeployer = _sliceTokenDeployer;
 
-        lzGasLookup[CrossChainSignalType.MINT] = 120000;
-        lzGasLookup[CrossChainSignalType.MANUAL_MINT] = 200000;
+        lzGasLookup[CrossChainSignalType.MINT] = 150000;
+        lzGasLookup[CrossChainSignalType.MANUAL_MINT] = 300000;
         lzGasLookup[CrossChainSignalType.REDEEM] = 200000;
         lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE] = 150000;
         lzGasLookup[CrossChainSignalType.REFUND] = 250000;
@@ -122,64 +108,6 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     }
 
     /**
-     * @dev See ISliceCore - purchaseUnderlyingAssets
-     */
-    function purchaseUnderlyingAssets(
-        bytes32 _mintID,
-        uint256 _sliceTokenQuantity,
-        uint256[] memory _maxEstimatedPrices,
-        bytes[] memory _routes
-    ) external payable nonReentrant {
-        // check that slice token (msg.sender) is registered
-        if (!registeredSliceTokens[msg.sender]) {
-            revert UnregisteredSliceToken();
-        }
-
-        if (IERC20(paymentToken).balanceOf(address(this)) < Utils.sumMaxEstimatedPrices(_maxEstimatedPrices)) {
-            revert TokenPriceNotTransferred();
-        }
-
-        SliceTransactionInfo memory txInfo = ISliceToken(msg.sender).getMint(_mintID);
-        if (txInfo.id != _mintID || txInfo.id == bytes32(0)) {
-            revert MintIdDoesNotExist();
-        }
-
-        transactionCompleteSignals[_mintID].token = msg.sender;
-        transactionCompleteSignals[_mintID].sliceTokenQuantity = _sliceTokenQuantity;
-        transactionCompleteSignals[_mintID].user = txInfo.user;
-
-        // get the underlying positions from the slice token
-        Position[] memory positions = SliceToken(msg.sender).getPositions();
-
-        uint256 len = positions.length;
-        for (uint256 i = 0; i < len; i++) {
-            if (isPositionLocal(positions[i])) {
-                // if asset is local execute swap right away: (check block.chainid)
-                bool success = executeLocalSwap(_sliceTokenQuantity, _maxEstimatedPrices[i], positions[i], _routes[i]);
-                if (!success) {
-                    revert LocalSwapFailed();
-                }
-                // increase the ready signal after each local swap
-                ++transactionCompleteSignals[_mintID].signalsOk;
-            } else {
-                executeCrossChainSwap(
-                    _mintID, _sliceTokenQuantity, _maxEstimatedPrices[i], positions[i], txInfo, _routes[i]
-                );
-            }
-        }
-
-        // if all signals are in -> call mintComplete on token contract
-        if (checkPendingTransactionCompleteSignals(_mintID)) {
-            emit UnderlyingAssetsProcured({
-                token: msg.sender,
-                sliceTokenQuantity: _sliceTokenQuantity,
-                owner: txInfo.user
-            });
-            SliceToken(msg.sender).mintComplete(_mintID);
-        }
-    }
-
-    /**
      * @dev See ISliceCore - collectUnderlyingAssets
      */
     function collectUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity) external payable nonReentrant {
@@ -199,7 +127,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         // get the underlying positions from the slice token
         Position[] memory positions = SliceToken(msg.sender).getPositions();
-
+        // TODO: can we optimize this? Batch all similar chain tokens together and send only 1 message
+        
         uint256 len = positions.length;
         for (uint256 i = 0; i < len; i++) {
             // calc amount out
@@ -310,44 +239,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
     }
 
-    /**
-     * @dev See IPayloadExecutor - onPayloadReceive
-     */
-    function onPayloadReceive(bytes memory _data) external payable {
-        // implement on payload receive, verify the transfer details on dst chain
-        if (msg.sender != stargateAdapter) {
-            revert OnlyStargateAdapterCanCall();
-        }
-
-        SlicePayloadData memory payloadData = abi.decode(_data, (SlicePayloadData));
-        uint256 balance = IERC20(payloadData.tokenOut).balanceOf(address(this));
-        if (balance < payloadData.amountOutMin) {
-            revert IncorrectAmountOut();
-        }
-
-        // implement layer zero msg send to main chain contract
-        // get src lz chain id from payload data
-        Chain memory srcChain = chainInfo.getChainInfo(payloadData.srcChainId);
-        // create cross chain signal
-        CrossChainSignal memory ccs = CrossChainSignal({
-            id: payloadData.mintID,
-            srcChainId: uint32(block.chainid),
-            ccsType: CrossChainSignalType.MINT,
-            success: true,
-            user: address(0),
-            underlying: address(0),
-            units: 0
-        });
-        // encode to bytes
-        bytes memory ccsEncoded = abi.encode(ccs);
-
-        bytes memory _lzSendOpts =
-            CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MINT], _value: 0});
-
-        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded);
-    }
-
-    function refund(SliceTransactionInfo memory _txInfo) external nonReentrant {
+    function refund(SliceTransactionInfo memory _txInfo) external payable nonReentrant {
         if (!isSliceTokenRegistered(msg.sender)) {
             revert UnregisteredSliceToken();
         }
@@ -657,104 +549,11 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
     }
 
-    function executeLocalSwap(
-        uint256 _sliceTokenQuantity,
-        uint256 _maxEstimatedPrice,
-        Position memory _position,
-        bytes memory _route
-    ) internal returns (bool) {
-        RouteVerifier.verifyRoute(address(this), _route);
-
-        IERC20(paymentToken).approve(address(sushiXSwap), _maxEstimatedPrice);
-
-        uint256 amountIn = _maxEstimatedPrice;
-        uint256 amountOutMin = CrossChainData.calculateAmountOutMin(_sliceTokenQuantity, _position.units);
-
-        IRouteProcessor.RouteProcessorData memory rpd = IRouteProcessor.RouteProcessorData({
-            tokenIn: paymentToken,
-            amountIn: amountIn,
-            tokenOut: _position.token,
-            amountOutMin: amountOutMin,
-            to: address(this),
-            route: _route
-        });
-
-        bytes memory rpd_encoded = abi.encode(rpd);
-
-        sushiXSwap.swap(rpd_encoded);
-
-        uint256 balanceAfterSwap = IERC20(_position.token).balanceOf(address(this));
-        return balanceAfterSwap >= _position.units;
-    }
-
-    // TODO: get fees from both axelar and stargate, compare them and go with the lowest fee bridge
-    function executeCrossChainSwap(
-        bytes32 _mintId,
-        uint256 _sliceTokenQuantity,
-        uint256 _maxEstimatedPrice,
-        Position memory _position,
-        SliceTransactionInfo memory _txInfo,
-        bytes memory _route
-    ) internal {
-        RouteVerifier.verifyRoute(address(this), _route);
-
-        IERC20(paymentToken).approve(address(sushiXSwap), _maxEstimatedPrice);
-
-        uint256 amountOutMin = CrossChainData.calculateAmountOutMin(_sliceTokenQuantity, _position.units);
-
-        Chain memory dstChain = chainInfo.getChainInfo(_position.chainId);
-
-        bytes memory rpd_encoded_dst = CrossChainData.createRouteProcessorDataEncoded(
-            dstChain, _position.token, amountOutMin, address(this), _route
-        );
-
-        bytes memory payloadDataEncoded = CrossChainData.createPayloadDataEncoded(
-            _mintId, _position.token, amountOutMin, address(this), crossChainGas.gasForPayload, _txInfo.data
-        );
-
-        sushiXSwap.bridge{
-            value: CrossChainData.getGasNeeded(
-                dstChain.stargateChainId, stargateAdapter, address(this), rpd_encoded_dst, payloadDataEncoded
-                )
-        }(
-            ISushiXSwapV2.BridgeParams({
-                refId: 0x0000,
-                adapter: stargateAdapter,
-                tokenIn: paymentToken,
-                amountIn: _maxEstimatedPrice,
-                to: address(this),
-                adapterData: createAdapterData(dstChain, _maxEstimatedPrice, crossChainGas.gasForAdapter)
-            }), // bridge params
-            _txInfo.user, // refund address
-            rpd_encoded_dst, // swap data
-            payloadDataEncoded // payload data
-        );
-    }
-
     /* =========================================================== */
     /*   =================   INTERNAL VIEW   ==================    */
     /* =========================================================== */
     function isPositionLocal(Position memory _position) internal view returns (bool) {
         return _position.chainId == block.chainid;
-    }
-
-    function createAdapterData(Chain memory _dstChain, uint256 _maxEstimatedPrice, uint256 gasForSwap)
-        internal
-        view
-        returns (bytes memory _adapterData)
-    {
-        _adapterData = abi.encode(
-            _dstChain.stargateChainId, // dst chain stargate id
-            paymentToken, // token in
-            1, // src pool id - USDC
-            1, // dst pool id - USDC
-            _maxEstimatedPrice, // amount,
-            0, // amountMin,
-            0, // dust
-            _dstChain.stargateAdapter, // receiver
-            address(this), // to
-            gasForSwap // gas
-        );
     }
 
     // checks the signal count after each swap, in each callback

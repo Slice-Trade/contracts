@@ -68,10 +68,11 @@ contract SliceCoreDeployer is Script, Constants {
             SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
         } else if (block.chainid == 11155420) {
             SliceCore(payable(sliceCoreAddress)).setPeer(40161, bytes32(uint256(uint160(sliceCoreAddress))));
+            SliceCore(payable(sliceCoreAddress)).setPeer(40245, bytes32(uint256(uint160(sliceCoreAddress))));
 /*             positions.push(Position(11155111,0xB36c4ef1e4Bc67e323581bDd7F48702d016Ebf19,2184000000000000000000));
             SliceCore(payable(sliceCoreAddress)).createSlice("TEST", "TT", positions); */
         } else if (block.chainid == 84532) {
-            SliceCore(payable(sliceCoreAddress)).setPeer(40245, bytes32(uint256(uint160(sliceCoreAddress))));
+            SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
         }
 
         vm.stopBroadcast();
