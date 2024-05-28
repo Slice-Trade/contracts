@@ -200,6 +200,9 @@ contract SliceCoreTest is Helper {
         ccToken = SliceToken(ccTokenAddr);
         usdc.approve(address(ccToken), MAX_ESTIMATED_PRICE * 10);
 
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+
         vm.stopPrank();
     }
 
@@ -411,14 +414,19 @@ contract SliceCoreTest is Helper {
     /*   ==============    redeemUnderlying    ================    */
     /* =========================================================== */
     function test_RedeemUnderlying() public {
-        // mint some slice tokens
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+
         vm.startPrank(dev);
 
-        token.manualMint(1000000000000000000);
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+
+        token.manualMint(1 ether);
         uint256 wethTokenbalanceBefore = weth.balanceOf(address(core));
         uint256 linkTokenbalanceBefore = link.balanceOf(address(core));
         // call redeem underlying
-        token.redeem(1000000000000000000);
+        token.redeem(1 ether);
 
         // verify that the assets are in the user's wallet and gone from the slice token
         uint256 wethBalance = weth.balanceOf(address(dev));

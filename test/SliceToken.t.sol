@@ -178,7 +178,7 @@ contract SliceTokenTest is Helper {
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
 
         // call mint
-        bytes32 mintId = sliceToken.manualMint(2);
+        bytes32 mintId = sliceToken.manualMint(1 ether);
         vm.stopPrank();
 
         vm.startPrank(users[1]);
@@ -277,7 +277,13 @@ contract SliceTokenTest is Helper {
     function test_Redeem() public {
         vm.startPrank(dev);
 
-        token.manualMint(1000000000000000000);
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+
+        token.manualMint(1 ether);
 
         uint256 balanceBeforeRedeem = token.balanceOf(dev);
         assertEq(1000000000000000000, balanceBeforeRedeem);
