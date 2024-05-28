@@ -26,19 +26,6 @@ interface ISliceToken is IERC20 {
     error MintFailed();
 
     /**
-     * @dev Mints a new Slice token
-     *
-     * @param _sliceTokenQuantity The quantity of slice tokens to mint
-     * @param _maxEstimatedPrices The maximum estimated price of all the underlying assets combined. In USDC (6 decimals)
-     *
-     * @return bytes32 The mint ID
-     */
-    function mint(uint256 _sliceTokenQuantity, uint256[] memory _maxEstimatedPrices, bytes[] memory _routes)
-        external
-        payable
-        returns (bytes32);
-
-    /**
      * @dev Called by the SliceCore contract when a mint transaction is confirmed completed by all the cross-chain contracts
      *
      * @param _mintID The ID that uniquely identifies this transaction within the system

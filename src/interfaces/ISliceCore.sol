@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import "../external/IPayloadExecutor.sol";
 import "@lz-oapp-v2/interfaces/ILayerZeroReceiver.sol";
 import "../Structs.sol";
 import "./ISliceCoreErrors.sol";
 
-interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver, ISliceCoreErrors {
+interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
     /* Emitted when a new slice token is created */
     event SliceTokenCreated(address indexed token);
     /* Emitted when the underlying assets of a Slice token are purchased or transferred during a Slice token mint or manual mint */
@@ -33,20 +32,6 @@ interface ISliceCore is IPayloadExecutor, ILayerZeroReceiver, ISliceCoreErrors {
      * @return bool Whether the address can create slice tokens
      */
     function canCreateSlice(address _user) external view returns (bool);
-
-    /**
-     * @dev Purchases the underlying assets for a given slice token (msg.sender).
-     *
-     * @param _mintID The ID that uniquely identifies this mint transaction within the sysem
-     * @param _sliceTokenQuantity The quantity of slice tokens to purchase the underlying assets for
-     * @param _maxEstimatedPrices The maximum estimated price for each underlying asset. In USDC (6 decimals)
-     */
-    function purchaseUnderlyingAssets(
-        bytes32 _mintID,
-        uint256 _sliceTokenQuantity,
-        uint256[] memory _maxEstimatedPrices,
-        bytes[] memory _routes
-    ) external payable;
 
     /**
      * @dev Transfers the underlying assets from the user to the contract
