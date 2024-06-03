@@ -40,11 +40,8 @@ contract SliceToken is ISliceToken, ERC20 {
         string memory _name,
         string memory _symbol,
         Position[] memory _positions,
-        address _paymentToken,
         address _sliceCore
     ) ERC20(_name, _symbol) {
-        paymentToken = IERC20(_paymentToken);
-
         sliceCore = _sliceCore;
 
         for (uint256 i = 0; i < _positions.length; i++) {

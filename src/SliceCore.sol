@@ -26,8 +26,6 @@ import "./Structs.sol";
  * @notice The core logic contract of the architecture, provides cross-chain underlying asset management
  */
 contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
-    address public immutable paymentToken;
-
     IChainInfo public immutable chainInfo;
 
     address public immutable sliceTokenDeployer;
@@ -48,16 +46,11 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     mapping(CrossChainSignalType ccsType => uint128 gas) public lzGasLookup;
 
     constructor(
-        address _paymentToken,
-        address _sushiXSwap,
-        address _stargateAdapter,
-        address _axelarAdapter,
         address _lzEndpoint,
         address _chainInfo,
         address _sliceTokenDeployer,
         address _owner
     ) Ownable(_owner) OApp(_lzEndpoint, _owner) {
-        paymentToken = _paymentToken;
         chainInfo = IChainInfo(_chainInfo);
         sliceTokenDeployer = _sliceTokenDeployer;
 
@@ -94,7 +87,6 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             name: _name,
             symbol: _symbol,
             positions: _positions,
-            paymentToken: paymentToken,
             core: address(this)
         });
 

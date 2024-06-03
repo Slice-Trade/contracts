@@ -94,10 +94,6 @@ contract SliceTokenTest is Helper {
         SliceTokenDeployer deployer = new SliceTokenDeployer();
 
         core = new SliceCore(
-            address(usdc),
-            getAddress("mainnet.sushiXSwap"),
-            getAddress("mainnet.stargateAdapter"),
-            getAddress("mainnet.axelarAdapter"),
             getAddress("mainnet.layerZeroEndpoint"), // TODO
             address(chainInfo),
             address(deployer),
@@ -140,7 +136,7 @@ contract SliceTokenTest is Helper {
         // set the core address as dev address
         SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, link);
 
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
 
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
@@ -172,7 +168,7 @@ contract SliceTokenTest is Helper {
         deal(address(weth), address(coreMock), wethUnits * 2);
         deal(address(link), address(coreMock), linkUnits * 2);
 
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
 
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
@@ -196,7 +192,7 @@ contract SliceTokenTest is Helper {
         deal(address(weth), address(coreMock), wethUnits * 2);
         deal(address(link), address(coreMock), linkUnits * 2);
 
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
 
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
@@ -217,7 +213,7 @@ contract SliceTokenTest is Helper {
         deal(address(weth), address(coreMock), wethUnits * 2);
         deal(address(link), address(coreMock), linkUnits * 2);
 
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
 
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
@@ -327,7 +323,7 @@ contract SliceTokenTest is Helper {
 
         SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, link);
 
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
 
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
@@ -355,7 +351,7 @@ contract SliceTokenTest is Helper {
         deal(address(weth), address(coreMock), wethUnits * 2);
         deal(address(link), address(coreMock), linkUnits * 2);
 
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), address(coreMock));
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
 
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
@@ -383,7 +379,7 @@ contract SliceTokenTest is Helper {
 
     function test_Cannot_RedeemComplete_InvalidRedeemID() public {
         vm.startPrank(dev);
-        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(usdc), dev);
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, dev);
         vm.expectRevert(bytes4(keccak256("RedeemIdDoesNotExist()")));
         sliceToken.redeemComplete(bytes32(0));
         vm.stopPrank();

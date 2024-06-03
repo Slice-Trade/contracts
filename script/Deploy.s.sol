@@ -16,10 +16,6 @@ contract SliceCoreDeployer is Script, Constants {
     bytes32 public salt;
     
     struct ConstructorArgs {
-        address paymentToken;
-        address sushiXSwap;
-        address stargateAdapter;
-        address axelarAdapter;
         address endpoint;
         address chainInfo;
         address sliceTokenDeployer;
@@ -38,10 +34,6 @@ contract SliceCoreDeployer is Script, Constants {
         bytes memory byteCode = abi.encodePacked(
             type(SliceCore).creationCode,
             abi.encode(
-                c.paymentToken,
-                c.sushiXSwap,
-                c.stargateAdapter,
-                c.axelarAdapter,
                 c.endpoint,
                 c.chainInfo,
                 c.sliceTokenDeployer,
@@ -92,10 +84,6 @@ contract SliceCoreDeployer is Script, Constants {
     function getConstructorArgs() internal view returns (ConstructorArgs memory) {
         if (block.chainid == ETH_SEPOLIA_CHAIN_ID) {
             return ConstructorArgs(
-                getAddress("eth_sepolia.paymentToken"),
-                getAddress("eth_sepolia.sushiXSwap"),
-                getAddress("eth_sepolia.stargateAdapter"),
-                getAddress("eth_sepolia.axelarAdapter"),
                 getAddress("eth_sepolia.lzEndpoint"),
                 getAddress("eth_sepolia.chainInfo"),
                 getAddress("eth_sepolia.tokenDeployer"),
@@ -103,10 +91,6 @@ contract SliceCoreDeployer is Script, Constants {
             );
         } else if (block.chainid == OP_SEPOLIA_CHAIN_ID) {
             return ConstructorArgs(
-                getAddress("op_sepolia.paymentToken"),
-                getAddress("op_sepolia.sushiXSwap"),
-                getAddress("op_sepolia.stargateAdapter"),
-                getAddress("op_sepolia.axelarAdapter"),
                 getAddress("op_sepolia.lzEndpoint"),
                 getAddress("op_sepolia.chainInfo"),
                 getAddress("op_sepolia.tokenDeployer"),
@@ -114,10 +98,6 @@ contract SliceCoreDeployer is Script, Constants {
             );
         } else if (block.chainid == BASE_SEPOLIA_CHAIN_ID) {
             return ConstructorArgs(
-                getAddress("base_sepolia.paymentToken"),
-                getAddress("base_sepolia.sushiXSwap"),
-                getAddress("base_sepolia.stargateAdapter"),
-                getAddress("base_sepolia.axelarAdapter"),
                 getAddress("base_sepolia.lzEndpoint"),
                 getAddress("base_sepolia.chainInfo"),
                 getAddress("base_sepolia.tokenDeployer"),
