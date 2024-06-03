@@ -85,10 +85,6 @@ contract SliceCoreTest is Helper {
         bytes memory byteCode = abi.encodePacked(
             type(SliceCore).creationCode,
             abi.encode(
-                getAddress(chainSelect == ChainSelect.MAINNET ? "mainnet.usdc" : "polygon.usdc"),
-                getAddress(chainSelect == ChainSelect.MAINNET ? "mainnet.sushiXSwap" : "polygon.sushiXSwap"),
-                getAddress(chainSelect == ChainSelect.MAINNET ? "mainnet.stargateAdapter" : "polygon.stargateAdapter"),
-                getAddress(chainSelect == ChainSelect.MAINNET ? "mainnet.axelarAdapter" : "polygon.axelarAdapter"),
                 getAddress(
                     chainSelect == ChainSelect.MAINNET ? "mainnet.layerZeroEndpoint" : "polygon.layerZeroEndpoint"
                 ),
@@ -506,7 +502,7 @@ contract SliceCoreTest is Helper {
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));
 
         // make sure that the refund process is set in place
-        (address _adrr, uint256 signalsOk, uint256 signalsFailed, uint256 _quantity, address _user) =
+        (,uint256 signalsOk, uint256 signalsFailed,,) =
             SliceCore(core).transactionCompleteSignals(mintId);
 
         assertEq(signalsFailed, 1);
@@ -615,7 +611,7 @@ contract SliceCoreTest is Helper {
     function test_Cannot_Refund_NotAllCrossChainSignalsReceived() public {
         // do the cross chain testing logic but do not send 1 of the signals
         bytes32 mintId = _prepareCrossChainRefund();
-        address polygonCore = _doFailedMintOnPolygon(mintId);
+        _doFailedMintOnPolygon(mintId);
 
         selectMainnet();
 
@@ -834,7 +830,7 @@ contract SliceCoreTest is Helper {
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded3, dev, bytes(""));
 
         // make sure that the refund process is set in place
-        (address _adrr, uint256 signalsOk, uint256 signalsFailed, uint256 _quantity, address _user) =
+        (,uint256 signalsOk, uint256 signalsFailed,,) =
             SliceCore(core).transactionCompleteSignals(mintId);
 
         assertEq(signalsFailed, 1);

@@ -9,10 +9,9 @@ contract SliceTokenDeployer is ISliceTokenDeployer {
         string calldata name,
         string calldata symbol,
         Position[] calldata positions,
-        address paymentToken,
         address core
     ) external returns (address) {
-        SliceToken token = new SliceToken(name, symbol, positions, paymentToken, core);
+        SliceToken token = new SliceToken(name, symbol, positions, core);
         return address(token);
     }
 }
