@@ -306,7 +306,7 @@ contract SliceCoreTest is Helper {
         CrossChainSignal memory ccs = CrossChainSignal({
             id: mintId,
             srcChainId: uint32(block.chainid),
-            ccsType: CrossChainSignalType.MANUAL_MINT,
+            ccsType: CrossChainSignalType.MINT,
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
@@ -706,7 +706,7 @@ contract SliceCoreTest is Helper {
         CrossChainSignal memory ccs = CrossChainSignal({
             id: mintId,
             srcChainId: uint32(block.chainid),
-            ccsType: CrossChainSignalType.MANUAL_MINT,
+            ccsType: CrossChainSignalType.MINT,
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
@@ -774,7 +774,7 @@ contract SliceCoreTest is Helper {
         CrossChainSignal memory ccs = CrossChainSignal({
             id: mintId,
             srcChainId: uint32(block.chainid),
-            ccsType: CrossChainSignalType.MANUAL_MINT,
+            ccsType: CrossChainSignalType.MINT,
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),

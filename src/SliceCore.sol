@@ -52,8 +52,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         chainInfo = IChainInfo(_chainInfo);
         sliceTokenDeployer = _sliceTokenDeployer;
 
+        lzGasLookup[CrossChainSignalType.MINT] = 300000;
         lzGasLookup[CrossChainSignalType.MINT_COMPLETE] = 150000;
-        lzGasLookup[CrossChainSignalType.MANUAL_MINT] = 300000;
         lzGasLookup[CrossChainSignalType.REDEEM] = 200000;
         lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE] = 150000;
         lzGasLookup[CrossChainSignalType.REFUND] = 250000;
@@ -141,7 +141,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                 CrossChainSignal memory ccs = CrossChainSignal({
                     id: _mintID,
                     srcChainId: uint32(block.chainid),
-                    ccsType: CrossChainSignalType.MANUAL_MINT,
+                    ccsType: CrossChainSignalType.MINT,
                     success: false,
                     user: txInfo.user,
                     underlying: positions[i].token,
@@ -167,10 +167,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                         // get the dstChain struct
                         Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
 
-                        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({
-                            _gas: lzGasLookup[CrossChainSignalType.MANUAL_MINT],
-                            _value: 0
-                        });
+                        bytes memory _lzSendOpts =
+                            CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MINT], _value: 0});
 
                         // send the lz msg
                         _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
@@ -198,10 +196,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                     bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
                     Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
 
-                    bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({
-                        _gas: lzGasLookup[CrossChainSignalType.MANUAL_MINT],
-                        _value: 0
-                    });
+                    bytes memory _lzSendOpts =
+                        CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MINT], _value: 0});
 
                     _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
                 }
@@ -417,10 +413,10 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         if (ccsType == CrossChainSignalType.MINT_COMPLETE) {
             for (uint256 i = 0; i < ccs.length; i++) {
-                handleUnderlyingProcureCompleteSignal(ccs[i]);
+                handleMintCompleteSignal(ccs[i]);
             }
-        } else if (ccsType == CrossChainSignalType.MANUAL_MINT) {
-            handleManualMintSignal(ccs);
+        } else if (ccsType == CrossChainSignalType.MINT) {
+            handleMintSignal(ccs);
         } else if (ccsType == CrossChainSignalType.REDEEM) {
             handleRedeemSignal(ccs[0]); // TODO
         } else if (ccsType == CrossChainSignalType.REDEEM_COMPLETE) {
@@ -432,7 +428,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
     }
 
-    function handleUnderlyingProcureCompleteSignal(CrossChainSignal memory ccs) internal {
+    function handleMintCompleteSignal(CrossChainSignal memory ccs) internal {
         TransactionCompleteSignals memory txCompleteSignals = transactionCompleteSignals[ccs.id];
         // verify that the mint id from the payload exists
         if (!isSliceTokenRegistered(txCompleteSignals.token)) {
@@ -466,7 +462,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
     }
 
-    function handleManualMintSignal(CrossChainSignal[] memory ccs) internal {
+    function handleMintSignal(CrossChainSignal[] memory ccs) internal {
         // Loop through array, transfer each asset, compose CCS and append to array
         uint256 ccsLength = ccs.length;
         CrossChainSignal[] memory ccsResponses = new CrossChainSignal[](ccsLength);
