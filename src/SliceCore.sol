@@ -52,7 +52,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         chainInfo = IChainInfo(_chainInfo);
         sliceTokenDeployer = _sliceTokenDeployer;
 
-        lzGasLookup[CrossChainSignalType.MINT] = 150000;
+        lzGasLookup[CrossChainSignalType.MINT_COMPLETE] = 150000;
         lzGasLookup[CrossChainSignalType.MANUAL_MINT] = 300000;
         lzGasLookup[CrossChainSignalType.REDEEM] = 200000;
         lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE] = 150000;
@@ -415,8 +415,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         // array will always only contain msgs of one type
         CrossChainSignalType ccsType = ccs[0].ccsType;
 
-        if (ccsType == CrossChainSignalType.MINT) {
-            // TODO: Rename to MINT_COMPELTE
+        if (ccsType == CrossChainSignalType.MINT_COMPLETE) {
             for (uint256 i = 0; i < ccs.length; i++) {
                 handleUnderlyingProcureCompleteSignal(ccs[i]);
             }
@@ -482,7 +481,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             CrossChainSignal memory _ccsResponse = CrossChainSignal({
                 id: ccs[i].id,
                 srcChainId: uint32(block.chainid),
-                ccsType: CrossChainSignalType.MINT,
+                ccsType: CrossChainSignalType.MINT_COMPLETE,
                 success: success,
                 user: ccs[i].user,
                 underlying: ccs[i].underlying,
@@ -495,7 +494,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         bytes memory ccsEncoded = abi.encode(ccsResponses);
 
         bytes memory _lzSendOpts =
-            CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MINT], _value: 0});
+            CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MINT_COMPLETE], _value: 0});
 
         Chain memory srcChain = chainInfo.getChainInfo(ccs[0].srcChainId);
         // send LZ message

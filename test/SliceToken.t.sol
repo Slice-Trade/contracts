@@ -504,7 +504,7 @@ contract SliceTokenTest is Helper {
         CrossChainSignal memory ccs = CrossChainSignal({
             id: mintID,
             srcChainId: uint32(137),
-            ccsType: CrossChainSignalType.MINT,
+            ccsType: CrossChainSignalType.MINT_COMPLETE,
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
@@ -569,7 +569,7 @@ contract SliceTokenTest is Helper {
         CrossChainSignal memory ccs = CrossChainSignal({
             id: mintID,
             srcChainId: uint32(137),
-            ccsType: CrossChainSignalType.MINT,
+            ccsType: CrossChainSignalType.MINT_COMPLETE,
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
