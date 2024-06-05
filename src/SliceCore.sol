@@ -137,6 +137,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                     revert LocalAssetTransferFailed();
                 }
             } else {
+                // TODO: Refactor this
                 // if asset is not local send lz msg to Core contract on dst chain
                 CrossChainSignal memory ccs = CrossChainSignal({
                     id: _mintID,
@@ -565,9 +566,11 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             underlying: ccs.underlying,
             units: ccs.units
         });
+        CrossChainSignal[] memory ccsArray = new CrossChainSignal[](1);
+        ccsArray[0] = _ccsResponse;
 
         // Send cross-chain msg with OK
-        bytes memory ccsEncoded = abi.encode(_ccsResponse);
+        bytes memory ccsEncoded = abi.encode(ccsArray);
 
         bytes memory _lzSendOpts =
             CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.REFUND_COMPLETE], _value: 0});
@@ -646,7 +649,10 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             units: _amountOut
         });
 
-        bytes memory ccsEncoded = abi.encode(ccs);
+        CrossChainSignal[] memory ccsArray = new CrossChainSignal[](1);
+        ccsArray[0] = ccs;
+
+        bytes memory ccsEncoded = abi.encode(ccsArray);
 
         bytes memory _lzSendOpts =
             CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.REFUND], _value: 0});

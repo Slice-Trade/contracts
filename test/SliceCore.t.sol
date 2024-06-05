@@ -492,7 +492,9 @@ contract SliceCoreTest is Helper {
             underlying: address(wmaticPolygon),
             units: wmaticUnits
         });
-        bytes memory ccsEncoded2 = abi.encode(_ccsResponse2);
+        CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
+        ccsMsgs[0] = _ccsResponse2;
+        bytes memory ccsEncoded2 = abi.encode(ccsMsgs);
 
         Origin memory originResponse =
             Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polygonCore)))), nonce: 1});
@@ -551,7 +553,9 @@ contract SliceCoreTest is Helper {
             units: wmaticUnits
         });
 
-        bytes memory ccsEncoded4 = abi.encode(_ccsResponse2);
+        CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
+        ccsMsgs[0] = _ccsResponse2;
+        bytes memory ccsEncoded4 = abi.encode(ccsMsgs);
 
         Origin memory origin2 = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
 
@@ -571,7 +575,8 @@ contract SliceCoreTest is Helper {
         _ccsResponse2.ccsType = CrossChainSignalType.REFUND_COMPLETE;
         _ccsResponse2.success = true;
 
-        bytes memory ccsEncoded5 = abi.encode(_ccsResponse2);
+        ccsMsgs[0] = _ccsResponse2;
+        bytes memory ccsEncoded5 = abi.encode(ccsMsgs);
 
         Origin memory origin3 = Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
 
@@ -713,7 +718,9 @@ contract SliceCoreTest is Helper {
             units: wmaticUnits
         });
 
-        bytes memory ccsEncoded = abi.encode(ccs);
+        CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
+        ccsMsgs[0] = ccs;
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
 
         Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
 
@@ -781,7 +788,9 @@ contract SliceCoreTest is Helper {
             units: wmaticUnits
         });
 
-        bytes memory ccsEncoded = abi.encode(ccs);
+        CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
+        ccsMsgs[0] = ccs;
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
 
         Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
 
@@ -818,12 +827,17 @@ contract SliceCoreTest is Helper {
             underlying: address(wmaticPolygon),
             units: wmaticUnits
         });
-        bytes memory ccsEncoded2 = abi.encode(_ccsResponse2);
+
+        CrossChainSignal[] memory ccsMsgs2 = new CrossChainSignal[](1);
+        ccsMsgs2[0] = _ccsResponse2;
+        bytes memory ccsEncoded2 = abi.encode(ccsMsgs2);
 
         _ccsResponse2.success = false;
         _ccsResponse2.underlying = polygonLink;
         _ccsResponse2.units = 1 ether;
-        bytes memory ccsEncoded3 = abi.encode(_ccsResponse2);
+
+        ccsMsgs2[0] = _ccsResponse2;
+        bytes memory ccsEncoded3 = abi.encode(ccsMsgs2);
 
         Origin memory originResponse =
             Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polygonCore)))), nonce: 1});
