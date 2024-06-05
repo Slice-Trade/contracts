@@ -239,6 +239,11 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         Position[] memory positions = SliceToken(msg.sender).getPositions();
 
         uint256 len = positions.length;
+
+        CrossChainSignal[] memory ccMsgs = new CrossChainSignal[](len);
+        uint256 currentChainId;
+        uint256 currentCount;
+
         for (uint256 i = 0; i < len; i++) {
             uint256 _amount = CrossChainData.calculateAmountOutMin(txInfo.quantity, positions[i].units);
             if (isPositionLocal(positions[i])) {
@@ -251,8 +256,6 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                 ++transactionCompleteSignals[_redeemID].signalsOk;
             } else {
                 // if asset is not local send lz msg to Core contract on dst chain
-                Chain memory dstChain = chainInfo.getChainInfo(positions[i].chainId);
-
                 CrossChainSignal memory ccs = CrossChainSignal({
                     id: _redeemID,
                     srcChainId: uint32(block.chainid),
@@ -263,12 +266,40 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                     units: _amount
                 });
 
-                bytes memory ccsEncoded = abi.encode(ccs);
+                if (currentChainId == positions[i].chainId) {
+                    ccMsgs[currentCount] = ccs;
+                    ++currentCount;
+                } else {
+                    if (currentChainId != 0) {
+                        assembly {
+                            mstore(ccMsgs, currentCount)
+                        }
+                        bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
+                        Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
+                        bytes memory _lzSendOpts =
+                            CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.REDEEM], _value: 0});
+                        _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
+                        currentCount = 0;
+                        currentChainId = positions[i].chainId;
+                        ccMsgs = new CrossChainSignal[](len);
+                    }
+                    ccMsgs[currentCount] = ccs;
+                    currentChainId = positions[i].chainId;
+                    ++currentCount;
 
-                bytes memory _lzSendOpts =
-                    CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.REDEEM], _value: 0});
+                    if (i == len - 1 && currentCount != 0) {
+                        assembly {
+                            mstore(ccMsgs, currentCount)
+                        }
+                        bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
+                        Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
 
-                _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsEncoded);
+                        bytes memory _lzSendOpts =
+                            CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.REDEEM], _value: 0});
+
+                        _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
+                    }
+                }
             }
         }
 
@@ -419,13 +450,15 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         } else if (ccsType == CrossChainSignalType.MINT) {
             handleMintSignal(ccs);
         } else if (ccsType == CrossChainSignalType.REDEEM) {
-            handleRedeemSignal(ccs[0]); // TODO
+            handleRedeemSignal(ccs);
         } else if (ccsType == CrossChainSignalType.REDEEM_COMPLETE) {
-            handleRedeemCompleteSignal(ccs[0]); // TODO
+            for (uint256 i = 0; i < ccs.length; i++) {
+                handleRedeemCompleteSignal(ccs[i]);
+            }
         } else if (ccsType == CrossChainSignalType.REFUND) {
-            handleRefundSignal(ccs[0]); // TODO
+            handleRefundSignal(ccs[0]);
         } else if (ccsType == CrossChainSignalType.REFUND_COMPLETE) {
-            handleRefundCompleteSignal(ccs[0]); // TODO
+            handleRefundCompleteSignal(ccs[0]);
         }
     }
 
@@ -498,30 +531,36 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded);
     }
 
-    function handleRedeemSignal(CrossChainSignal memory ccs) internal {
+    function handleRedeemSignal(CrossChainSignal[] memory ccs) internal {
         // TODO: Implement the same logic as for manual mint
-        bool success = IERC20(ccs.underlying).transfer(ccs.user, ccs.units);
-        if (!success) {
-            revert CrossChainRedeemFailed();
+        uint256 ccsLength = ccs.length;
+        CrossChainSignal[] memory ccsResponses = new CrossChainSignal[](ccsLength);
+
+        for (uint256 i = 0; i < ccsLength; i++) {
+            bool success;
+            try IERC20(ccs[i].underlying).transfer(ccs[i].user, ccs[i].units) {
+                success = true;
+            } catch {}
+            // send cross chain success msg
+            CrossChainSignal memory _ccsResponse = CrossChainSignal({
+                id: ccs[i].id,
+                srcChainId: uint32(block.chainid),
+                ccsType: CrossChainSignalType.REDEEM_COMPLETE,
+                success: true,
+                user: address(0),
+                underlying: address(0),
+                units: 0
+            });
+
+            ccsResponses[i] = _ccsResponse;
         }
 
-        // send cross chain success msg
-        CrossChainSignal memory _ccsResponse = CrossChainSignal({
-            id: ccs.id,
-            srcChainId: uint32(block.chainid),
-            ccsType: CrossChainSignalType.REDEEM_COMPLETE,
-            success: true,
-            user: address(0),
-            underlying: address(0),
-            units: 0
-        });
-
-        bytes memory ccsEncoded = abi.encode(_ccsResponse);
+        bytes memory ccsEncoded = abi.encode(ccsResponses);
 
         bytes memory _lzSendOpts =
             CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE], _value: 0});
 
-        Chain memory srcChain = chainInfo.getChainInfo(ccs.srcChainId);
+        Chain memory srcChain = chainInfo.getChainInfo(ccs[0].srcChainId);
 
         _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded);
     }
