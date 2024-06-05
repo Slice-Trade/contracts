@@ -158,7 +158,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                     // if current chain id != position chain id:
                     // if current chain id is not zero:
                     if (currentChainId != 0) {
-                        //      - resize the array for current count
+                        // resize the array for current count
                         assembly {
                             mstore(ccMsgs, currentCount)
                         }
@@ -411,20 +411,25 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             revert OriginNotSliceCore();
         }
 
-        CrossChainSignal memory ccs = abi.decode(payload, (CrossChainSignal));
+        CrossChainSignal[] memory ccs = abi.decode(payload, (CrossChainSignal[]));
+        // array will always only contain msgs of one type
+        CrossChainSignalType ccsType = ccs[0].ccsType;
 
-        if (ccs.ccsType == CrossChainSignalType.MINT) {
-            handleUnderlyingProcureCompleteSignal(ccs);
-        } else if (ccs.ccsType == CrossChainSignalType.MANUAL_MINT) {
+        if (ccsType == CrossChainSignalType.MINT) {
+            // TODO: Rename to MINT_COMPELTE
+            for (uint256 i = 0; i < ccs.length; i++) {
+                handleUnderlyingProcureCompleteSignal(ccs[i]);
+            }
+        } else if (ccsType == CrossChainSignalType.MANUAL_MINT) {
             handleManualMintSignal(ccs);
-        } else if (ccs.ccsType == CrossChainSignalType.REDEEM) {
-            handleRedeemSignal(ccs);
-        } else if (ccs.ccsType == CrossChainSignalType.REDEEM_COMPLETE) {
-            handleRedeemCompleteSignal(ccs);
-        } else if (ccs.ccsType == CrossChainSignalType.REFUND) {
-            handleRefundSignal(ccs);
-        } else if (ccs.ccsType == CrossChainSignalType.REFUND_COMPLETE) {
-            handleRefundCompleteSignal(ccs);
+        } else if (ccsType == CrossChainSignalType.REDEEM) {
+            handleRedeemSignal(ccs[0]); // TODO
+        } else if (ccsType == CrossChainSignalType.REDEEM_COMPLETE) {
+            handleRedeemCompleteSignal(ccs[0]); // TODO
+        } else if (ccsType == CrossChainSignalType.REFUND) {
+            handleRefundSignal(ccs[0]); // TODO
+        } else if (ccsType == CrossChainSignalType.REFUND_COMPLETE) {
+            handleRefundCompleteSignal(ccs[0]); // TODO
         }
     }
 
@@ -462,36 +467,43 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
     }
 
-    function handleManualMintSignal(CrossChainSignal memory ccs) internal {
-        // transfer the given amount of the given token from given user to core
-        bool success;
-        try IERC20(ccs.underlying).transferFrom(ccs.user, address(this), ccs.units) {
-            success = true;
-        } catch {}
+    function handleManualMintSignal(CrossChainSignal[] memory ccs) internal {
+        // Loop through array, transfer each asset, compose CCS and append to array
+        uint256 ccsLength = ccs.length;
+        CrossChainSignal[] memory ccsResponses = new CrossChainSignal[](ccsLength);
 
-        // create cross chain signal
-        CrossChainSignal memory _ccsResponse = CrossChainSignal({
-            id: ccs.id,
-            srcChainId: uint32(block.chainid),
-            ccsType: CrossChainSignalType.MINT,
-            success: success,
-            user: ccs.user,
-            underlying: ccs.underlying,
-            units: ccs.units
-        });
+        for (uint256 i = 0; i < ccsLength; i++) {
+            bool success;
+            // transfer the given amount of the given token from given user to core
+            try IERC20(ccs[i].underlying).transferFrom(ccs[i].user, address(this), ccs[i].units) {
+                success = true;
+            } catch {}
+            // create cross chain signal
+            CrossChainSignal memory _ccsResponse = CrossChainSignal({
+                id: ccs[i].id,
+                srcChainId: uint32(block.chainid),
+                ccsType: CrossChainSignalType.MINT,
+                success: success,
+                user: ccs[i].user,
+                underlying: ccs[i].underlying,
+                units: ccs[i].units
+            });
 
-        bytes memory ccsEncoded = abi.encode(_ccsResponse);
+            ccsResponses[i] = _ccsResponse;
+        }
+
+        bytes memory ccsEncoded = abi.encode(ccsResponses);
 
         bytes memory _lzSendOpts =
             CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MINT], _value: 0});
 
-        Chain memory srcChain = chainInfo.getChainInfo(ccs.srcChainId);
-
+        Chain memory srcChain = chainInfo.getChainInfo(ccs[0].srcChainId);
         // send LZ message
         _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded);
     }
 
     function handleRedeemSignal(CrossChainSignal memory ccs) internal {
+        // TODO: Implement the same logic as for manual mint
         bool success = IERC20(ccs.underlying).transfer(ccs.user, ccs.units);
         if (!success) {
             revert CrossChainRedeemFailed();
