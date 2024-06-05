@@ -45,12 +45,10 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
     mapping(CrossChainSignalType ccsType => uint128 gas) public lzGasLookup;
 
-    constructor(
-        address _lzEndpoint,
-        address _chainInfo,
-        address _sliceTokenDeployer,
-        address _owner
-    ) Ownable(_owner) OApp(_lzEndpoint, _owner) {
+    constructor(address _lzEndpoint, address _chainInfo, address _sliceTokenDeployer, address _owner)
+        Ownable(_owner)
+        OApp(_lzEndpoint, _owner)
+    {
         chainInfo = IChainInfo(_chainInfo);
         sliceTokenDeployer = _sliceTokenDeployer;
 
@@ -119,9 +117,13 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         // get the underlying positions from the slice token
         Position[] memory positions = SliceToken(msg.sender).getPositions();
-        // TODO: can we optimize this? Batch all similar chain tokens together and send only 1 message
-        
+
         uint256 len = positions.length;
+
+        CrossChainSignal[] memory ccMsgs = new CrossChainSignal[](len);
+        uint256 currentChainId;
+        uint256 currentCount;
+
         for (uint256 i = 0; i < len; i++) {
             // calc amount out
             uint256 _amountOut = CrossChainData.calculateAmountOutMin(_sliceTokenQuantity, positions[i].units);
@@ -136,8 +138,6 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                 }
             } else {
                 // if asset is not local send lz msg to Core contract on dst chain
-                Chain memory dstChain = chainInfo.getChainInfo(positions[i].chainId);
-
                 CrossChainSignal memory ccs = CrossChainSignal({
                     id: _mintID,
                     srcChainId: uint32(block.chainid),
@@ -148,12 +148,63 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                     units: _amountOut
                 });
 
-                bytes memory ccsEncoded = abi.encode(ccs);
+                // if current chain id == position chain id
+                if (currentChainId == positions[i].chainId) {
+                    // append the ccs to the array
+                    ccMsgs[currentCount] = ccs;
+                    // increase the current count
+                    ++currentCount;
+                } else {
+                    // if current chain id != position chain id:
+                    // if current chain id is not zero:
+                    if (currentChainId != 0) {
+                        //      - resize the array for current count
+                        assembly {
+                            mstore(ccMsgs, currentCount)
+                        }
+                        // encode the msgs array
+                        bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
+                        // get the dstChain struct
+                        Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
 
-                bytes memory _lzSendOpts =
-                    CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MANUAL_MINT], _value: 0});
+                        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({
+                            _gas: lzGasLookup[CrossChainSignalType.MANUAL_MINT],
+                            _value: 0
+                        });
 
-                _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsEncoded);
+                        // send the lz msg
+                        _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
+
+                        // reset current count
+                        currentCount = 0;
+                        // set the current chain ID to new chain id
+                        currentChainId = positions[i].chainId;
+                        // reset the array length
+                        ccMsgs = new CrossChainSignal[](len);
+                    }
+
+                    // append the ccs to the array
+                    ccMsgs[currentCount] = ccs;
+                    // set current chain id
+                    currentChainId = positions[i].chainId;
+                    // increase current count
+                    ++currentCount;
+                }
+                // if it is the last message and we have a chainId in the array we send the message
+                if (i == len - 1 && currentCount != 0) {
+                    assembly {
+                        mstore(ccMsgs, currentCount)
+                    }
+                    bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
+                    Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
+
+                    bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({
+                        _gas: lzGasLookup[CrossChainSignalType.MANUAL_MINT],
+                        _value: 0
+                    });
+
+                    _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
+                }
             }
         }
 
@@ -241,7 +292,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         if (_txInfo.state != TransactionState.REFUNDING) {
             revert InvalidTransactionState();
         }
-        
+
         Position[] memory _positions = SliceToken(_txCompleteSignal.token).getPositions();
 
         // check that cross-chain signals for all underyling positions have been received - both OK and not OK

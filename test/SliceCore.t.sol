@@ -502,8 +502,7 @@ contract SliceCoreTest is Helper {
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));
 
         // make sure that the refund process is set in place
-        (,uint256 signalsOk, uint256 signalsFailed,,) =
-            SliceCore(core).transactionCompleteSignals(mintId);
+        (, uint256 signalsOk, uint256 signalsFailed,,) = SliceCore(core).transactionCompleteSignals(mintId);
 
         assertEq(signalsFailed, 1);
         assertEq(signalsOk, 1);
@@ -669,7 +668,10 @@ contract SliceCoreTest is Helper {
             1 ether // 0.1 wETH
         );
 
-        ccPositions.push(wethPosition);
+        Position memory ccPos = Position(137, address(wmaticPolygon), wmaticUnits);
+
+        ccPositions[0] = wethPosition;
+        ccPositions.push(ccPos);
 
         address ccTokenAddr = core.createSlice("CC Slice", "CC", ccPositions);
 
@@ -830,8 +832,7 @@ contract SliceCoreTest is Helper {
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded3, dev, bytes(""));
 
         // make sure that the refund process is set in place
-        (,uint256 signalsOk, uint256 signalsFailed,,) =
-            SliceCore(core).transactionCompleteSignals(mintId);
+        (, uint256 signalsOk, uint256 signalsFailed,,) = SliceCore(core).transactionCompleteSignals(mintId);
 
         assertEq(signalsFailed, 1);
         assertEq(signalsOk, 1);

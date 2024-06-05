@@ -34,3 +34,5 @@ src/utils/artifacts/
 broadcast/
 
 bin/
+
+test/Msg.t.sol

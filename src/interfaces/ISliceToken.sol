@@ -14,6 +14,7 @@ interface ISliceToken is IERC20 {
     /* Emitted when a Slice token manual mint that failed has been refunded */
     event RefundCompleted(address indexed to, uint256 indexed quantity);
 
+    error UnorderedChainIds();
     error NotSliceCore();
     error AmountLocked();
     error ZeroTokenQuantity();

@@ -10,6 +10,8 @@ import {Utils} from "./utils/Utils.sol";
 
 import "./Structs.sol";
 
+import "forge-std/src/console.sol";
+
 /**
  * @author Lajos Deme, Blind Labs
  * @notice ERC20 contract providing exposure to a basket of underlying assets
@@ -36,15 +38,19 @@ contract SliceToken is ISliceToken, ERC20 {
         _;
     }
 
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        Position[] memory _positions,
-        address _sliceCore
-    ) ERC20(_name, _symbol) {
+    constructor(string memory _name, string memory _symbol, Position[] memory _positions, address _sliceCore)
+        ERC20(_name, _symbol)
+    {
         sliceCore = _sliceCore;
 
-        for (uint256 i = 0; i < _positions.length; i++) {
+        positions.push(_positions[0]);
+        posIdx[_positions[0].token] = 0;
+
+        for (uint256 i = 1; i < _positions.length; i++) {
+            // check that the positions are ordered by chain ID -> will make it cheaper to group lz msgs
+            if (_positions[i].chainId < _positions[i - 1].chainId) {
+                revert UnorderedChainIds();
+            }
             positions.push(_positions[i]);
             posIdx[_positions[i].token] = i;
         }
