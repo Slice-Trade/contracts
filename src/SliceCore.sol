@@ -661,6 +661,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     function _sendLayerZeroMessage(uint32 _lzEndpointId, bytes memory _lzSendOpts, bytes memory _ccsEncoded) private {
         MessagingFee memory _fee = _quote(_lzEndpointId, _ccsEncoded, _lzSendOpts, false);
 
+       // TODO: _lzSend(_dstEid, _message, _options, _fee, _refundAddress);
         MessagingReceipt memory _receipt = endpoint.send{value: _fee.nativeFee}(
             MessagingParams(_lzEndpointId, _getPeerOrRevert(_lzEndpointId), _ccsEncoded, _lzSendOpts, false),
             payable(address(this))
