@@ -14,7 +14,7 @@ enum TransactionState {
 /// @notice 
 enum CrossChainSignalType {
     MINT,
-    MANUAL_MINT,
+    MINT_COMPLETE,
     REDEEM,
     REDEEM_COMPLETE,
     REFUND,

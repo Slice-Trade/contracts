@@ -504,14 +504,16 @@ contract SliceTokenTest is Helper {
         CrossChainSignal memory ccs = CrossChainSignal({
             id: mintID,
             srcChainId: uint32(137),
-            ccsType: CrossChainSignalType.MINT,
+            ccsType: CrossChainSignalType.MINT_COMPLETE,
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
             units: 1 ether
         });
+        CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
+        ccsMsgs[0] = ccs;
 
-        bytes memory ccsEncoded = abi.encode(ccs);
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
 
         Origin memory originResponse =
             Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
@@ -569,14 +571,17 @@ contract SliceTokenTest is Helper {
         CrossChainSignal memory ccs = CrossChainSignal({
             id: mintID,
             srcChainId: uint32(137),
-            ccsType: CrossChainSignalType.MINT,
+            ccsType: CrossChainSignalType.MINT_COMPLETE,
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
             units: 1 ether
         });
 
-        bytes memory ccsEncoded = abi.encode(ccs);
+        CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
+        ccsMsgs[0] = ccs;
+
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
 
         Origin memory originResponse =
             Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
