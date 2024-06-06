@@ -137,7 +137,6 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                     revert LocalAssetTransferFailed();
                 }
             } else {
-                // TODO: Refactor this
                 // if asset is not local send lz msg to Core contract on dst chain
                 CrossChainSignal memory ccs = CrossChainSignal({
                     id: _mintID,
@@ -149,59 +148,9 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                     units: _amountOut
                 });
 
-                // if current chain id == position chain id
-                if (currentChainId == positions[i].chainId) {
-                    // append the ccs to the array
-                    ccMsgs[currentCount] = ccs;
-                    // increase the current count
-                    ++currentCount;
-                } else {
-                    // if current chain id != position chain id:
-                    // if current chain id is not zero:
-                    if (currentChainId != 0) {
-                        // resize the array for current count
-                        assembly {
-                            mstore(ccMsgs, currentCount)
-                        }
-                        // encode the msgs array
-                        bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
-                        // get the dstChain struct
-                        Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
-
-                        bytes memory _lzSendOpts =
-                            CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MINT], _value: 0});
-
-                        // send the lz msg
-                        _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
-
-                        // reset current count
-                        currentCount = 0;
-                        // set the current chain ID to new chain id
-                        currentChainId = positions[i].chainId;
-                        // reset the array length
-                        ccMsgs = new CrossChainSignal[](len);
-                    }
-
-                    // append the ccs to the array
-                    ccMsgs[currentCount] = ccs;
-                    // set current chain id
-                    currentChainId = positions[i].chainId;
-                    // increase current count
-                    ++currentCount;
-                }
-                // if it is the last message and we have a chainId in the array we send the message
-                if (i == len - 1 && currentCount != 0) {
-                    assembly {
-                        mstore(ccMsgs, currentCount)
-                    }
-                    bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
-                    Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
-
-                    bytes memory _lzSendOpts =
-                        CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.MINT], _value: 0});
-
-                    _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
-                }
+                (ccMsgs, currentChainId, currentCount) = groupAndSendLzMsg(
+                    ccMsgs, currentChainId, currentCount, i, len, CrossChainSignalType.MINT, ccs, positions[i]
+                );
             }
         }
 
@@ -266,40 +215,9 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                     units: _amount
                 });
 
-                if (currentChainId == positions[i].chainId) {
-                    ccMsgs[currentCount] = ccs;
-                    ++currentCount;
-                } else {
-                    if (currentChainId != 0) {
-                        assembly {
-                            mstore(ccMsgs, currentCount)
-                        }
-                        bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
-                        Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
-                        bytes memory _lzSendOpts =
-                            CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.REDEEM], _value: 0});
-                        _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
-                        currentCount = 0;
-                        currentChainId = positions[i].chainId;
-                        ccMsgs = new CrossChainSignal[](len);
-                    }
-                    ccMsgs[currentCount] = ccs;
-                    currentChainId = positions[i].chainId;
-                    ++currentCount;
-
-                    if (i == len - 1 && currentCount != 0) {
-                        assembly {
-                            mstore(ccMsgs, currentCount)
-                        }
-                        bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
-                        Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
-
-                        bytes memory _lzSendOpts =
-                            CrossChainData.createLzSendOpts({_gas: lzGasLookup[CrossChainSignalType.REDEEM], _value: 0});
-
-                        _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
-                    }
-                }
+                (ccMsgs, currentChainId, currentCount) = groupAndSendLzMsg(
+                    ccMsgs, currentChainId, currentCount, i, len, CrossChainSignalType.REDEEM, ccs, positions[i]
+                );
             }
         }
 
@@ -641,6 +559,56 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
     }
 
+    function groupAndSendLzMsg(
+        CrossChainSignal[] memory ccMsgs,
+        uint256 currentChainId,
+        uint256 currentCount,
+        uint256 currentIdx,
+        uint256 positionsLength,
+        CrossChainSignalType ccsType,
+        CrossChainSignal memory ccs,
+        Position memory position
+    ) internal returns (CrossChainSignal[] memory, uint256, uint256) {
+        if (currentChainId == position.chainId) {
+            ccMsgs[currentCount] = ccs;
+            ++currentCount;
+        } else {
+            if (currentChainId != 0) {
+                assembly {
+                    mstore(ccMsgs, currentCount)
+                }
+                bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
+                Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
+
+                bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({_gas: lzGasLookup[ccsType], _value: 0});
+
+                _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
+
+                currentCount = 0;
+                currentChainId = position.chainId;
+                ccMsgs = new CrossChainSignal[](positionsLength);
+            }
+
+            ccMsgs[currentCount] = ccs;
+            currentChainId = position.chainId;
+            ++currentCount;
+        }
+        // if it is the last message and we have a chainId in the array we send the message
+        if (currentIdx == positionsLength - 1 && currentCount != 0) {
+            assembly {
+                mstore(ccMsgs, currentCount)
+            }
+            bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
+            Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
+
+            bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({_gas: lzGasLookup[ccsType], _value: 0});
+
+            _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
+        }
+
+        return (ccMsgs, currentChainId, currentCount);
+    }
+
     /* =========================================================== */
     /*   =================   INTERNAL VIEW   ==================    */
     /* =========================================================== */
@@ -661,7 +629,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     function _sendLayerZeroMessage(uint32 _lzEndpointId, bytes memory _lzSendOpts, bytes memory _ccsEncoded) private {
         MessagingFee memory _fee = _quote(_lzEndpointId, _ccsEncoded, _lzSendOpts, false);
 
-       // TODO: _lzSend(_dstEid, _message, _options, _fee, _refundAddress);
+        // TODO: _lzSend(_dstEid, _message, _options, _fee, _refundAddress);
         MessagingReceipt memory _receipt = endpoint.send{value: _fee.nativeFee}(
             MessagingParams(_lzEndpointId, _getPeerOrRevert(_lzEndpointId), _ccsEncoded, _lzSendOpts, false),
             payable(address(this))
