@@ -448,12 +448,17 @@ contract SliceCoreTest is Helper {
         vm.stopPrank();
     }
 
+    function test_RedeemUnderlying_CrossChain() public {
+        // TODO
+    }
+
     function test_Cannot_RedeemUnderlying_NotAuthorized() public {
         // verify that it reverts with the correct reason
         vm.expectRevert(bytes4(keccak256("UnregisteredSliceToken()")));
         // call redeem from not registered slice token
         core.redeemUnderlying(bytes32(0));
     }
+
 
     /* =========================================================== */
     /*   ====================    refund    ====================    */
