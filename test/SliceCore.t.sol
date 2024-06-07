@@ -291,7 +291,7 @@ contract SliceCoreTest is Helper {
     }
 
     function test_CollectUnderlyingAssets_CrossChain() public {
-        (bytes32 mintId, ) = _mintCrossChain();
+        (bytes32 mintId,) = _mintCrossChain();
         assertNotEq(bytes32(0), mintId);
 
         uint256 tokenBalance = ccToken.balanceOf(dev);
@@ -469,7 +469,6 @@ contract SliceCoreTest is Helper {
         token.redeem(1 ether);
     }
 
-
     /* =========================================================== */
     /*   ====================    refund    ====================    */
     /* =========================================================== */
@@ -485,7 +484,7 @@ contract SliceCoreTest is Helper {
         weth.approve(address(core), wethUnits);
 
         // make sure that the whole process fails with the correct error
-        vm.expectRevert(bytes4(keccak256("LocalAssetTransferFailed()")));
+        vm.expectRevert();
 
         // make sure that all balances are unchanged
         token.manualMint(1 ether);
@@ -684,6 +683,80 @@ contract SliceCoreTest is Helper {
         core.changeSliceTokenCreationEnabled(false);
     }
 
+    /* =========================================================== */
+    /*  ====================   withdraw   =======================  */
+    /* =========================================================== */
+    function test_Withdraw() public {
+        deal(address(core), 10 ether);
+        vm.prank(dev);
+        core.withdraw();
+        assertEq(0, address(core).balance);
+        assertEq(10 ether, dev.balance);
+    }
+
+    function test_Cannot_Withdraw_NotOwner() public {
+        vm.expectRevert();
+        core.withdraw();
+    }
+
+    function test_SetLzGas() public {
+        vm.startPrank(dev);
+        core.setLzGas(CrossChainSignalType.MINT, 888888);
+        uint256 gas = core.lzGasLookup(CrossChainSignalType.MINT);
+        assertEq(gas, 888888);
+
+        core.setLzGas(CrossChainSignalType.MINT_COMPLETE, 888888);
+        gas = core.lzGasLookup(CrossChainSignalType.MINT_COMPLETE);
+        assertEq(gas, 888888);
+
+        core.setLzGas(CrossChainSignalType.REDEEM, 888888);
+        gas = core.lzGasLookup(CrossChainSignalType.REDEEM);
+        assertEq(gas, 888888);
+
+        core.setLzGas(CrossChainSignalType.REDEEM_COMPLETE, 888888);
+        gas = core.lzGasLookup(CrossChainSignalType.REDEEM_COMPLETE);
+        assertEq(gas, 888888);
+
+        core.setLzGas(CrossChainSignalType.REFUND, 888888);
+        gas = core.lzGasLookup(CrossChainSignalType.REFUND);
+        assertEq(gas, 888888);
+
+        core.setLzGas(CrossChainSignalType.REFUND_COMPLETE, 888888);
+        gas = core.lzGasLookup(CrossChainSignalType.REFUND_COMPLETE);
+        assertEq(gas, 888888);
+
+        vm.stopPrank();
+    }
+
+    function test_Cannot_SetLzGas_NotOwner() public {
+        vm.expectRevert();
+        core.setLzGas(CrossChainSignalType.MINT, 888888);
+    }
+
+    function test_GetRegisteredSliceTokens() public view {
+        address[] memory tokens = core.getRegisteredSliceTokens();
+        assertEq(2, tokens.length);
+        assertEq(tokens[0], address(token));
+        assertEq(tokens[1], address(ccToken));
+    }
+
+    function test_GetRegisteredSliceToken() public view {
+        address _token = core.getRegisteredSliceToken(0);
+        assertEq(address(token), _token);
+    }
+
+    function test_GetRegisteredSliceTokensCount() public view {
+        assertEq(2, core.getRegisteredSliceTokensCount());
+    }
+
+    function test_CanCreateSlice() public view {
+        assertTrue(core.canCreateSlice(dev));
+        assertFalse(core.canCreateSlice(users[2]));
+    }
+
+    /* =========================================================== */
+    /*  ====================   helpers   =======================   */
+    /* =========================================================== */
     function _mintCrossChain() internal returns (bytes32 mintId, address polygonCore) {
         deal(address(usdc), dev, 10 ether);
 
@@ -728,6 +801,20 @@ contract SliceCoreTest is Helper {
         vm.deal(polygonCore, 100 ether);
         vm.stopPrank();
 
+        vm.expectRevert();
+        IOAppReceiver(polygonCore).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+        
+        vm.prank(dev);
+        IOAppCore(polygonCore).setPeer(30101, bytes32(uint256(uint160(address(users[2])))));
+        
+        Origin memory fakeOrigin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(users[2])))), nonce: 1});
+        
+        vm.expectRevert(bytes4(keccak256("OriginNotSliceCore()")));
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(polygonCore).lzReceive(fakeOrigin, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        vm.prank(dev);
+        IOAppCore(polygonCore).setPeer(30101, bytes32(uint256(uint160(address(core)))));
         // call lzReceive with correct message, value from endpoint address
         vm.prank(getAddress("polygon.layerZeroEndpoint"));
         IOAppReceiver(polygonCore).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
