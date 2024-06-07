@@ -183,6 +183,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         // create tx complete signals struct
         transactionCompleteSignals[_redeemID].token = msg.sender;
         transactionCompleteSignals[_redeemID].user = txInfo.user;
+        transactionCompleteSignals[_redeemID].sliceTokenQuantity = txInfo.quantity;
 
         // get the underlying positions of the slice token
         Position[] memory positions = SliceToken(msg.sender).getPositions();
