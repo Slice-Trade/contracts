@@ -6,7 +6,7 @@ import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ISliceCore} from "./interfaces/ISliceCore.sol";
 import {ISliceToken} from "./interfaces/ISliceToken.sol";
 
-import {Utils} from "./utils/Utils.sol";
+import {CrossChainData} from "./libs/CrossChainData.sol";
 
 import "./Structs.sol";
 
@@ -90,9 +90,7 @@ contract SliceToken is ISliceToken, ERC20 {
      * @dev See ISliceToken - manualMint
      */
     function manualMint(uint256 _sliceTokenQuantity) external payable returns (bytes32) {
-        if (_sliceTokenQuantity == 0) {
-            revert ZeroTokenQuantity();
-        }
+        verifySliceTokenQuantity(_sliceTokenQuantity);
 
         bytes32 mintId = keccak256(
             abi.encodePacked(this.manualMint.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp)
@@ -139,6 +137,8 @@ contract SliceToken is ISliceToken, ERC20 {
      * @dev See ISliceToken - redeem
      */
     function redeem(uint256 _sliceTokenQuantity) external payable returns (bytes32) {
+        verifySliceTokenQuantity(_sliceTokenQuantity);
+        
         // make sure the user has enough balance
         if (balanceOf(msg.sender) < _sliceTokenQuantity) {
             revert InsufficientBalance();
@@ -292,5 +292,18 @@ contract SliceToken is ISliceToken, ERC20 {
     /* =========================================================== */
     function verifyTransfer(address _sender, uint256 _amount) internal view returns (bool) {
         return balanceOf(_sender) - _amount >= locked[_sender];
+    }
+
+    function verifySliceTokenQuantity(uint256 _sliceTokenQuantity) internal view {
+        if (_sliceTokenQuantity == 0) {
+            revert ZeroTokenQuantity();
+        }
+
+        for (uint256 i = 0; i < positions.length; i++) {
+            uint256 minPositionUnits = CrossChainData.getMinimumAmountInSliceToken(positions[i].decimals);
+            if (_sliceTokenQuantity < minPositionUnits) {
+                revert InsufficientTokenQuantity();
+            }
+        }
     }
 }

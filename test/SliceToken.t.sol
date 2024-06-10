@@ -17,7 +17,6 @@ import "../src/SliceToken.sol";
 import "./mocks/SliceCoreMock.sol";
 import "../src/libs/SliceTokenDeployer.sol";
 
-// TODO: wbtc decimals
 contract SliceTokenTest is Helper {
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
     uint256 immutable POLYGON_BLOCK_NUMBER = 55101688; //TSTAMP: 1711459720
@@ -77,12 +76,14 @@ contract SliceTokenTest is Helper {
         Position memory wethPosition = Position(
             1, // mainnet
             address(weth), // wrapped ETH
+            18,
             wethUnits // 0.1 wETH
         );
 
         Position memory linkPosition = Position(
             1, // mainnet
             address(link), // chainlink
+            18,
             linkUnits // 20 LINK
         );
 
@@ -94,7 +95,7 @@ contract SliceTokenTest is Helper {
         SliceTokenDeployer deployer = new SliceTokenDeployer();
 
         core = new SliceCore(
-            getAddress("mainnet.layerZeroEndpoint"), // TODO
+            getAddress("mainnet.layerZeroEndpoint"),
             address(chainInfo),
             address(deployer),
             dev
@@ -117,7 +118,7 @@ contract SliceTokenTest is Helper {
         usdc.approve(address(core), MAX_ESTIMATED_PRICE * 10);
         usdc.approve(address(token), MAX_ESTIMATED_PRICE * 10);
 
-        Position memory ccPos = Position(137, 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270, 95000000000000000000);
+        Position memory ccPos = Position(137, 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270, 18, 95000000000000000000);
         ccPositions.push(ccPos);
         address ccTokenAddr = core.createSlice("CC Slice", "CC", ccPositions);
 
@@ -267,6 +268,20 @@ contract SliceTokenTest is Helper {
         token.manualMint(0);
     }
 
+    function test_CannotManualMint_InsufficientTokenQuantity() public {
+        Position memory _position = Position({
+            chainId: 1,
+            token: 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599,
+            decimals: 8,
+            units: 100000000
+        });
+        positions.push(_position);
+
+        SliceToken sliceToken = new SliceToken("TEST 3", "T3", positions, address(core));
+        vm.expectRevert(bytes4(keccak256("InsufficientTokenQuantity()")));
+        sliceToken.manualMint(1);
+    }
+
     /* =========================================================== */
     /*    ===================    redeem    ====================    */
     /* =========================================================== */
@@ -303,6 +318,20 @@ contract SliceTokenTest is Helper {
         token.redeem(1);
     }
 
+    function test_CannotRedeem_InsufficientTokenQuantity() public {
+        Position memory _position = Position({
+            chainId: 1,
+            token: 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599,
+            decimals: 8,
+            units: 100000000
+        });
+        positions.push(_position);
+
+        SliceToken sliceToken = new SliceToken("TEST 3", "T3", positions, address(core));
+        vm.expectRevert(bytes4(keccak256("InsufficientTokenQuantity()")));
+        sliceToken.redeem(1);
+    }
+
     function test_Transfer() public {
         vm.startPrank(dev);
 
@@ -330,7 +359,7 @@ contract SliceTokenTest is Helper {
 
         wmaticPolygon = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
-        Position memory ccPos = Position(137, address(wmaticPolygon), wmaticUnits);
+        Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
         positions.push(ccPos);
 
         maxEstimatedPrices.push(maxWMaticPrice);

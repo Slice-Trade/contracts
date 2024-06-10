@@ -46,11 +46,13 @@ struct Chain {
  *
  * @param chainId The chain ID where the token is deployed
  * @param token The address of the token in the Position
+ * @param decimals The decimals used in the ERC20 token
  * @param units amount of the given token in the Slice token (i.e. 0.5 wETH)
  */
 struct Position {
     uint256 chainId;
     address token;
+    uint8 decimals;
     uint256 units;
 }
 

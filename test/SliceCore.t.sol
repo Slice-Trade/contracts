@@ -19,7 +19,6 @@ import "../src/libs/SliceTokenDeployer.sol";
 import {IDeployer} from "../script/IDeployer.sol";
 
 // latest slice core : 0x32C4735A4c30554bF9fEeC1845495CbAaC1F2c67
-// TODO: Wbtc decimals
 contract SliceCoreTest is Helper {
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
     uint256 immutable POLYGON_BLOCK_NUMBER = 55101688; //TSTAMP: 1711459720
@@ -31,6 +30,7 @@ contract SliceCoreTest is Helper {
     IWETH public weth;
     IERC20 public usdc;
     IERC20 public link;
+    IERC20 public wbtc;
 
     IERC20 public wmaticPolygon;
 
@@ -45,15 +45,9 @@ contract SliceCoreTest is Helper {
 
     uint256 public wethUnits = 10000000000000000000; // 10 wETH
     uint256 public linkUnits = 2000000000000000000000; // 2000 LINK
+    uint256 public wbtcUnits = 100000000;
 
     uint256[] public wrongPrices;
-
-    bytes[] public routes;
-
-    bytes public usdcWethRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001";
-    bytes public usdcLinkRoute =
-        hex"01A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB4801ffff00397FF1542f962076d0BFE58eA045FfA2d347ACa001C40D16476380e4037e6b1A2594cAF6a6cc8Da96704C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc200C40D16476380e4037e6b1A2594cAF6a6cc8Da96700";
 
     /* CROSS_CHAIN */
     uint256 maxWMaticPrice = 100000000; //100usdc
@@ -61,9 +55,6 @@ contract SliceCoreTest is Helper {
 
     uint256[] public maxEstCCPrices;
     Position[] public ccPositions;
-    bytes[] public ccRoutes;
-    bytes public usdcWmaticRoute =
-        hex"012791Bca1f2de4661ED88A30C99A7a9449Aa8417402555500cd353F79d9FADe311fC3119B841e1f456b54e85800eeb3e0999D01f0d1Ed465513E414725a357F6ae4ffff0121988C9CFD08db3b5793c2C6782271dC9474925100";
 
     enum ChainSelect {
         MAINNET,
@@ -146,6 +137,7 @@ contract SliceCoreTest is Helper {
         usdc = IERC20(getAddress("mainnet.usdc"));
         link = IERC20(getAddress("mainnet.link"));
         weth = IWETH(getAddress("mainnet.weth"));
+        wbtc = IERC20(getAddress("mainnet.wbtc"));
 
         wmaticPolygon = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
@@ -160,37 +152,38 @@ contract SliceCoreTest is Helper {
         Position memory wethPosition = Position(
             1, // mainnet
             address(weth), // wrapped ETH
+            18,
             wethUnits // 0.1 wETH
         );
 
         Position memory linkPosition = Position(
             1, // mainnet
             address(link), // chainlink
+            18,
             linkUnits // 20 LINK
         );
 
+        Position memory wbtcPosition = Position({
+            chainId: 1,
+            token: address(wbtc),
+            decimals: 8,
+            units: wbtcUnits
+        });
+
         positions.push(wethPosition);
         positions.push(linkPosition);
+        positions.push(wbtcPosition);
 
         (address sCore, address sToken) = deployTestContracts(ChainSelect.MAINNET,"");
         core = SliceCore(payable(sCore));
         token = SliceToken(payable(sToken));
 
-        usdcWethRoute = abi.encodePacked(usdcWethRoute, address(core));
-        usdcLinkRoute = abi.encodePacked(usdcLinkRoute, address(core));
-        usdcWmaticRoute = abi.encodePacked(usdcWmaticRoute, address(core));
-
-        routes.push(usdcWethRoute);
-        routes.push(usdcLinkRoute);
-
         usdc.approve(address(core), MAX_ESTIMATED_PRICE * 10);
         usdc.approve(address(token), MAX_ESTIMATED_PRICE * 10);
 
-        Position memory ccPos = Position(137, address(wmaticPolygon), wmaticUnits);
+        Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
 
         ccPositions.push(ccPos);
-
-        ccRoutes.push(usdcWmaticRoute);
 
         maxEstCCPrices.push(maxWMaticPrice);
 
@@ -201,6 +194,7 @@ contract SliceCoreTest is Helper {
 
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
 
         vm.stopPrank();
     }
@@ -264,11 +258,13 @@ contract SliceCoreTest is Helper {
     function test_CollectUnderlyingAssets() public {
         deal(address(weth), address(dev), wethUnits);
         deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
 
         vm.startPrank(dev);
 
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
 
         vm.expectEmit(true, true, true, false);
         // verify that event is emitted
@@ -278,13 +274,17 @@ contract SliceCoreTest is Helper {
 
         uint256 wethBalance = weth.balanceOf(dev);
         uint256 linkBalance = link.balanceOf(dev);
+        uint256 wbtcBalance = wbtc.balanceOf(dev);
         assertEq(0, wethBalance);
         assertEq(0, linkBalance);
+        assertEq(0, wbtcBalance);
 
         uint256 coreWethBalance = weth.balanceOf(address(core));
         uint256 coreLinkBalance = link.balanceOf(address(core));
+        uint256 coreWbtcBalance = wbtc.balanceOf(address(core));
         assertEq(wethUnits, coreWethBalance);
         assertEq(linkUnits, coreLinkBalance);
+        assertEq(wbtcUnits, coreWbtcBalance);
 
         uint256 tokenBalance = token.balanceOf(dev);
         assertEq(1 ether, tokenBalance);
@@ -318,6 +318,7 @@ contract SliceCoreTest is Helper {
 
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
 
         vm.expectRevert();
         token.manualMint(1 ether);
@@ -328,6 +329,7 @@ contract SliceCoreTest is Helper {
     function test_Cannot_CollectUnderlyingAssets_LocalAssetTransferFailed_NotApproved() public {
         deal(address(weth), address(dev), wethUnits);
         deal(address(weth), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
 
         vm.startPrank(dev);
 
@@ -339,8 +341,8 @@ contract SliceCoreTest is Helper {
     function test_Cannot_CollectUnderlyingAssets_NoLzPeer() public {
         vm.startPrank(dev);
 
-        Position memory ccPos2 = Position(56, address(wmaticPolygon), wmaticUnits);
-        Position memory ccPos = Position(137, address(wmaticPolygon), wmaticUnits);
+        Position memory ccPos2 = Position(56, address(wmaticPolygon), 18, wmaticUnits);
+        Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
 
         ccPositions[0] = ccPos2;
         ccPositions.push(ccPos2);
@@ -401,8 +403,8 @@ contract SliceCoreTest is Helper {
     function test_CrossChainMessaging() public {
         vm.startPrank(dev);
 
-        Position memory ccPos2 = Position(56, address(wmaticPolygon), wmaticUnits);
-        Position memory ccPos = Position(137, address(wmaticPolygon), wmaticUnits);
+        Position memory ccPos2 = Position(56, address(wmaticPolygon), 18, wmaticUnits);
+        Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
 
         ccPositions[0] = ccPos2;
         ccPositions.push(ccPos2);
@@ -462,31 +464,36 @@ contract SliceCoreTest is Helper {
     function test_RedeemUnderlying() public {
         deal(address(weth), address(dev), wethUnits);
         deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
 
         vm.startPrank(dev);
 
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
 
         token.manualMint(1 ether);
         uint256 wethTokenbalanceBefore = weth.balanceOf(address(core));
         uint256 linkTokenbalanceBefore = link.balanceOf(address(core));
+        uint256 wbtcTokenbalanceBefore = wbtc.balanceOf(address(core));
         // call redeem underlying
         token.redeem(1 ether);
 
         // verify that the assets are in the user's wallet and gone from the slice token
         uint256 wethBalance = weth.balanceOf(address(dev));
         uint256 linkBalance = link.balanceOf(address(dev));
+        uint256 wbtcBalance = wbtc.balanceOf(address(dev));
         assertEq(wethBalance, positions[0].units);
         assertEq(linkBalance, positions[1].units);
-        //assertEq(wbtcBalance, positions[1].units);
-        //assertEq(linkBalance, positions[2].units);
+        assertEq(wbtcBalance, positions[2].units);
 
         uint256 wethTokenbalance = weth.balanceOf(address(core));
         uint256 linkTokenbalance = link.balanceOf(address(core));
+        uint256 wbtcTokenbalance = wbtc.balanceOf(address(core));
 
         assertEq(wethTokenbalanceBefore - wethTokenbalance, wethUnits);
         assertEq(linkTokenbalanceBefore - linkTokenbalance, linkUnits);
+        assertEq(wbtcTokenbalanceBefore - wbtcTokenbalance, wbtcUnits);
 
         uint256 sliceBalance = token.balanceOf(address(dev));
         assertEq(0, sliceBalance);
@@ -576,16 +583,19 @@ contract SliceCoreTest is Helper {
     function test_Cannot_RedeemUnderlying_LocalTransferFailed() public {
         deal(address(weth), address(dev), wethUnits);
         deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
 
         vm.startPrank(dev);
 
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
 
         token.manualMint(1 ether);
 
         deal(address(weth), address(core), 0);
         deal(address(link), address(core), 0);
+        deal(address(wbtc), address(core), 0);
 
         vm.expectRevert();
         token.redeem(1 ether);
@@ -970,10 +980,11 @@ contract SliceCoreTest is Helper {
         Position memory wethPosition = Position(
             1, // mainnet
             address(weth), // wrapped ETH
+            18,
             1 ether // 0.1 wETH
         );
 
-        Position memory ccPos = Position(137, address(wmaticPolygon), wmaticUnits);
+        Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
 
         ccPositions[0] = wethPosition;
         ccPositions.push(ccPos);
@@ -1047,6 +1058,7 @@ contract SliceCoreTest is Helper {
         Position memory polygonLinkPosition = Position(
             137, // polygon
             polygonLink, // link
+            18,
             1 ether
         );
 
@@ -1164,12 +1176,12 @@ contract SliceCoreTest is Helper {
         assertEq(isStateRefunding, true);
     }
 
-    function test_Cannot_revertSafe() public {
+    function test_SafeERC20_RevertOnTransferFalse() public {
         vm.startPrank(dev);
-        // 0xE41d2489571d322189246DaFA5ebDe1F4699F498
         Position memory posR = Position({
             chainId: 1,
             token: 0xE41d2489571d322189246DaFA5ebDe1F4699F498,
+            decimals: 18,
             units: 10 ether
         });
 
@@ -1181,10 +1193,12 @@ contract SliceCoreTest is Helper {
 
         deal(address(weth), address(dev), wethUnits);
         deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
 
 
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
 
         vm.expectRevert();
         token.manualMint(1 ether);

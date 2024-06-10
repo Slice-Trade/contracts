@@ -14,8 +14,6 @@ import {IChainInfo} from "./interfaces/IChainInfo.sol";
 import {ISliceCore} from "./interfaces/ISliceCore.sol";
 import {ISliceTokenDeployer} from "./interfaces/ISliceTokenDeployer.sol";
 
-import {Utils} from "./utils/Utils.sol";
-
 import {CrossChainData} from "./libs/CrossChainData.sol";
 
 import {SliceToken, ISliceToken} from "./SliceToken.sol";
@@ -127,7 +125,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         for (uint256 i = 0; i < len; i++) {
             // calc amount out
-            uint256 _amountOut = CrossChainData.calculateAmountOutMin(_sliceTokenQuantity, positions[i].units);
+            uint256 _amountOut = CrossChainData.calculateAmountOutMin(_sliceTokenQuantity, positions[i].units, positions[i].decimals);
             if (isPositionLocal(positions[i])) { // y
                 IERC20(positions[i].token).safeTransferFrom(txInfo.user, address(this), _amountOut);
                 ++transactionCompleteSignals[_mintID].signalsOk;
@@ -192,7 +190,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         uint256 currentCount;
 
         for (uint256 i = 0; i < len; i++) {
-            uint256 _amount = CrossChainData.calculateAmountOutMin(txInfo.quantity, positions[i].units);
+            uint256 _amount = CrossChainData.calculateAmountOutMin(txInfo.quantity, positions[i].units, positions[i].decimals);
             if (isPositionLocal(positions[i])) { // y
                 IERC20(positions[i].token).safeTransfer(txInfo.user, _amount);
                 // increase ready signal after each local transfer
@@ -244,7 +242,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         // loop through all the positions that have already been transferred to the contract
         for (uint256 i = 0; i < _txCompleteSignal.positionsOkIdxs.length; i++) {
             uint256 _posIdx = _txCompleteSignal.positionsOkIdxs[i];
-            uint256 _amountOut = CrossChainData.calculateAmountOutMin(_txInfo.quantity, _positions[_posIdx].units);
+            uint256 _amountOut = CrossChainData.calculateAmountOutMin(_txInfo.quantity, _positions[_posIdx].units, _positions[i].decimals);
             // if it is local, refund back to user
             if (isPositionLocal(_positions[_posIdx])) { // y
                 _refundLocal(_txInfo.id, _positions[_posIdx], _amountOut, _txInfo.user);
