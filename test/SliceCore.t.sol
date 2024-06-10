@@ -18,8 +18,12 @@ import "../src/libs/SliceTokenDeployer.sol";
 
 import {IDeployer} from "../script/IDeployer.sol";
 
+import { TokenMock } from "./mocks/TokenMock.sol";
+
 // latest slice core : 0x32C4735A4c30554bF9fEeC1845495CbAaC1F2c67
 contract SliceCoreTest is Helper {
+    using CrossChainData for SliceCoreTest;
+
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
     uint256 immutable POLYGON_BLOCK_NUMBER = 55101688; //TSTAMP: 1711459720
     SliceCore core;
@@ -292,12 +296,95 @@ contract SliceCoreTest is Helper {
         vm.stopPrank();
     }
 
+    function test_CollectUnderlyingAssets_Fuzz(uint256 sliceTokenAmount) public {
+        vm.assume(sliceTokenAmount < 1000 ether);
+
+        uint256 minBtcUnits = CrossChainData.getMinimumAmountInSliceToken(8);
+        vm.assume(sliceTokenAmount > minBtcUnits);
+
+        wethUnits = CrossChainData.calculateAmountOutMin(sliceTokenAmount, wethUnits, 18);
+        linkUnits = CrossChainData.calculateAmountOutMin(sliceTokenAmount, linkUnits, 18);
+        wbtcUnits = CrossChainData.calculateAmountOutMin(sliceTokenAmount, wbtcUnits, 8);
+
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
+
+        vm.startPrank(dev);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
+
+        vm.expectEmit(true, true, true, false);
+        // verify that event is emitted
+        emit ISliceCore.UnderlyingAssetsProcured(address(token), sliceTokenAmount, dev);
+
+        token.manualMint(sliceTokenAmount);
+
+        uint256 wethBalance = weth.balanceOf(dev);
+        uint256 linkBalance = link.balanceOf(dev);
+        uint256 wbtcBalance = wbtc.balanceOf(dev);
+        assertEq(0, wethBalance);
+        assertEq(0, linkBalance);
+        assertEq(0, wbtcBalance);
+
+        uint256 coreWethBalance = weth.balanceOf(address(core));
+        uint256 coreLinkBalance = link.balanceOf(address(core));
+        uint256 coreWbtcBalance = wbtc.balanceOf(address(core));
+        assertEq(wethUnits, coreWethBalance);
+        assertEq(linkUnits, coreLinkBalance);
+        assertEq(wbtcUnits, coreWbtcBalance);
+
+        uint256 tokenBalance = token.balanceOf(dev);
+        assertEq(sliceTokenAmount, tokenBalance);
+
+        vm.stopPrank();
+    }
+
     function test_CollectUnderlyingAssets_CrossChain() public {
         (bytes32 mintId,) = _mintCrossChain();
         assertNotEq(bytes32(0), mintId);
 
         uint256 tokenBalance = ccToken.balanceOf(dev);
         assertEq(1 ether, tokenBalance);
+    }
+
+    function test_CollectUnderlyingAssets_HighDecimals() public {
+        vm.startPrank(dev);
+        TokenMock tokenMock = new TokenMock("Test","T");
+        uint256 mockTokenUnits = 10**24;
+        
+        tokenMock.mint(mockTokenUnits);
+
+        Position memory _pos = Position({
+            chainId: 1,
+            token: address(tokenMock),
+            decimals: tokenMock.decimals(),
+            units: mockTokenUnits
+        });
+        positions.push(_pos);
+
+        address sliceTokenAddress = core.createSlice("Test Token", "TT", positions);
+        // verify that the Slice token is deployed
+        SliceToken deployedSliceToken = SliceToken(sliceTokenAddress);
+
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
+        deal(address(tokenMock), address(dev), mockTokenUnits);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
+        tokenMock.approve(address(core), mockTokenUnits);
+
+        deployedSliceToken.manualMint(1 ether);
+
+        uint256 mockTokenBalance = tokenMock.balanceOf(dev);
+        assertEq(0, mockTokenBalance);
+        uint256 coreMockTokenBalance = tokenMock.balanceOf(address(core));
+        assertEq(mockTokenUnits, coreMockTokenBalance);
     }
 
     function test_Cannot_CollectUnderlyingAssets_NotRegisteredSliceToken() public {
@@ -486,6 +573,54 @@ contract SliceCoreTest is Helper {
         assertEq(wethBalance, positions[0].units);
         assertEq(linkBalance, positions[1].units);
         assertEq(wbtcBalance, positions[2].units);
+
+        uint256 wethTokenbalance = weth.balanceOf(address(core));
+        uint256 linkTokenbalance = link.balanceOf(address(core));
+        uint256 wbtcTokenbalance = wbtc.balanceOf(address(core));
+
+        assertEq(wethTokenbalanceBefore - wethTokenbalance, wethUnits);
+        assertEq(linkTokenbalanceBefore - linkTokenbalance, linkUnits);
+        assertEq(wbtcTokenbalanceBefore - wbtcTokenbalance, wbtcUnits);
+
+        uint256 sliceBalance = token.balanceOf(address(dev));
+        assertEq(0, sliceBalance);
+        vm.stopPrank();
+    }
+
+    function test_RedeemUnderlying_Fuzz(uint256 sliceTokenAmount) public {
+        vm.assume(sliceTokenAmount < 1000 ether);
+
+        uint256 minBtcUnits = CrossChainData.getMinimumAmountInSliceToken(8);
+        vm.assume(sliceTokenAmount > minBtcUnits);
+
+        wethUnits = CrossChainData.calculateAmountOutMin(sliceTokenAmount, wethUnits, 18);
+        linkUnits = CrossChainData.calculateAmountOutMin(sliceTokenAmount, linkUnits, 18);
+        wbtcUnits = CrossChainData.calculateAmountOutMin(sliceTokenAmount, wbtcUnits, 8);
+
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
+
+        vm.startPrank(dev);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
+
+        token.manualMint(sliceTokenAmount);
+
+        uint256 wethTokenbalanceBefore = weth.balanceOf(address(core));
+        uint256 linkTokenbalanceBefore = link.balanceOf(address(core));
+        uint256 wbtcTokenbalanceBefore = wbtc.balanceOf(address(core));
+        // call redeem underlying
+        token.redeem(sliceTokenAmount);
+
+        uint256 wethBalance = weth.balanceOf(address(dev));
+        uint256 linkBalance = link.balanceOf(address(dev));
+        uint256 wbtcBalance = wbtc.balanceOf(address(dev));
+        assertEq(wethBalance, wethUnits);
+        assertEq(linkBalance, linkUnits);
+        assertEq(wbtcBalance, wbtcUnits);
 
         uint256 wethTokenbalance = weth.balanceOf(address(core));
         uint256 linkTokenbalance = link.balanceOf(address(core));
@@ -877,8 +1012,6 @@ contract SliceCoreTest is Helper {
     /*  ====================   helpers   =======================   */
     /* =========================================================== */
     function _mintCrossChain() internal returns (bytes32 mintId, address polygonCore) {
-        deal(address(usdc), dev, 10 ether);
-
         vm.startPrank(dev);
 
         vm.deal(dev, 100 ether);

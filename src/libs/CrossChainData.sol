@@ -7,7 +7,7 @@ import "../Structs.sol";
 library CrossChainData {
     using OptionsBuilder for bytes;
 
-    function calculateAmountOutMin(uint256 quantity, uint256 units, uint8 decimals) public pure returns (uint256) {
+    function calculateAmountOutMin(uint256 quantity, uint256 units, uint8 decimals) internal pure returns (uint256) {
         quantity = convertDecimals(quantity, decimals);
 
         uint256 result = (units * quantity) / 10**decimals;
@@ -15,7 +15,7 @@ library CrossChainData {
         return result;
     }
 
-    function getMinimumAmountInSliceToken(uint8 tokenBDecimals) public pure returns (uint256) {
+    function getMinimumAmountInSliceToken(uint8 tokenBDecimals) internal pure returns (uint256) {
         uint8 tokenADecimals = 18;
         if (tokenADecimals <= tokenBDecimals) {
             return 1;
@@ -25,7 +25,7 @@ library CrossChainData {
         return 10 ** difference;
     }
 
-    function convertDecimals(uint256 amount, uint8 toDecimals) public pure returns (uint256) {
+    function convertDecimals(uint256 amount, uint8 toDecimals) internal pure returns (uint256) {
         uint8 fromDecimals = 18;
         if (fromDecimals == toDecimals) {
             return amount;
