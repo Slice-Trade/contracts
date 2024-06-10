@@ -36,3 +36,7 @@ broadcast/
 bin/
 
 test/Msg.t.sol
+
+lcov.info
+
+report/

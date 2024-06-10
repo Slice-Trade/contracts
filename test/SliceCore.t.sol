@@ -72,7 +72,7 @@ contract SliceCoreTest is Helper {
 
     address polygonLink = 0xb0897686c545045aFc77CF20eC7A532E3120E0F1;
 
-    function deployTestContracts(ChainSelect chainSelect) internal returns (address sliceCore, address tokenAddr) {
+    function deployTestContracts(ChainSelect chainSelect, string memory salt) internal returns (address sliceCore, address tokenAddr) {
         if (chainSelect == ChainSelect.MAINNET) {
             selectMainnet();
         } else if (chainSelect == ChainSelect.POLYGON) {
@@ -100,8 +100,10 @@ contract SliceCoreTest is Helper {
         );
 
         //address _deployedAddr = create3Deployer.deployedAddress(byteCode, dev, stringToBytes32("TEST"));
-
-        sliceCore = create3Deployer.deploy(byteCode, stringToBytes32("TEST"));
+        if (stringToBytes32(salt) == bytes32(0)) {
+            salt = "TEST";
+        }
+        sliceCore = create3Deployer.deploy(byteCode, stringToBytes32(salt));
 
         // enable slice token creation
         ISliceCore(sliceCore).changeSliceTokenCreationEnabled(true);
@@ -170,7 +172,7 @@ contract SliceCoreTest is Helper {
         positions.push(wethPosition);
         positions.push(linkPosition);
 
-        (address sCore, address sToken) = deployTestContracts(ChainSelect.MAINNET);
+        (address sCore, address sToken) = deployTestContracts(ChainSelect.MAINNET,"");
         core = SliceCore(payable(sCore));
         token = SliceToken(payable(sToken));
 
@@ -332,6 +334,126 @@ contract SliceCoreTest is Helper {
         vm.expectRevert();
 
         token.manualMint(1 ether);
+    }
+
+    function test_Cannot_CollectUnderlyingAssets_NoLzPeer() public {
+        vm.startPrank(dev);
+
+        Position memory ccPos2 = Position(56, address(wmaticPolygon), wmaticUnits);
+        Position memory ccPos = Position(137, address(wmaticPolygon), wmaticUnits);
+
+        ccPositions[0] = ccPos2;
+        ccPositions.push(ccPos2);
+
+        ccPositions.push(ccPos);
+        ccPositions.push(ccPos);
+
+        deal(address(core), 10 ether);
+
+        address ccTokenAddr2 = core.createSlice("CC Slice", "CC", ccPositions);
+        vm.expectRevert();
+        SliceToken(ccTokenAddr2).manualMint(1 ether);
+    }
+
+    struct Packet {
+        uint8 fill;
+        uint64 nonce;
+        uint32 srcEid;
+        bytes32 sender;
+        uint32 dstEid;
+        bytes32 receiver;
+        bytes32 guid;
+        bytes message;
+    }
+
+    function decodePacket(bytes memory data) public pure returns (Packet memory) {
+        require(data.length >= 145, "Data too short");
+
+        uint8 fill;
+        uint64 nonce;
+        uint32 srcEid;
+        bytes32 sender;
+        uint32 dstEid;
+        bytes32 receiver;
+        bytes32 guid;
+        bytes memory message;
+
+        assembly {
+            fill := mload(add(data, 1))
+            nonce := mload(add(data, 9))
+            srcEid := mload(add(data, 13))
+            sender := mload(add(data, 45))
+            dstEid := mload(add(data, 49))
+            receiver := mload(add(data, 81))
+            guid := mload(add(data, 113))
+        }
+
+        uint256 givenIdx = 113;
+        uint256 messageLength = data.length - givenIdx;
+        message = new bytes(messageLength);
+        for (uint256 i = 0; i < messageLength; i++) {
+            message[i] = data[givenIdx + i];
+        }
+
+        return Packet(fill, nonce, srcEid, sender, dstEid, receiver, guid, message);
+    }
+
+    function test_CrossChainMessaging() public {
+        vm.startPrank(dev);
+
+        Position memory ccPos2 = Position(56, address(wmaticPolygon), wmaticUnits);
+        Position memory ccPos = Position(137, address(wmaticPolygon), wmaticUnits);
+
+        ccPositions[0] = ccPos2;
+        ccPositions.push(ccPos2);
+
+        ccPositions.push(ccPos);
+        ccPositions.push(ccPos);
+
+        core.setPeer(30102, bytes32(uint256(uint160(address(core)))));
+
+        deal(address(core), 10 ether);
+
+        address ccTokenAddr2 = core.createSlice("CC Slice", "CC", ccPositions);
+
+        vm.recordLogs();
+
+        SliceToken(ccTokenAddr2).manualMint(1 ether);
+
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (i == 2) {
+                (bytes memory encodedPayload,,) = abi.decode(entries[i].data, (bytes, bytes, address));
+                Packet memory packet = decodePacket(encodedPayload);
+
+                CrossChainSignal[] memory signals = abi.decode(packet.message, (CrossChainSignal[]));
+                for (uint256 j = 0; j < signals.length; j++) {
+                    console.log(signals[j].srcChainId);
+                }
+            }
+        }
+        vm.stopPrank();
+    }
+
+    function bytes32ToHexString(bytes32 _bytes32) public pure returns (string memory) {
+        bytes memory hexChars = "0123456789abcdef";
+        bytes memory str = new bytes(64);
+        for (uint256 i = 0; i < 32; i++) {
+            str[i * 2] = hexChars[uint256(uint8(_bytes32[i] >> 4))];
+            str[1 + i * 2] = hexChars[uint256(uint8(_bytes32[i] & 0x0f))];
+        }
+        return string(str);
+    }
+
+    function bytesToHexString(bytes memory _bytes) public pure returns (string memory) {
+        bytes memory hexChars = "0123456789abcdef";
+        bytes memory str = new bytes(_bytes.length * 2);
+        for (uint256 i = 0; i < _bytes.length; i++) {
+            str[i * 2] = hexChars[uint256(uint8(_bytes[i] >> 4))];
+            str[1 + i * 2] = hexChars[uint256(uint8(_bytes[i] & 0x0f))];
+        }
+        return string(str);
     }
 
     /* =========================================================== */
@@ -684,21 +806,8 @@ contract SliceCoreTest is Helper {
     }
 
     /* =========================================================== */
-    /*  ====================   withdraw   =======================  */
+    /*  ===============    set layer zero gas   =================  */
     /* =========================================================== */
-    function test_Withdraw() public {
-        deal(address(core), 10 ether);
-        vm.prank(dev);
-        core.withdraw();
-        assertEq(0, address(core).balance);
-        assertEq(10 ether, dev.balance);
-    }
-
-    function test_Cannot_Withdraw_NotOwner() public {
-        vm.expectRevert();
-        core.withdraw();
-    }
-
     function test_SetLzGas() public {
         vm.startPrank(dev);
         core.setLzGas(CrossChainSignalType.MINT, 888888);
@@ -793,7 +902,7 @@ contract SliceCoreTest is Helper {
         // change network
         selectPolygon();
 
-        (polygonCore,) = deployTestContracts(ChainSelect.POLYGON);
+        (polygonCore,) = deployTestContracts(ChainSelect.POLYGON,"");
 
         deal(address(wmaticPolygon), dev, wmaticUnits);
         wmaticPolygon.approve(polygonCore, wmaticUnits);
@@ -803,12 +912,13 @@ contract SliceCoreTest is Helper {
 
         vm.expectRevert();
         IOAppReceiver(polygonCore).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
-        
+
         vm.prank(dev);
         IOAppCore(polygonCore).setPeer(30101, bytes32(uint256(uint160(address(users[2])))));
-        
-        Origin memory fakeOrigin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(users[2])))), nonce: 1});
-        
+
+        Origin memory fakeOrigin =
+            Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(users[2])))), nonce: 1});
+
         vm.expectRevert(bytes4(keccak256("OriginNotSliceCore()")));
         vm.prank(getAddress("polygon.layerZeroEndpoint"));
         IOAppReceiver(polygonCore).lzReceive(fakeOrigin, bytes32(0), ccsEncoded, dev, bytes(""));
@@ -914,7 +1024,7 @@ contract SliceCoreTest is Helper {
         // change network
         selectPolygon();
 
-        (address polygonCore,) = deployTestContracts(ChainSelect.POLYGON);
+        (address polygonCore,) = deployTestContracts(ChainSelect.POLYGON,"");
 
         // make sure that the user has no wmatic on dst chain
         uint256 balance = wmaticPolygon.balanceOf(dev);
@@ -984,7 +1094,7 @@ contract SliceCoreTest is Helper {
         // change network
         selectPolygon();
 
-        (address polygonCore,) = deployTestContracts(ChainSelect.POLYGON);
+        (address polygonCore,) = deployTestContracts(ChainSelect.POLYGON,"");
 
         deal(address(wmaticPolygon), dev, wmaticUnits);
         wmaticPolygon.approve(polygonCore, wmaticUnits);
@@ -1052,5 +1162,64 @@ contract SliceCoreTest is Helper {
         SliceTransactionInfo memory txInfo2 = ccToken.getMint(mintId);
         bool isStateRefunding = txInfo2.state == TransactionState.REFUNDING;
         assertEq(isStateRefunding, true);
+    }
+
+    function test_Cannot_revertSafe() public {
+        vm.startPrank(dev);
+        // 0xE41d2489571d322189246DaFA5ebDe1F4699F498
+        Position memory posR = Position({
+            chainId: 1,
+            token: 0xE41d2489571d322189246DaFA5ebDe1F4699F498,
+            units: 10 ether
+        });
+
+        positions.push(posR);
+
+        (address sCore, address sToken) = deployTestContracts(ChainSelect.MAINNET,"Test2");
+        core = SliceCore(payable(sCore));
+        token = SliceToken(payable(sToken));
+
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+
+        vm.expectRevert();
+        token.manualMint(1 ether);
+        vm.stopPrank();
+    }
+
+    function test_Cannot_lzy() public {
+        bytes32 mintId = _prepareCrossChainRefund();
+
+        address polygonCore = _doFailedMintOnPolygon(mintId);
+
+        // send the response msg
+        // create cross chain signal
+        CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
+            id: mintId,
+            srcChainId: uint32(block.chainid),
+            ccsType: CrossChainSignalType.MINT_COMPLETE,
+            success: false,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            units: wmaticUnits
+        });
+        CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
+        ccsMsgs[0] = _ccsResponse2;
+        bytes memory ccsEncoded2 = abi.encode(ccsMsgs);
+
+        Origin memory originResponse =
+            Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polygonCore)))), nonce: 1});
+
+        selectMainnet();
+
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+        IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));
+
+        vm.expectRevert();
+        IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));
     }
 }

@@ -303,6 +303,20 @@ contract SliceTokenTest is Helper {
         token.redeem(1);
     }
 
+    function test_Transfer() public {
+        vm.startPrank(dev);
+
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+
+        token.manualMint(1 ether);
+
+        token.transfer(users[1], 1 ether);
+    }
+
     function test_Cannot_Transfer_AmountLocked() public {
         vm.startPrank(dev);
         deal(address(core), 1 ether);
@@ -383,6 +397,31 @@ contract SliceTokenTest is Helper {
         vm.expectRevert(bytes4(keccak256("RedeemIdDoesNotExist()")));
         sliceToken.redeemComplete(bytes32(0));
         vm.stopPrank();
+    }
+
+    function test_Cannot_RedeemComplete_InvalidTransactionState() public {
+        vm.startPrank(dev);
+
+        SliceCoreMock coreMock = new SliceCoreMock(usdc, weth, link);
+
+        deal(address(weth), address(coreMock), wethUnits * 2);
+        deal(address(link), address(coreMock), linkUnits * 2);
+
+        SliceToken sliceToken = new SliceToken("TEST 2", "T2", positions, address(coreMock));
+
+        coreMock.setToken(address(sliceToken));
+        usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
+        bytes32 _mintID = sliceToken.manualMint(1000000000000000000);
+
+        coreMock.mintComplete(_mintID, address(sliceToken));
+
+        // call redeem underlying
+        bytes32 redeemId = sliceToken.redeem(1000000000000000000);
+
+        coreMock.redeemComplete(redeemId, address(sliceToken));
+
+        vm.expectRevert(bytes4(keccak256("InvalidTransactionState()")));
+        coreMock.redeemComplete(redeemId, address(sliceToken));
     }
 
     /* =========================================================== */
@@ -630,5 +669,38 @@ contract SliceTokenTest is Helper {
         vm.prank(address(core));
         vm.expectRevert(bytes4(keccak256("InvalidTransactionState()")));
         ccToken.refundComplete(mintID);
+    }
+
+    /* =========================================================== */
+    /*  =============   setCategoryAndDescription   =============  */
+    /* =========================================================== */
+    function test_SetCategoryAndDescription() public {
+        token.setCategoryAndDescription("Test", "Test description");
+        string memory category = token.category();
+        assertEq("Test", category);
+        string memory description = token.description();
+        assertEq("Test description", description);
+    }
+
+    function test_Cannot_SetCategoryAndDescription_AlreadySet() public {
+        token.setCategoryAndDescription("Test", "Test description");
+        vm.expectRevert(bytes4(keccak256("AlreadySet()")));
+        token.setCategoryAndDescription("Test", "Test description");
+    }
+
+    /* =========================================================== */
+    /*  ====================   getPosAtIdx   ===================   */
+    /* =========================================================== */
+    function test_GetPosAtIdx() public view {
+        Position memory pos = token.getPosAtIdx(0);
+
+         assertEq(1, pos.chainId);
+         assertEq(address(weth), pos.token);
+         assertEq(wethUnits, pos.units);
+    }
+
+    function test_Cannot_GetPosAtIdx_InvalidIndex() public {
+        vm.expectRevert();
+        token.getPosAtIdx(5);
     }
 }

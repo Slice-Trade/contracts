@@ -118,7 +118,6 @@ contract SliceToken is ISliceToken, ERC20 {
      */
     function mintFailed(bytes32 _mintID) external onlySliceCore {
         SliceTransactionInfo memory _txInfo = mints[_mintID];
-
         if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
