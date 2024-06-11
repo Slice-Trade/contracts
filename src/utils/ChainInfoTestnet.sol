@@ -10,31 +10,13 @@ contract ChainInfo is Ownable {
 
     constructor() Ownable(msg.sender) {
         // sepolia
-        chains[11155111] = Chain(
-            11155111, 
-            StringToBytes32.toBytes32("ethereum-sepolia"), 
-            10161, 
-            40161,
-            0xC2216FCdf9bb3a40D20eD2E17632fe5AdFd4aB63,
-            0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590);
+        chains[11155111] = Chain(11155111, 40161);
 
         // OP Sepolia
-        chains[11155420] = Chain(
-            11155420, 
-            StringToBytes32.toBytes32("optimism-sepolia"), 
-            10232, 
-            40232,
-            0x2B798E5a0cE8018EDd5532fF4899E2f241271ab0,
-            0x488327236B65C61A6c083e8d811a4E0D3d1D4268);
+        chains[11155420] = Chain(11155420, 40232);
 
         // Base Sepolia
-        chains[84532] = Chain(
-            84532, 
-            StringToBytes32.toBytes32("base-sepolia"), 
-            10160, 
-            40245,
-            0x0000000000000000000000000000000000000000,
-            0x0000000000000000000000000000000000000000);
+        chains[84532] = Chain(84532, 40245);
     }
 
     function addChain(Chain memory _chain) external onlyOwner {

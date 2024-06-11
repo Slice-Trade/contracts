@@ -2,15 +2,14 @@
 
 # Introduction
 
-The Slice smart contract architecture is designed to provide users with exposure to a basket of underlying assets through a single token, the Slice token. This ERC20 token represents a diversified portfolio of cryptocurrencies, with the underlying assets residing on various blockchains. Users purchase Slice tokens on a single chain using USDC. Our architecture utilizes bridging and cross-chain swaps.
+The Slice smart contract architecture is designed to provide users with exposure to a basket of underlying assets through a single token, the Slice token. This ERC20 token represents a diversified portfolio of cryptocurrencies, with the underlying assets residing on various blockchains. Users purchase Slice tokens on a single chain using USDC. Our architecture utilizes the LayerZero bridge for cross-chain messaging.
 
-Key components of the Slice architecture include two smart contracts: `SliceCore.sol` and `SliceToken.sol`. `SliceCore.sol` serves as the upgradeable core logic deployed across multiple blockchains. It facilitates cross-chain messaging and contains essential functionalities utilized by `SliceToken.sol`. `SliceToken.sol` is the ERC20 token representing the underlying assets and enabling users to access them.
+Key components of the Slice architecture include two smart contracts: `SliceCore.sol` and `SliceToken.sol`. `SliceCore.sol` serves as the core logic deployed across multiple blockchains. It facilitates cross-chain messaging and contains essential logic utilized by `SliceToken.sol`. `SliceToken.sol` is the ERC20 token representing the underlying assets and enabling users to access them.
 
 The four most important smart contract interactions are the following:
 
 - **create** new Slice tokens
 - **mint** a Slice token
-- **rebalance** the underlying asset positions in a Slice token
 - **redeem** a Slice token for the underlying assets
 
 ## Create
@@ -21,10 +20,11 @@ In the `createSlice()` function, the creator has to input a list of positions.
 A position contains:
 
 - the chain ID
-- the token address
+- the token address    
+- the token decimals   
 - the units (i.e. 0.5 ETH, 20 LINK, etc.)
 
-The result of the create step is a new SliceToken.sol contract deployed on the main blockchain.
+The result of the create step is that a new SliceToken.sol contract is deployed.
 
 ![Slice Smart Contract Architecture](https://github.com/Slice-Trade/contracts/assets/44027725/da210997-63bf-4078-9191-9f493c7b8bad)
 
