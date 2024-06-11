@@ -128,7 +128,6 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             uint256 _amountOut =
                 CrossChainData.calculateAmountOutMin(_sliceTokenQuantity, positions[i].units, positions[i].decimals);
             if (isPositionLocal(positions[i])) {
-                // y
                 IERC20(positions[i].token).safeTransferFrom(txInfo.user, address(this), _amountOut);
                 ++transactionCompleteSignals[_mintID].signalsOk;
                 // We have to record the idx of the successful position
@@ -152,7 +151,6 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
 
         if (checkPendingTransactionCompleteSignals(_mintID)) {
-            // y
             emit UnderlyingAssetsProcured({
                 token: msg.sender,
                 sliceTokenQuantity: _sliceTokenQuantity,
@@ -196,7 +194,6 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             uint256 _amount =
                 CrossChainData.calculateAmountOutMin(txInfo.quantity, positions[i].units, positions[i].decimals);
             if (isPositionLocal(positions[i])) {
-                // y
                 IERC20(positions[i].token).safeTransfer(txInfo.user, _amount);
                 // increase ready signal after each local transfer
                 ++transactionCompleteSignals[_redeemID].signalsOk;
@@ -220,7 +217,6 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         // if all signals are in call redeemComplete on token contract
         if (checkPendingTransactionCompleteSignals(_redeemID)) {
-            // y
             emit UnderlyingAssetsRedeemed({token: msg.sender, sliceTokenQuantity: txInfo.quantity, owner: txInfo.user});
             ISliceToken(msg.sender).redeemComplete(_redeemID);
         }
