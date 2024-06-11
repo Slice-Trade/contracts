@@ -2,11 +2,11 @@
 
 # Introduction
 
-The Slice smart contract architecture is designed to provide users with exposure to a basket of underlying assets through a single token, the Slice token. This ERC20 token represents a diversified portfolio of cryptocurrencies, with the underlying assets residing on various blockchains. Users purchase Slice tokens on a single chain using USDC. Our architecture utilizes the LayerZero bridge for cross-chain messaging.
+The Slice smart contract architecture is designed to provide users with exposure to a basket of underlying assets through a single token, the Slice token. This ERC20 token represents a diversified portfolio of cryptocurrencies, with the underlying assets residing on various blockchains. Users purchase Slice tokens on a single chain. Our architecture utilizes the LayerZero bridge for cross-chain messaging.
 
 Key components of the Slice architecture include two smart contracts: `SliceCore.sol` and `SliceToken.sol`. `SliceCore.sol` serves as the core logic deployed across multiple blockchains. It facilitates cross-chain messaging and contains essential logic utilized by `SliceToken.sol`. `SliceToken.sol` is the ERC20 token representing the underlying assets and enabling users to access them.
 
-The four most important smart contract interactions are the following:
+The three most important smart contract interactions are the following:
 
 - **create** new Slice tokens
 - **mint** a Slice token
