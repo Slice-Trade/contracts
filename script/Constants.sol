@@ -18,11 +18,11 @@ contract Constants {
 
         setAddress("op_sepolia.lzEndpoint", 0x6EDCE65403992e310A62460808c4b910D972f10f);
         setAddress("op_sepolia.chainInfo", 0xB1c883daf4ed666aa7caDC3f8dD0180addE0C3ba);
-        setAddress("op_sepolia.tokenDeployer", 0x1Bad6F7631D7a343D11706eA7Acef19f5c62e9e3);
+        setAddress("op_sepolia.tokenDeployer", 0xfDBF3b0B46ff98746397630dA342Ae6eA640f8C6);
 
         setAddress("base_sepolia.lzEndpoint", 0x6EDCE65403992e310A62460808c4b910D972f10f);
         setAddress("base_sepolia.chainInfo", 0x0183D7C825fD3575E9a09a5df5684eA415884407);
-        setAddress("base_sepolia.tokenDeployer", 0x1835107c8Ae158A12Fb448f3db758859990c0F07);
+        setAddress("base_sepolia.tokenDeployer", 0x1d5745C0A7cb3A88Aad5112a58A10B154683B939);
 
         setAddress("deployer.create3", 0x6513Aedb4D1593BA12e50644401D976aebDc90d8);
     }

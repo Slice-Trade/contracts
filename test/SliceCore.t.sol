@@ -20,7 +20,7 @@ import {IDeployer} from "../script/IDeployer.sol";
 
 import {TokenMock} from "./mocks/TokenMock.sol";
 
-// latest slice core : 0x32C4735A4c30554bF9fEeC1845495CbAaC1F2c67
+// latest slice core : 0x9d401eBb513AAc7858DdB2E0bb66d8FBa5932FA8
 contract SliceCoreTest is Helper {
     using CrossChainData for SliceCoreTest;
 
