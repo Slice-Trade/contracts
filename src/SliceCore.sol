@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.22;
+pragma solidity 0.8.26;
 
 import "forge-std/src/console.sol";
 
@@ -67,7 +67,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     /**
      * @dev See ISliceCore - createSlice
      */
-    function createSlice(string calldata _name, string calldata _symbol, Position[] calldata _positions)
+    function createSlice(string calldata name, string calldata symbol, Position[] calldata positions)
         external
         nonReentrant
         returns (address)
@@ -81,9 +81,9 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
 
         address token = ISliceTokenDeployer(sliceTokenDeployer).deploySliceToken({
-            name: _name,
-            symbol: _symbol,
-            positions: _positions,
+            name: name,
+            symbol: symbol,
+            positions: positions,
             core: address(this)
         });
 
@@ -97,22 +97,24 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     }
 
     /**
-     * @dev See ISliceCore - collectUnderlyingAssets
+     * @dev See ISliceCore - collectUnderlying
      */
-    function collectUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity) external payable nonReentrant {
+    function collectUnderlying(bytes32 mintID) external payable nonReentrant {
         // check that slice token (msg.sender) is registered
         if (!registeredSliceTokens[msg.sender]) {
             revert UnregisteredSliceToken();
         }
 
-        SliceTransactionInfo memory txInfo = ISliceToken(msg.sender).getMint(_mintID);
-        if (txInfo.id != _mintID || txInfo.id == bytes32(0)) {
+        SliceTransactionInfo memory txInfo = ISliceToken(msg.sender).getMint(mintID);
+        if (txInfo.id != mintID || txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
 
-        transactionCompleteSignals[_mintID].token = msg.sender;
-        transactionCompleteSignals[_mintID].sliceTokenQuantity = _sliceTokenQuantity;
-        transactionCompleteSignals[_mintID].user = txInfo.user;
+        uint256 _sliceTokenQuantity = txInfo.quantity;
+
+        transactionCompleteSignals[mintID].token = msg.sender;
+        transactionCompleteSignals[mintID].sliceTokenQuantity = _sliceTokenQuantity;
+        transactionCompleteSignals[mintID].user = txInfo.user;
 
         // get the underlying positions from the slice token
         Position[] memory positions = ISliceToken(msg.sender).getPositions();
@@ -129,13 +131,13 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                 CrossChainData.calculateAmountOutMin(_sliceTokenQuantity, positions[i].units, positions[i].decimals);
             if (isPositionLocal(positions[i])) {
                 IERC20(positions[i].token).safeTransferFrom(txInfo.user, address(this), _amountOut);
-                ++transactionCompleteSignals[_mintID].signalsOk;
+                ++transactionCompleteSignals[mintID].signalsOk;
                 // We have to record the idx of the successful position
-                transactionCompleteSignals[_mintID].positionsOkIdxs.push(i);
+                transactionCompleteSignals[mintID].positionsOkIdxs.push(i);
             } else {
                 // if asset is not local send lz msg to Core contract on dst chain
                 CrossChainSignal memory ccs = CrossChainSignal({
-                    id: _mintID,
+                    id: mintID,
                     srcChainId: uint32(block.chainid),
                     ccsType: CrossChainSignalType.MINT,
                     success: false,
@@ -150,36 +152,36 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             }
         }
 
-        if (checkPendingTransactionCompleteSignals(_mintID)) {
-            emit UnderlyingAssetsProcured({
+        if (checkPendingTransactionCompleteSignals(mintID)) {
+            emit UnderlyingAssetsCollected({
                 token: msg.sender,
                 sliceTokenQuantity: _sliceTokenQuantity,
                 owner: txInfo.user
             });
-            ISliceToken(msg.sender).mintComplete(_mintID);
+            ISliceToken(msg.sender).mintComplete(mintID);
         }
     }
 
     /**
      * @dev See ISliceCore - redeemUnderlying
      */
-    function redeemUnderlying(bytes32 _redeemID) external payable nonReentrant {
+    function redeemUnderlying(bytes32 redeemID) external payable nonReentrant {
         // check that slice token (msg.sender) is registered
         if (!registeredSliceTokens[msg.sender]) {
             revert UnregisteredSliceToken();
         }
 
         // get redeem tx info
-        SliceTransactionInfo memory txInfo = ISliceToken(msg.sender).getRedeem(_redeemID);
+        SliceTransactionInfo memory txInfo = ISliceToken(msg.sender).getRedeem(redeemID);
         // check that redeem ID exists
-        if (txInfo.id != _redeemID || txInfo.id == bytes32(0)) {
+        if (txInfo.id != redeemID || txInfo.id == bytes32(0)) {
             revert RedeemIdDoesNotExist();
         }
 
         // create tx complete signals struct
-        transactionCompleteSignals[_redeemID].token = msg.sender;
-        transactionCompleteSignals[_redeemID].user = txInfo.user;
-        transactionCompleteSignals[_redeemID].sliceTokenQuantity = txInfo.quantity;
+        transactionCompleteSignals[redeemID].token = msg.sender;
+        transactionCompleteSignals[redeemID].user = txInfo.user;
+        transactionCompleteSignals[redeemID].sliceTokenQuantity = txInfo.quantity;
 
         // get the underlying positions of the slice token
         Position[] memory positions = ISliceToken(msg.sender).getPositions();
@@ -196,11 +198,11 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             if (isPositionLocal(positions[i])) {
                 IERC20(positions[i].token).safeTransfer(txInfo.user, _amount);
                 // increase ready signal after each local transfer
-                ++transactionCompleteSignals[_redeemID].signalsOk;
+                ++transactionCompleteSignals[redeemID].signalsOk;
             } else {
                 // if asset is not local send lz msg to Core contract on dst chain
                 CrossChainSignal memory ccs = CrossChainSignal({
-                    id: _redeemID,
+                    id: redeemID,
                     srcChainId: uint32(block.chainid),
                     ccsType: CrossChainSignalType.REDEEM,
                     success: false,
@@ -216,20 +218,20 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
 
         // if all signals are in call redeemComplete on token contract
-        if (checkPendingTransactionCompleteSignals(_redeemID)) {
+        if (checkPendingTransactionCompleteSignals(redeemID)) {
             emit UnderlyingAssetsRedeemed({token: msg.sender, sliceTokenQuantity: txInfo.quantity, owner: txInfo.user});
-            ISliceToken(msg.sender).redeemComplete(_redeemID);
+            ISliceToken(msg.sender).redeemComplete(redeemID);
         }
     }
 
-    function refund(SliceTransactionInfo memory _txInfo) external payable nonReentrant {
+    function refund(SliceTransactionInfo calldata txInfo) external payable nonReentrant {
         if (!isSliceTokenRegistered(msg.sender)) {
             revert UnregisteredSliceToken();
         }
         // get the tx complete signal info
-        TransactionCompleteSignals memory _txCompleteSignal = transactionCompleteSignals[_txInfo.id];
+        TransactionCompleteSignals memory _txCompleteSignal = transactionCompleteSignals[txInfo.id];
         // if state is not REFUNDING revert
-        if (_txInfo.state != TransactionState.REFUNDING) {
+        if (txInfo.state != TransactionState.REFUNDING) {
             revert InvalidTransactionState();
         }
 
@@ -241,14 +243,14 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             revert NotAllCrossChainSignalsReceived();
         }
 
-        _refund(_txCompleteSignal, _txInfo, _positions);
+        _refund(_txCompleteSignal, txInfo, _positions);
 
         // check that all the failed transfers have been refunded
-        bool _allTransfersRefunded = _txCompleteSignal.signalsOk == refundSignals[_txInfo.id];
+        bool _allTransfersRefunded = _txCompleteSignal.signalsOk == refundSignals[txInfo.id];
 
         // if yes update state to REFUNDED in slice token
         if (_allSignalsReceived && _allTransfersRefunded) {
-            ISliceToken(_txCompleteSignal.token).refundComplete(_txInfo.id);
+            ISliceToken(_txCompleteSignal.token).refundComplete(txInfo.id);
         }
     }
 
@@ -262,12 +264,12 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     /**
      * @dev See ISliceCore - changeApprovedSliceTokenCreator
      */
-    function changeApprovedSliceTokenCreator(address _user, bool _isApproved) external onlyOwner {
-        approvedSliceTokenCreators[_user] = _isApproved;
+    function changeApprovedSliceTokenCreator(address user, bool isApproved) external onlyOwner {
+        approvedSliceTokenCreators[user] = isApproved;
     }
 
-    function setLzGas(CrossChainSignalType _ccsType, uint128 _gas) external onlyOwner {
-        lzGasLookup[_ccsType] = _gas;
+    function setLzGas(CrossChainSignalType ccsType, uint128 gas) external onlyOwner {
+        lzGasLookup[ccsType] = gas;
     }
 
     /* =========================================================== */
@@ -290,8 +292,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     /**
      * @dev See ISliceCore - getRegisteredSliceToken
      */
-    function getRegisteredSliceToken(uint256 _idx) external view returns (address) {
-        return registeredSliceTokensArray[_idx];
+    function getRegisteredSliceToken(uint256 idx) external view returns (address) {
+        return registeredSliceTokensArray[idx];
     }
 
     /* =========================================================== */
@@ -300,15 +302,15 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     /**
      * @dev See ISliceCore - canCreateSlice
      */
-    function canCreateSlice(address _user) public view returns (bool) {
-        return approvedSliceTokenCreators[_user];
+    function canCreateSlice(address user) public view returns (bool) {
+        return approvedSliceTokenCreators[user];
     }
 
     /**
      * @dev See ISliceCore - isSliceTokenRegistered
      */
-    function isSliceTokenRegistered(address _token) public view returns (bool) {
-        return registeredSliceTokens[_token];
+    function isSliceTokenRegistered(address token) public view returns (bool) {
+        return registeredSliceTokens[token];
     }
 
     /* =========================================================== */
@@ -367,7 +369,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             transactionCompleteSignals[ccs[i].id].positionsOkIdxs.push(_posIdx);
 
             if (checkPendingTransactionCompleteSignals(ccs[i].id)) {
-                emit UnderlyingAssetsProcured({
+                emit UnderlyingAssetsCollected({
                     token: txCompleteSignals.token,
                     sliceTokenQuantity: txCompleteSignals.sliceTokenQuantity,
                     owner: txCompleteSignals.user
@@ -568,13 +570,13 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     /* =========================================================== */
     /*   =================   INTERNAL VIEW   ==================    */
     /* =========================================================== */
-    function isPositionLocal(Position memory _position) internal view returns (bool) {
-        return _position.chainId == block.chainid;
+    function isPositionLocal(Position memory position) internal view returns (bool) {
+        return position.chainId == block.chainid;
     }
 
     // checks the signal count after each swap, in each callback
-    function checkPendingTransactionCompleteSignals(bytes32 _id) internal view returns (bool) {
-        TransactionCompleteSignals memory _transactionCompleteSignal = transactionCompleteSignals[_id];
+    function checkPendingTransactionCompleteSignals(bytes32 id) internal view returns (bool) {
+        TransactionCompleteSignals memory _transactionCompleteSignal = transactionCompleteSignals[id];
         uint256 _numOfPositions = ISliceToken(_transactionCompleteSignal.token).getNumberOfPositions();
         return _transactionCompleteSignal.signalsOk == _numOfPositions;
     }

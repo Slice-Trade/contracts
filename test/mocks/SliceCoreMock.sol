@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.22;
+pragma solidity 0.8.26;
 
 import "../../src/Structs.sol";
 import "../../src/interfaces/ISliceToken.sol";
@@ -30,7 +30,7 @@ contract SliceCoreMock {
     /**
      * @dev See ISliceCore - purchaseUnderlyingAssets
      */
-    function collectUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity) external payable {}
+    function collectUnderlying(bytes32 _mintID) external payable {}
 
     /**
      * @dev See ISliceCore - redeemUnderlying

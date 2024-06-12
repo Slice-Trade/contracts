@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.22;
+pragma solidity 0.8.26;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../Structs.sol";
@@ -28,46 +28,56 @@ interface ISliceToken is IERC20 {
     error MintFailed();
 
     /**
+     * @dev Mints a new Slice token using the manual mint flow - assuming the underlying assets are in the user wallet and approved to spend
+     *
+     * @param sliceTokenQuantity The quantity of slice tokens to mint
+     *
+     * @return bytes32 The mint ID
+     */
+    function mint(uint256 sliceTokenQuantity) external payable returns (bytes32);
+
+    /**
+     * @dev Called by the SliceCore contract when a manual mint transaction has failed
+     * @param mintID The ID that uniquely identifies this transaction within the system
+     */
+    function mintFailed(bytes32 mintID) external;
+
+    /**
      * @dev Called by the SliceCore contract when a mint transaction is confirmed completed by all the cross-chain contracts
      *
-     * @param _mintID The ID that uniquely identifies this transaction within the system
+     * @param mintID The ID that uniquely identifies this transaction within the system
      */
-    function mintComplete(bytes32 _mintID) external;
+    function mintComplete(bytes32 mintID) external;
 
     /**
      * @dev Redeems the underlying assets in a Slice token and burns the Slice token.
      *
-     * @param _sliceTokenQuantity The quantity of slice tokens to redeem
+     * @param sliceTokenQuantity The quantity of slice tokens to redeem
      *
      * @return bytes32 The redeem ID
      */
-    function redeem(uint256 _sliceTokenQuantity) external payable returns (bytes32);
+    function redeem(uint256 sliceTokenQuantity) external payable returns (bytes32);
 
     /**
      * @dev Called by the SliceCore contract when a redeem transaction is confirmed completed by all the cross-chain contracts
      *
-     * @param _redeemID The ID that uniquely identifies this transaction within the system
+     * @param redeemID The ID that uniquely identifies this transaction within the system
      */
-    function redeemComplete(bytes32 _redeemID) external;
+    function redeemComplete(bytes32 redeemID) external;
 
     /**
-     * @dev Mints a new Slice token using the manual mint flow - assuming the underlying assets are in the user wallet and approved to spend
-     *
-     * @param _sliceTokenQuantity The quantity of slice tokens to mint
-     *
-     * @return bytes32 The mint ID
+     * @dev Starts the refund process for a failed mint
+     * 
+     * @param mintID The ID that uniquely identifies this transaction within the system
      */
-    function manualMint(uint256 _sliceTokenQuantity) external payable returns (bytes32);
+    function refund(bytes32 mintID) external payable;
 
     /**
-     * @dev Called by the SliceCore contract when a manual mint transaction has failed
-     * @param _mintID The ID that uniquely identifies this transaction within the system
+     * @dev Called by the SliceCore contract when a refund transaction is confirmed completed by all cross-chain contracts
+     *
+     * @param mintID The ID that uniquely identifies this transaction within the system
      */
-    function mintFailed(bytes32 _mintID) external;
-
-    function refund(bytes32 _mintID) external payable;
-
-    function refundComplete(bytes32 _mintID) external;
+    function refundComplete(bytes32 mintID) external;
 
     /**
      * @dev Returns the Slice token's underlying positions
@@ -86,22 +96,32 @@ interface ISliceToken is IERC20 {
     /**
      * @dev Returns the Mint transaction info for the given ID
      *
-     * @param _id The mint ID
+     * @param id The mint ID
      *
      * @return SliceTransactionInfo Struct holding the information about the mint
      */
-    function getMint(bytes32 _id) external view returns (SliceTransactionInfo memory);
+    function getMint(bytes32 id) external view returns (SliceTransactionInfo memory);
 
     /**
      * @dev Returns the Redeem transaction info for the given ID
      *
-     * @param _id The redeem ID
+     * @param id The redeem ID
      *
      * @return SliceTransactionInfo Struct holding the information about the mint
      */
-    function getRedeem(bytes32 _id) external view returns (SliceTransactionInfo memory);
+    function getRedeem(bytes32 id) external view returns (SliceTransactionInfo memory);
 
-    function getPosIdx(address _token) external view returns (uint256);
+    /**
+     * @dev Returns the index in the positions array for the given underlying asset.
+     * 
+     * @param underlyingAsset The address of the underlying asset to check the index of
+     */
+    function getPosIdx(address underlyingAsset) external view returns (uint256);
 
-    function getPosAtIdx(uint256 _idx) external view returns (Position memory);
+    /**
+     * @dev Return the position in the positions array for the given index
+     *
+     * @param idx The index to get the corresponding position for
+     */
+    function getPosAtIdx(uint256 idx) external view returns (Position memory);
 }

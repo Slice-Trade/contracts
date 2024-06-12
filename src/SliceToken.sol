@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.22;
+pragma solidity 0.8.26;
 
 import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
@@ -29,6 +29,8 @@ contract SliceToken is ISliceToken, ERC20 {
 
     mapping(address user => uint256 lockedAmount) public locked;
 
+    mapping(address => uint256) public nonces;
+
     modifier onlySliceCore() {
         if (msg.sender != sliceCore) {
             revert NotSliceCore();
@@ -45,7 +47,7 @@ contract SliceToken is ISliceToken, ERC20 {
         posIdx[_positions[0].token] = 0;
 
         for (uint256 i = 1; i < _positions.length; i++) {
-            // check that the positions are ordered by chain ID -> will make it cheaper to group lz msgs
+            // check that the positions are ordered by chain ID -> will make it easier to group CrossChainSignals
             if (_positions[i].chainId < _positions[i - 1].chainId) {
                 revert UnorderedChainIds();
             }
@@ -60,12 +62,12 @@ contract SliceToken is ISliceToken, ERC20 {
     /**
      * @dev See ISliceToken - mintComplete
      */
-    function mintComplete(bytes32 _mintID) external onlySliceCore {
+    function mintComplete(bytes32 mintID) external onlySliceCore {
         // get transaction info
-        SliceTransactionInfo memory _txInfo = mints[_mintID];
+        SliceTransactionInfo memory _txInfo = mints[mintID];
 
         // check that mint ID is valid
-        if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
+        if (_txInfo.id != mintID || _txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
 
@@ -75,7 +77,7 @@ contract SliceToken is ISliceToken, ERC20 {
         }
 
         // change transaction state to fulfilled
-        mints[_mintID].state = TransactionState.FULFILLED;
+        mints[mintID].state = TransactionState.FULFILLED;
 
         // mint X quantity of tokens to user
         _mint(_txInfo.user, _txInfo.quantity);
@@ -85,25 +87,27 @@ contract SliceToken is ISliceToken, ERC20 {
     }
 
     /**
-     * @dev See ISliceToken - manualMint
+     * @dev See ISliceToken - mint
      */
-    function manualMint(uint256 _sliceTokenQuantity) external payable returns (bytes32) {
-        verifySliceTokenQuantity(_sliceTokenQuantity);
+    function mint(uint256 sliceTokenQuantity) external payable returns (bytes32) {
+        verifySliceTokenQuantity(sliceTokenQuantity);
+
+        uint256 nonce = nonces[msg.sender]++;
 
         bytes32 mintId = keccak256(
-            abi.encodePacked(this.manualMint.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp)
+            abi.encodePacked(this.mint.selector, msg.sender, address(this), sliceTokenQuantity, block.timestamp, nonce)
         );
 
         SliceTransactionInfo memory txInfo = SliceTransactionInfo({
             id: mintId,
-            quantity: _sliceTokenQuantity,
+            quantity: sliceTokenQuantity,
             user: msg.sender,
             state: TransactionState.OPEN
         });
 
         mints[mintId] = txInfo;
 
-        ISliceCore(sliceCore).collectUnderlyingAssets{value: msg.value}(mintId, _sliceTokenQuantity);
+        ISliceCore(sliceCore).collectUnderlying{value: msg.value}(mintId);
 
         return mintId;
     }
@@ -111,9 +115,9 @@ contract SliceToken is ISliceToken, ERC20 {
     /**
      * @dev See ISliceToken - mintFailed
      */
-    function mintFailed(bytes32 _mintID) external onlySliceCore {
-        SliceTransactionInfo memory _txInfo = mints[_mintID];
-        if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
+    function mintFailed(bytes32 mintID) external onlySliceCore {
+        SliceTransactionInfo memory _txInfo = mints[mintID];
+        if (_txInfo.id != mintID || _txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
 
@@ -125,7 +129,7 @@ contract SliceToken is ISliceToken, ERC20 {
             revert InvalidTransactionState();
         }
 
-        mints[_mintID].state = TransactionState.FAILED;
+        mints[mintID].state = TransactionState.FAILED;
 
         emit SliceMintFailed(_txInfo.user, _txInfo.quantity);
     }
@@ -133,26 +137,28 @@ contract SliceToken is ISliceToken, ERC20 {
     /**
      * @dev See ISliceToken - redeem
      */
-    function redeem(uint256 _sliceTokenQuantity) external payable returns (bytes32) {
-        verifySliceTokenQuantity(_sliceTokenQuantity);
+    function redeem(uint256 sliceTokenQuantity) external payable returns (bytes32) {
+        verifySliceTokenQuantity(sliceTokenQuantity);
         
         // make sure the user has enough balance
-        if (balanceOf(msg.sender) < _sliceTokenQuantity) {
+        if (balanceOf(msg.sender) < sliceTokenQuantity) {
             revert InsufficientBalance();
         }
 
         // lock the given amount of tokens in the users balance (can't be transferred)
-        locked[msg.sender] += _sliceTokenQuantity;
+        locked[msg.sender] += sliceTokenQuantity;
+
+        uint256 nonce = nonces[msg.sender]++;
 
         // create redeem ID
         bytes32 redeemID = keccak256(
-            abi.encodePacked(this.redeem.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp)
+            abi.encodePacked(this.redeem.selector, msg.sender, address(this), sliceTokenQuantity, block.timestamp, nonce)
         );
 
         // create tx info
         SliceTransactionInfo memory txInfo = SliceTransactionInfo({
             id: redeemID,
-            quantity: _sliceTokenQuantity,
+            quantity: sliceTokenQuantity,
             user: msg.sender,
             state: TransactionState.OPEN
         });
@@ -170,12 +176,12 @@ contract SliceToken is ISliceToken, ERC20 {
     /**
      * @dev See ISliceToken - redeemComplete
      */
-    function redeemComplete(bytes32 _redeemID) external onlySliceCore {
+    function redeemComplete(bytes32 redeemID) external onlySliceCore {
         // get transaction info
-        SliceTransactionInfo memory _txInfo = redeems[_redeemID];
+        SliceTransactionInfo memory _txInfo = redeems[redeemID];
 
         // check that redeem ID is valid
-        if (_txInfo.id != _redeemID || _txInfo.id == bytes32(0)) {
+        if (_txInfo.id != redeemID || _txInfo.id == bytes32(0)) {
             revert RedeemIdDoesNotExist();
         }
 
@@ -185,7 +191,7 @@ contract SliceToken is ISliceToken, ERC20 {
         }
 
         // change transaction state to fulfilled
-        redeems[_redeemID].state = TransactionState.FULFILLED;
+        redeems[redeemID].state = TransactionState.FULFILLED;
 
         // burn X quantity of tokens from user
         _burn(_txInfo.user, _txInfo.quantity);
@@ -197,10 +203,10 @@ contract SliceToken is ISliceToken, ERC20 {
         emit SliceRedeemed(_txInfo.user, _txInfo.quantity);
     }
 
-    function refund(bytes32 _mintID) external payable {
-        SliceTransactionInfo memory _txInfo = mints[_mintID];
+    function refund(bytes32 mintID) external payable {
+        SliceTransactionInfo memory _txInfo = mints[mintID];
 
-        if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
+        if (_txInfo.id != mintID || _txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
 
@@ -209,22 +215,22 @@ contract SliceToken is ISliceToken, ERC20 {
         }
 
         _txInfo.state = TransactionState.REFUNDING;
-        mints[_mintID].state = _txInfo.state;
+        mints[mintID].state = _txInfo.state;
 
         ISliceCore(sliceCore).refund{value: msg.value}(_txInfo);
     }
 
-    function refundComplete(bytes32 _mintID) external onlySliceCore {
+    function refundComplete(bytes32 mintID) external onlySliceCore {
         // get transaction info
-        SliceTransactionInfo memory _txInfo = mints[_mintID];
-        if (_txInfo.id != _mintID || _txInfo.id == bytes32(0)) {
+        SliceTransactionInfo memory _txInfo = mints[mintID];
+        if (_txInfo.id != mintID || _txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
         if (_txInfo.state != TransactionState.REFUNDING) {
             revert InvalidTransactionState();
         }
 
-        mints[_mintID].state = TransactionState.REFUNDED;
+        mints[mintID].state = TransactionState.REFUNDED;
 
         emit RefundCompleted(_txInfo.user, _txInfo.quantity);
     }
@@ -252,23 +258,23 @@ contract SliceToken is ISliceToken, ERC20 {
         return positions.length;
     }
 
-    function getMint(bytes32 _id) external view returns (SliceTransactionInfo memory) {
-        return mints[_id];
+    function getMint(bytes32 id) external view returns (SliceTransactionInfo memory) {
+        return mints[id];
     }
 
-    function getRedeem(bytes32 _id) external view returns (SliceTransactionInfo memory) {
-        return redeems[_id];
+    function getRedeem(bytes32 id) external view returns (SliceTransactionInfo memory) {
+        return redeems[id];
     }
 
-    function getPosIdx(address _token) external view returns (uint256) {
-        return posIdx[_token];
+    function getPosIdx(address underlyingAsset) external view returns (uint256) {
+        return posIdx[underlyingAsset];
     }
 
-    function getPosAtIdx(uint256 _idx) external view returns (Position memory) {
-        if (_idx >= positions.length) {
+    function getPosAtIdx(uint256 idx) external view returns (Position memory) {
+        if (idx >= positions.length) {
             revert();
         }
-        return positions[_idx];
+        return positions[idx];
     }
 
     /* =========================================================== */
