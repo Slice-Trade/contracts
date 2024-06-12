@@ -57,7 +57,7 @@ interface ISliceToken is IERC20 {
      *
      * @return bytes32 The mint ID
      */
-    function manualMint(uint256 _sliceTokenQuantity) external payable returns (bytes32);
+    function mint(uint256 _sliceTokenQuantity) external payable returns (bytes32);
 
     /**
      * @dev Called by the SliceCore contract when a manual mint transaction has failed

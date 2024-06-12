@@ -19,7 +19,7 @@ import {CrossChainData} from "./libs/CrossChainData.sol";
 import {SliceToken, ISliceToken} from "./SliceToken.sol";
 
 import "./Structs.sol";
-
+ 
 /**
  * @author Lajos Deme, Blind Labs
  * @notice The core logic contract of the architecture, provides cross-chain underlying asset management

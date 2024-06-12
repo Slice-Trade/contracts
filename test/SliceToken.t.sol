@@ -142,7 +142,7 @@ contract SliceTokenTest is Helper {
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
         // call mint
-        bytes32 mintId = sliceToken.manualMint(2);
+        bytes32 mintId = sliceToken.mint(2);
 
         // verify that SliceMinted event emitted
         vm.expectEmit(true, true, false, false);
@@ -175,7 +175,7 @@ contract SliceTokenTest is Helper {
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
 
         // call mint
-        bytes32 mintId = sliceToken.manualMint(1 ether);
+        bytes32 mintId = sliceToken.mint(1 ether);
         vm.stopPrank();
 
         vm.startPrank(users[1]);
@@ -198,7 +198,7 @@ contract SliceTokenTest is Helper {
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
 
-        bytes32 mintId = sliceToken.manualMint(2);
+        bytes32 mintId = sliceToken.mint(2);
 
         coreMock.mintComplete(mintId, address(sliceToken));
 
@@ -226,9 +226,9 @@ contract SliceTokenTest is Helper {
     }
 
     /* =========================================================== */
-    /*   ==================    manualMint   ===================    */
+    /*   =====================    mint   ======================    */
     /* =========================================================== */
-    function test_ManualMint() public {
+    function test_mint() public {
         vm.startPrank(dev);
 
         deal(address(weth), address(dev), wethUnits);
@@ -243,7 +243,7 @@ contract SliceTokenTest is Helper {
         vm.expectEmit(true, true, true, false);
         emit IERC20.Transfer(address(0), dev, 1 ether);
 
-        bytes32 mintId = token.manualMint(1 ether);
+        bytes32 mintId = token.mint(1 ether);
         assertNotEq(bytes32(0), mintId);
 
         uint256 tokenBalance = token.balanceOf(dev);
@@ -263,12 +263,12 @@ contract SliceTokenTest is Helper {
         vm.stopPrank();
     }
 
-    function test_CannotManualMint_ZeroTokenQuantity() public {
+    function test_CannotMint_ZeroTokenQuantity() public {
         vm.expectRevert(bytes4(keccak256("ZeroTokenQuantity()")));
-        token.manualMint(0);
+        token.mint(0);
     }
 
-    function test_CannotManualMint_InsufficientTokenQuantity() public {
+    function test_CannotMint_InsufficientTokenQuantity() public {
         Position memory _position = Position({
             chainId: 1,
             token: 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599,
@@ -279,7 +279,7 @@ contract SliceTokenTest is Helper {
 
         SliceToken sliceToken = new SliceToken("TEST 3", "T3", positions, address(core));
         vm.expectRevert(bytes4(keccak256("InsufficientTokenQuantity()")));
-        sliceToken.manualMint(1);
+        sliceToken.mint(1);
     }
 
     /* =========================================================== */
@@ -294,7 +294,7 @@ contract SliceTokenTest is Helper {
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
 
-        token.manualMint(1 ether);
+        token.mint(1 ether);
 
         uint256 balanceBeforeRedeem = token.balanceOf(dev);
         assertEq(1000000000000000000, balanceBeforeRedeem);
@@ -341,7 +341,7 @@ contract SliceTokenTest is Helper {
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
 
-        token.manualMint(1 ether);
+        token.mint(1 ether);
 
         token.transfer(users[1], 1 ether);
     }
@@ -371,7 +371,7 @@ contract SliceTokenTest is Helper {
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
         // call mint
-        bytes32 mintId = sliceToken.manualMint(1000000000000000000);
+        bytes32 mintId = sliceToken.mint(1000000000000000000);
 
         coreMock.mintComplete(mintId, address(sliceToken));
 
@@ -398,7 +398,7 @@ contract SliceTokenTest is Helper {
 
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
-        bytes32 _mintID = sliceToken.manualMint(1000000000000000000);
+        bytes32 _mintID = sliceToken.mint(1000000000000000000);
 
         coreMock.mintComplete(_mintID, address(sliceToken));
 
@@ -440,7 +440,7 @@ contract SliceTokenTest is Helper {
 
         coreMock.setToken(address(sliceToken));
         usdc.approve(address(sliceToken), MAX_ESTIMATED_PRICE * 10);
-        bytes32 _mintID = sliceToken.manualMint(1000000000000000000);
+        bytes32 _mintID = sliceToken.mint(1000000000000000000);
 
         coreMock.mintComplete(_mintID, address(sliceToken));
 
@@ -465,7 +465,7 @@ contract SliceTokenTest is Helper {
         assertTrue(success);
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
 
-        bytes32 mintID = ccToken.manualMint(1 ether);
+        bytes32 mintID = ccToken.mint(1 ether);
         vm.stopPrank();
 
         // switch to slice core
@@ -494,7 +494,7 @@ contract SliceTokenTest is Helper {
         assertTrue(success);
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
 
-        bytes32 mintID = ccToken.manualMint(1 ether);
+        bytes32 mintID = ccToken.mint(1 ether);
         vm.stopPrank();
 
         // switch to slice core
@@ -516,7 +516,7 @@ contract SliceTokenTest is Helper {
         (bool success,) = address(core).call{value: 1 ether}("");
         assertTrue(success);
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
-        bytes32 mintID = ccToken.manualMint(1 ether);
+        bytes32 mintID = ccToken.mint(1 ether);
         vm.stopPrank();
 
         vm.expectRevert(bytes4(keccak256("NotSliceCore()")));
@@ -539,7 +539,7 @@ contract SliceTokenTest is Helper {
         (bool success,) = address(core).call{value: 1 ether}("");
         assertTrue(success);
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
-        bytes32 mintID = ccToken.manualMint(1 ether);
+        bytes32 mintID = ccToken.mint(1 ether);
         vm.stopPrank();
 
         vm.startPrank(address(core));
@@ -562,7 +562,7 @@ contract SliceTokenTest is Helper {
         (bool success,) = address(core).call{value: 1 ether}("");
         assertTrue(success);
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
-        bytes32 mintID = ccToken.manualMint(1 ether);
+        bytes32 mintID = ccToken.mint(1 ether);
         vm.stopPrank();
 
         // call mint failed
@@ -611,7 +611,7 @@ contract SliceTokenTest is Helper {
         (bool success,) = address(core).call{value: 1 ether}("");
         assertTrue(success);
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
-        bytes32 mintID = ccToken.manualMint(1 ether);
+        bytes32 mintID = ccToken.mint(1 ether);
 
         vm.expectRevert(bytes4(keccak256("InvalidTransactionState()")));
         ccToken.refund(mintID);
@@ -629,7 +629,7 @@ contract SliceTokenTest is Helper {
         (bool success,) = address(core).call{value: 1 ether}("");
         assertTrue(success);
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
-        bytes32 mintID = ccToken.manualMint(1 ether);
+        bytes32 mintID = ccToken.mint(1 ether);
         vm.stopPrank();
 
         // call mint failed
@@ -692,7 +692,7 @@ contract SliceTokenTest is Helper {
         (bool success,) = address(core).call{value: 1 ether}("");
         assertTrue(success);
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
-        bytes32 mintID = ccToken.manualMint(1 ether);
+        bytes32 mintID = ccToken.mint(1 ether);
         vm.stopPrank();
 
         vm.prank(address(core));

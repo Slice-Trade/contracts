@@ -45,7 +45,7 @@ contract SliceToken is ISliceToken, ERC20 {
         posIdx[_positions[0].token] = 0;
 
         for (uint256 i = 1; i < _positions.length; i++) {
-            // check that the positions are ordered by chain ID -> will make it cheaper to group lz msgs
+            // check that the positions are ordered by chain ID -> will make it easier to group CrossChainSignals
             if (_positions[i].chainId < _positions[i - 1].chainId) {
                 revert UnorderedChainIds();
             }
@@ -85,13 +85,13 @@ contract SliceToken is ISliceToken, ERC20 {
     }
 
     /**
-     * @dev See ISliceToken - manualMint
+     * @dev See ISliceToken - mint
      */
-    function manualMint(uint256 _sliceTokenQuantity) external payable returns (bytes32) {
+    function mint(uint256 _sliceTokenQuantity) external payable returns (bytes32) {
         verifySliceTokenQuantity(_sliceTokenQuantity);
 
         bytes32 mintId = keccak256(
-            abi.encodePacked(this.manualMint.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp)
+            abi.encodePacked(this.mint.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp)
         );
 
         SliceTransactionInfo memory txInfo = SliceTransactionInfo({
