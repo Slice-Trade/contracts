@@ -30,7 +30,7 @@ contract SliceCoreMock {
     /**
      * @dev See ISliceCore - purchaseUnderlyingAssets
      */
-    function collectUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity) external payable {}
+    function collectUnderlying(bytes32 _mintID) external payable {}
 
     /**
      * @dev See ISliceCore - redeemUnderlying

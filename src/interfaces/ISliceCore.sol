@@ -37,9 +37,8 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
      * @dev Transfers the underlying assets from the user to the contract
      *
      * @param _mintID The ID that uniquely identifies this mint transaction within the system
-     * @param _sliceTokenQuantity The quantity of slice tokens to mint to the user
      */
-    function collectUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity) external payable;
+    function collectUnderlying(bytes32 _mintID) external payable;
 
     /**
      * @dev Transfers out the underlying assets for a given Slice token to the given user.

@@ -255,9 +255,9 @@ contract SliceCoreTest is Helper {
     }
 
     /* =========================================================== */
-    /*   ============   collectUnderlyingAssets   =============    */
+    /*   ===============   collectUnderlying   ================    */
     /* =========================================================== */
-    function test_CollectUnderlyingAssets() public {
+    function test_CollectUnderlying() public {
         deal(address(weth), address(dev), wethUnits);
         deal(address(link), address(dev), linkUnits);
         deal(address(wbtc), address(dev), wbtcUnits);
@@ -294,7 +294,7 @@ contract SliceCoreTest is Helper {
         vm.stopPrank();
     }
 
-    function test_CollectUnderlyingAssets_Fuzz(uint256 sliceTokenAmount) public {
+    function test_CollectUnderlying_Fuzz(uint256 sliceTokenAmount) public {
         vm.assume(sliceTokenAmount < 1000 ether);
 
         uint256 minBtcUnits = CrossChainData.getMinimumAmountInSliceToken(8);
@@ -340,7 +340,7 @@ contract SliceCoreTest is Helper {
         vm.stopPrank();
     }
 
-    function test_CollectUnderlyingAssets_CrossChain() public {
+    function test_CollectUnderlying_CrossChain() public {
         (bytes32 mintId,) = _mintCrossChain();
         assertNotEq(bytes32(0), mintId);
 
@@ -348,7 +348,7 @@ contract SliceCoreTest is Helper {
         assertEq(1 ether, tokenBalance);
     }
 
-    function test_CollectUnderlyingAssets_CrossChain_Fuzz(uint256 sliceTokenAmount) public {
+    function test_CollectUnderlying_CrossChain_Fuzz(uint256 sliceTokenAmount) public {
         vm.assume(sliceTokenAmount < 1000 ether);
 
         uint256 minBtcUnits = CrossChainData.getMinimumAmountInSliceToken(8);
@@ -362,7 +362,7 @@ contract SliceCoreTest is Helper {
         assertEq(sliceTokenAmount, tokenBalance);
     }
 
-    function test_CollectUnderlyingAssets_HighDecimals() public {
+    function test_CollectUnderlying_HighDecimals() public {
         vm.startPrank(dev);
         TokenMock tokenMock = new TokenMock("Test", "T");
         uint256 mockTokenUnits = 10 ** 24;
@@ -395,20 +395,20 @@ contract SliceCoreTest is Helper {
         assertEq(mockTokenUnits, coreMockTokenBalance);
     }
 
-    function test_Cannot_CollectUnderlyingAssets_NotRegisteredSliceToken() public {
+    function test_Cannot_CollectUnderlying_NotRegisteredSliceToken() public {
         vm.expectRevert(bytes4(keccak256("UnregisteredSliceToken()")));
-        core.collectUnderlyingAssets(bytes32(0), 1 ether);
+        core.collectUnderlying(bytes32(0));
     }
 
-    function test_Cannot_CollectUnderlyingAssets_InvalidMintId() public {
+    function test_Cannot_CollectUnderlying_InvalidMintId() public {
         vm.prank(address(token));
 
         vm.expectRevert(bytes4(keccak256("MintIdDoesNotExist()")));
 
-        core.collectUnderlyingAssets(bytes32(0), 1 ether);
+        core.collectUnderlying(bytes32(0));
     }
 
-    function test_Cannot_CollectUnderlyingAssets_LocalAssetTransferFailed_NoFunds() public {
+    function test_Cannot_CollectUnderlying_LocalAssetTransferFailed_NoFunds() public {
         vm.startPrank(dev);
 
         weth.approve(address(core), wethUnits);
@@ -421,7 +421,7 @@ contract SliceCoreTest is Helper {
         vm.stopPrank();
     }
 
-    function test_Cannot_CollectUnderlyingAssets_LocalAssetTransferFailed_NotApproved() public {
+    function test_Cannot_CollectUnderlying_LocalAssetTransferFailed_NotApproved() public {
         deal(address(weth), address(dev), wethUnits);
         deal(address(weth), address(dev), linkUnits);
         deal(address(wbtc), address(dev), wbtcUnits);
@@ -433,7 +433,7 @@ contract SliceCoreTest is Helper {
         token.mint(1 ether);
     }
 
-    function test_Cannot_CollectUnderlyingAssets_NoLzPeer() public {
+    function test_Cannot_CollectUnderlying_NoLzPeer() public {
         vm.startPrank(dev);
 
         Position memory ccPos2 = Position(56, address(wmaticPolygon), 18, wmaticUnits);

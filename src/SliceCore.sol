@@ -97,9 +97,9 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     }
 
     /**
-     * @dev See ISliceCore - collectUnderlyingAssets
+     * @dev See ISliceCore - collectUnderlying
      */
-    function collectUnderlyingAssets(bytes32 _mintID, uint256 _sliceTokenQuantity) external payable nonReentrant {
+    function collectUnderlying(bytes32 _mintID) external payable nonReentrant {
         // check that slice token (msg.sender) is registered
         if (!registeredSliceTokens[msg.sender]) {
             revert UnregisteredSliceToken();
@@ -109,6 +109,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         if (txInfo.id != _mintID || txInfo.id == bytes32(0)) {
             revert MintIdDoesNotExist();
         }
+
+        uint256 _sliceTokenQuantity = txInfo.quantity;
 
         transactionCompleteSignals[_mintID].token = msg.sender;
         transactionCompleteSignals[_mintID].sliceTokenQuantity = _sliceTokenQuantity;

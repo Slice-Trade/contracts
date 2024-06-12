@@ -103,7 +103,7 @@ contract SliceToken is ISliceToken, ERC20 {
 
         mints[mintId] = txInfo;
 
-        ISliceCore(sliceCore).collectUnderlyingAssets{value: msg.value}(mintId, _sliceTokenQuantity);
+        ISliceCore(sliceCore).collectUnderlying{value: msg.value}(mintId);
 
         return mintId;
     }
