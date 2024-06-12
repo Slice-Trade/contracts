@@ -16,38 +16,39 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
     /**
      * @dev Deploys a new Slice token contract. Can only be called by verified addresses.
      *
-     * @param _positions The Slice token's underlying positions
+     * @param positions The Slice token's underlying positions
      *
      * @return address The address of the new slice token
      */
-    function createSlice(string calldata _name, string calldata _symbol, Position[] calldata _positions)
+    function createSlice(string calldata name, string calldata symbol, Position[] calldata positions)
         external
         returns (address);
-
-    /**
-     * @dev Returns whether a given address is authorized to create a Slice token.
-     *
-     * @param _user The address of the user
-     *
-     * @return bool Whether the address can create slice tokens
-     */
-    function canCreateSlice(address _user) external view returns (bool);
-
+    
     /**
      * @dev Transfers the underlying assets from the user to the contract
      *
-     * @param _mintID The ID that uniquely identifies this mint transaction within the system
+     * @param mintID The ID that uniquely identifies this mint transaction within the system
      */
-    function collectUnderlying(bytes32 _mintID) external payable;
+    function collectUnderlying(bytes32 mintID) external payable;
 
     /**
      * @dev Transfers out the underlying assets for a given Slice token to the given user.
      *
-     * @param _redeemID The ID that uniquely identifies this transaction within the system
+     * @param redeemID The ID that uniquely identifies this transaction within the system
      */
-    function redeemUnderlying(bytes32 _redeemID) external payable;
+    function redeemUnderlying(bytes32 redeemID) external payable;
 
-    function refund(SliceTransactionInfo memory _txInfo) external payable;
+    function refund(SliceTransactionInfo memory txInfo) external payable;
+    /**
+     * @dev Returns whether a given address is authorized to create a Slice token.
+     *
+     * @param user The address of the user
+     *
+     * @return bool Whether the address can create slice tokens
+     */
+    function canCreateSlice(address user) external view returns (bool);
+
+
 
     /**
      * @dev Enables/disables the creation of new Slice tokens. Can only be called by contract owner.
@@ -59,10 +60,10 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
     /**
      * @dev Adds or removes an address from the list of addresses that can create new Slice tokens
      *
-     * @param _user The address to approve/remove
-     * @param _isApproved Whether to approve/disapprove
+     * @param user The address to approve/remove
+     * @param isApproved Whether to approve/disapprove
      */
-    function changeApprovedSliceTokenCreator(address _user, bool _isApproved) external;
+    function changeApprovedSliceTokenCreator(address user, bool isApproved) external;
 
     /**
      * @dev Returns the number of Slice tokens registered (created) in the contract.
@@ -81,18 +82,18 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
     /**
      * @dev Returns a registered Slice token at the given index.
      *
-     * @param _idx The index in the registeredSliceTokens array.
+     * @param idx The index in the registeredSliceTokens array.
      *
      * @return address The address of the slice token at the given index
      */
-    function getRegisteredSliceToken(uint256 _idx) external view returns (address);
+    function getRegisteredSliceToken(uint256 idx) external view returns (address);
 
     /**
      * @dev Returns whether a given address is a registered slice token or not.
      *
-     * @param _token The address to check
+     * @param token The address to check
      *
      * @return bool Whether the address is a registered slice token
      */
-    function isSliceTokenRegistered(address _token) external view returns (bool);
+    function isSliceTokenRegistered(address token) external view returns (bool);
 }

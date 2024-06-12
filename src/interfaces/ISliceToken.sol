@@ -30,44 +30,44 @@ interface ISliceToken is IERC20 {
     /**
      * @dev Called by the SliceCore contract when a mint transaction is confirmed completed by all the cross-chain contracts
      *
-     * @param _mintID The ID that uniquely identifies this transaction within the system
+     * @param mintID The ID that uniquely identifies this transaction within the system
      */
-    function mintComplete(bytes32 _mintID) external;
+    function mintComplete(bytes32 mintID) external;
 
     /**
      * @dev Redeems the underlying assets in a Slice token and burns the Slice token.
      *
-     * @param _sliceTokenQuantity The quantity of slice tokens to redeem
+     * @param sliceTokenQuantity The quantity of slice tokens to redeem
      *
      * @return bytes32 The redeem ID
      */
-    function redeem(uint256 _sliceTokenQuantity) external payable returns (bytes32);
+    function redeem(uint256 sliceTokenQuantity) external payable returns (bytes32);
 
     /**
      * @dev Called by the SliceCore contract when a redeem transaction is confirmed completed by all the cross-chain contracts
      *
-     * @param _redeemID The ID that uniquely identifies this transaction within the system
+     * @param redeemID The ID that uniquely identifies this transaction within the system
      */
-    function redeemComplete(bytes32 _redeemID) external;
+    function redeemComplete(bytes32 redeemID) external;
 
     /**
      * @dev Mints a new Slice token using the manual mint flow - assuming the underlying assets are in the user wallet and approved to spend
      *
-     * @param _sliceTokenQuantity The quantity of slice tokens to mint
+     * @param sliceTokenQuantity The quantity of slice tokens to mint
      *
      * @return bytes32 The mint ID
      */
-    function mint(uint256 _sliceTokenQuantity) external payable returns (bytes32);
+    function mint(uint256 sliceTokenQuantity) external payable returns (bytes32);
 
     /**
      * @dev Called by the SliceCore contract when a manual mint transaction has failed
-     * @param _mintID The ID that uniquely identifies this transaction within the system
+     * @param mintID The ID that uniquely identifies this transaction within the system
      */
-    function mintFailed(bytes32 _mintID) external;
+    function mintFailed(bytes32 mintID) external;
 
-    function refund(bytes32 _mintID) external payable;
+    function refund(bytes32 mintID) external payable;
 
-    function refundComplete(bytes32 _mintID) external;
+    function refundComplete(bytes32 mintID) external;
 
     /**
      * @dev Returns the Slice token's underlying positions
@@ -86,22 +86,22 @@ interface ISliceToken is IERC20 {
     /**
      * @dev Returns the Mint transaction info for the given ID
      *
-     * @param _id The mint ID
+     * @param id The mint ID
      *
      * @return SliceTransactionInfo Struct holding the information about the mint
      */
-    function getMint(bytes32 _id) external view returns (SliceTransactionInfo memory);
+    function getMint(bytes32 id) external view returns (SliceTransactionInfo memory);
 
     /**
      * @dev Returns the Redeem transaction info for the given ID
      *
-     * @param _id The redeem ID
+     * @param id The redeem ID
      *
      * @return SliceTransactionInfo Struct holding the information about the mint
      */
-    function getRedeem(bytes32 _id) external view returns (SliceTransactionInfo memory);
+    function getRedeem(bytes32 id) external view returns (SliceTransactionInfo memory);
 
-    function getPosIdx(address _token) external view returns (uint256);
+    function getPosIdx(address token) external view returns (uint256);
 
-    function getPosAtIdx(uint256 _idx) external view returns (Position memory);
+    function getPosAtIdx(uint256 idx) external view returns (Position memory);
 }
