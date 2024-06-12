@@ -17,8 +17,6 @@ import "forge-std/src/console.sol";
  * @notice ERC20 contract providing exposure to a basket of underlying assets
  */
 contract SliceToken is ISliceToken, ERC20 {
-    IERC20 public immutable paymentToken;
-
     address public immutable sliceCore;
     Position[] public positions;
     mapping(address => uint256) public posIdx;
@@ -100,8 +98,7 @@ contract SliceToken is ISliceToken, ERC20 {
             id: mintId,
             quantity: _sliceTokenQuantity,
             user: msg.sender,
-            state: TransactionState.OPEN,
-            data: bytes("")
+            state: TransactionState.OPEN
         });
 
         mints[mintId] = txInfo;
@@ -157,8 +154,7 @@ contract SliceToken is ISliceToken, ERC20 {
             id: redeemID,
             quantity: _sliceTokenQuantity,
             user: msg.sender,
-            state: TransactionState.OPEN,
-            data: bytes("")
+            state: TransactionState.OPEN
         });
 
         // record redeem ID + tx info

@@ -855,8 +855,7 @@ contract SliceCoreTest is Helper {
             id: bytes32(0),
             quantity: 1 ether,
             user: dev,
-            state: TransactionState.OPEN,
-            data: bytes("")
+            state: TransactionState.OPEN
         });
 
         vm.prank(address(token));
