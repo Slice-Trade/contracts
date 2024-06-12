@@ -85,3 +85,60 @@ The refund steps are as follows:
 8. When all the LayerZero messages are received, the state of the mint is updated to `REFUNDED`
 
 ![Refund](https://github.com/Slice-Trade/contracts/assets/44027725/5cc0bd56-7cef-498f-9e3f-10f45e523030)
+
+# Getting started
+## Requirements
+- [foundry](https://getfoundry.sh/)     
+  To install foundry:
+  ```bash
+  curl -L https://foundry.paradigm.xyz | bash
+  ```
+  Follow the instructions on screen then run:
+  ```bash
+  foundryup
+  ```
+
+## Quickstart
+```bash
+git clone https://github.com/Slice-Trade/contracts.git
+cd contracts
+make
+```
+
+## Usage
+### Testing
+```bash
+forge test
+```
+### Coverage
+```bash
+forge coverage
+```
+
+### Deploying to testnets
+```bash
+cp .env.sample .env
+```
+- Update the variables in the `.env` file with your own RPC URLs, key, etc.
+- Add executable permissions to the deploy script and then deploy to Optimism Sepolia testnet:
+```bash
+chmod +x deploy.sh && ./deploy.sh op-sepolia
+```
+- Deploy to Base Sepolia testnet:
+```bash
+./deploy.sh base-sepolia
+```
+
+## Compatibilities
+- Solc version: 0.8.26
+- Chains to deploy contracts to: Ethereum Mainnet, Optimism, Base,
+
+## Roles
+- **Owner**: The deployer of the `SliceCore.sol` contract. Using OpenZeppelin `Ownable.sol` for ownership. 
+  The owner can do the following:
+  - turn Slice token creation on or off
+  - approve and revoke approval for an address to create Slice tokens
+  - update the gas values used in the options for the cross-chain LayerZero messages
+
+- **Slice token creator**: Granted by the owner, this role can deploy a new Slice token by calling `createSlice` on the `SliceCore.sol` contract
+- **User**: Can execute `mint`, `redeem`, and `refund` on `SliceToken.sol` and the `external view` functions on `SliceToken.sol` and `SliceCore.sol`
