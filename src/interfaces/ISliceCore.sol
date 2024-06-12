@@ -38,7 +38,13 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
      */
     function redeemUnderlying(bytes32 redeemID) external payable;
 
+    /**
+     * @dev Handles the refund procedure for a failed mint
+     *
+     * @param txInfo The transaction info struct for the failed mint
+     */
     function refund(SliceTransactionInfo memory txInfo) external payable;
+    
     /**
      * @dev Returns whether a given address is authorized to create a Slice token.
      *
@@ -47,8 +53,6 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
      * @return bool Whether the address can create slice tokens
      */
     function canCreateSlice(address user) external view returns (bool);
-
-
 
     /**
      * @dev Enables/disables the creation of new Slice tokens. Can only be called by contract owner.

@@ -224,7 +224,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
     }
 
-    function refund(SliceTransactionInfo memory txInfo) external payable nonReentrant {
+    function refund(SliceTransactionInfo calldata txInfo) external payable nonReentrant {
         if (!isSliceTokenRegistered(msg.sender)) {
             revert UnregisteredSliceToken();
         }

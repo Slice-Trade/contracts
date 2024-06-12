@@ -266,8 +266,8 @@ contract SliceToken is ISliceToken, ERC20 {
         return redeems[id];
     }
 
-    function getPosIdx(address token) external view returns (uint256) {
-        return posIdx[token];
+    function getPosIdx(address underlyingAsset) external view returns (uint256) {
+        return posIdx[underlyingAsset];
     }
 
     function getPosAtIdx(uint256 idx) external view returns (Position memory) {
