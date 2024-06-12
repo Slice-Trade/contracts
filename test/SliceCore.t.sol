@@ -270,7 +270,7 @@ contract SliceCoreTest is Helper {
 
         vm.expectEmit(true, true, true, false);
         // verify that event is emitted
-        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1 ether, dev);
+        emit ISliceCore.UnderlyingAssetsCollected(address(token), 1 ether, dev);
 
         token.mint(1 ether);
 
@@ -316,7 +316,7 @@ contract SliceCoreTest is Helper {
 
         vm.expectEmit(true, true, true, false);
         // verify that event is emitted
-        emit ISliceCore.UnderlyingAssetsProcured(address(token), sliceTokenAmount, dev);
+        emit ISliceCore.UnderlyingAssetsCollected(address(token), sliceTokenAmount, dev);
 
         token.mint(sliceTokenAmount);
 
@@ -1127,7 +1127,7 @@ contract SliceCoreTest is Helper {
 
         // verify that mint is complete
         vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), 1 ether, dev);
+        emit ISliceCore.UnderlyingAssetsCollected(address(ccToken), 1 ether, dev);
 
         vm.prank(getAddress("mainnet.layerZeroEndpoint"));
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));
@@ -1225,7 +1225,7 @@ contract SliceCoreTest is Helper {
 
         // verify that mint is complete
         vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsProcured(address(ccToken), sliceTokenAmount, dev);
+        emit ISliceCore.UnderlyingAssetsCollected(address(ccToken), sliceTokenAmount, dev);
 
         vm.prank(getAddress("mainnet.layerZeroEndpoint"));
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));

@@ -238,7 +238,7 @@ contract SliceTokenTest is Helper {
         link.approve(address(core), linkUnits);
 
         vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsProcured(address(token), 1 ether, dev);
+        emit ISliceCore.UnderlyingAssetsCollected(address(token), 1 ether, dev);
 
         vm.expectEmit(true, true, true, false);
         emit IERC20.Transfer(address(0), dev, 1 ether);

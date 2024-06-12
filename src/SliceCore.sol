@@ -19,7 +19,7 @@ import {CrossChainData} from "./libs/CrossChainData.sol";
 import {SliceToken, ISliceToken} from "./SliceToken.sol";
 
 import "./Structs.sol";
- 
+
 /**
  * @author Lajos Deme, Blind Labs
  * @notice The core logic contract of the architecture, provides cross-chain underlying asset management
@@ -153,7 +153,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
 
         if (checkPendingTransactionCompleteSignals(_mintID)) {
-            emit UnderlyingAssetsProcured({
+            emit UnderlyingAssetsCollected({
                 token: msg.sender,
                 sliceTokenQuantity: _sliceTokenQuantity,
                 owner: txInfo.user
@@ -369,7 +369,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             transactionCompleteSignals[ccs[i].id].positionsOkIdxs.push(_posIdx);
 
             if (checkPendingTransactionCompleteSignals(ccs[i].id)) {
-                emit UnderlyingAssetsProcured({
+                emit UnderlyingAssetsCollected({
                     token: txCompleteSignals.token,
                     sliceTokenQuantity: txCompleteSignals.sliceTokenQuantity,
                     owner: txCompleteSignals.user

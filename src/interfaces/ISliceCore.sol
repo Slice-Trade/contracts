@@ -9,7 +9,7 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
     /* Emitted when a new slice token is created */
     event SliceTokenCreated(address indexed token);
     /* Emitted when the underlying assets of a Slice token are purchased or transferred during a Slice token mint or manual mint */
-    event UnderlyingAssetsProcured(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
+    event UnderlyingAssetsCollected(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
     /* Emitted when the underlying assets in a Slice token are redeemed by a Slice token owner */
     event UnderlyingAssetsRedeemed(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
 

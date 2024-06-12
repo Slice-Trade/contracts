@@ -29,6 +29,8 @@ contract SliceToken is ISliceToken, ERC20 {
 
     mapping(address user => uint256 lockedAmount) public locked;
 
+    mapping(address => uint256) public nonces;
+
     modifier onlySliceCore() {
         if (msg.sender != sliceCore) {
             revert NotSliceCore();
@@ -90,8 +92,10 @@ contract SliceToken is ISliceToken, ERC20 {
     function mint(uint256 _sliceTokenQuantity) external payable returns (bytes32) {
         verifySliceTokenQuantity(_sliceTokenQuantity);
 
+        uint256 nonce = nonces[msg.sender]++;
+
         bytes32 mintId = keccak256(
-            abi.encodePacked(this.mint.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp)
+            abi.encodePacked(this.mint.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp, nonce)
         );
 
         SliceTransactionInfo memory txInfo = SliceTransactionInfo({
@@ -144,9 +148,11 @@ contract SliceToken is ISliceToken, ERC20 {
         // lock the given amount of tokens in the users balance (can't be transferred)
         locked[msg.sender] += _sliceTokenQuantity;
 
+        uint256 nonce = nonces[msg.sender]++;
+
         // create redeem ID
         bytes32 redeemID = keccak256(
-            abi.encodePacked(this.redeem.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp)
+            abi.encodePacked(this.redeem.selector, msg.sender, address(this), _sliceTokenQuantity, block.timestamp, nonce)
         );
 
         // create tx info
