@@ -99,7 +99,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     /**
      * @dev See ISliceCore - collectUnderlying
      */
-    function collectUnderlying(bytes32 mintID) external payable nonReentrant {
+
+    function collectUnderlying(bytes32 mintID, uint256[] calldata fees) external payable nonReentrant {
         // check that slice token (msg.sender) is registered
         if (!registeredSliceTokens[msg.sender]) {
             revert UnregisteredSliceToken();
@@ -119,13 +120,11 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         // get the underlying positions from the slice token
         Position[] memory positions = ISliceToken(msg.sender).getPositions();
 
-        uint256 len = positions.length;
+        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, positions.length);
 
-        CrossChainSignal[] memory ccMsgs = new CrossChainSignal[](len);
-        uint256 currentChainId;
-        uint256 currentCount;
+        CrossChainSignal[] memory ccMsgs = new CrossChainSignal[](positions.length);
 
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < positions.length; i++) {
             // calc amount out
             uint256 _amountOut =
                 CrossChainData.calculateAmountOutMin(_sliceTokenQuantity, positions[i].units, positions[i].decimals);
@@ -143,12 +142,11 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                     success: false,
                     user: txInfo.user,
                     underlying: positions[i].token,
-                    units: _amountOut
+                    units: _amountOut,
+                    value: 0
                 });
 
-                (ccMsgs, currentChainId, currentCount) = groupAndSendLzMsg(
-                    ccMsgs, currentChainId, currentCount, i, len, CrossChainSignalType.MINT, ccs, positions[i]
-                );
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, i, ccs, positions[i], lzMsgInfo, fees);
             }
         }
 
@@ -165,7 +163,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     /**
      * @dev See ISliceCore - redeemUnderlying
      */
-    function redeemUnderlying(bytes32 redeemID) external payable nonReentrant {
+    function redeemUnderlying(bytes32 redeemID, uint256[] calldata fees) external payable nonReentrant {
         // check that slice token (msg.sender) is registered
         if (!registeredSliceTokens[msg.sender]) {
             revert UnregisteredSliceToken();
@@ -189,8 +187,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         uint256 len = positions.length;
 
         CrossChainSignal[] memory ccMsgs = new CrossChainSignal[](len);
-        uint256 currentChainId;
-        uint256 currentCount;
+        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, len);
 
         for (uint256 i = 0; i < len; i++) {
             uint256 _amount =
@@ -208,12 +205,11 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                     success: false,
                     user: txInfo.user,
                     underlying: positions[i].token,
-                    units: _amount
+                    units: _amount,
+                    value: 0
                 });
 
-                (ccMsgs, currentChainId, currentCount) = groupAndSendLzMsg(
-                    ccMsgs, currentChainId, currentCount, i, len, CrossChainSignalType.REDEEM, ccs, positions[i]
-                );
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, i, ccs, positions[i], lzMsgInfo, fees);
             }
         }
 
@@ -224,7 +220,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
     }
 
-    function refund(SliceTransactionInfo calldata txInfo) external payable nonReentrant {
+    function refund(SliceTransactionInfo calldata txInfo, uint256[] calldata fees) external payable nonReentrant {
         if (!isSliceTokenRegistered(msg.sender)) {
             revert UnregisteredSliceToken();
         }
@@ -243,7 +239,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             revert NotAllCrossChainSignalsReceived();
         }
 
-        _refund(_txCompleteSignal, txInfo, _positions);
+        _refund(_txCompleteSignal, txInfo, _positions, fees);
 
         // check that all the failed transfers have been refunded
         bool _allTransfersRefunded = _txCompleteSignal.signalsOk == refundSignals[txInfo.id];
@@ -329,6 +325,9 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
 
         CrossChainSignal[] memory ccs = abi.decode(payload, (CrossChainSignal[]));
+
+        require(msg.value >= ccs[0].value, "Not enough msg value provided");
+
         // array will always only contain msgs of one type
         CrossChainSignalType ccsType = ccs[0].ccsType;
 
@@ -399,7 +398,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                 success: success,
                 user: ccs[i].user,
                 underlying: ccs[i].underlying,
-                units: ccs[i].units
+                units: ccs[i].units,
+                value: 0
             });
 
             ccsResponses[i] = _ccsResponse;
@@ -430,7 +430,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                 success: true,
                 user: address(0),
                 underlying: address(0),
-                units: 0
+                units: 0,
+                value: 0
             });
 
             ccsResponses[i] = _ccsResponse;
@@ -478,7 +479,8 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                 success: true,
                 user: ccs[i].user,
                 underlying: ccs[i].underlying,
-                units: ccs[i].units
+                units: ccs[i].units,
+                value: 0
             });
 
             ccsResponses[i] = _ccsResponse;
@@ -518,53 +520,66 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
     function groupAndSendLzMsg(
         CrossChainSignal[] memory ccMsgs,
-        uint256 currentChainId,
-        uint256 currentCount,
         uint256 currentIdx,
-        uint256 positionsLength,
-        CrossChainSignalType ccsType,
         CrossChainSignal memory ccs,
-        Position memory position
-    ) internal returns (CrossChainSignal[] memory, uint256, uint256) {
-        if (currentChainId == position.chainId) {
-            ccMsgs[currentCount] = ccs;
-            ++currentCount;
+        Position memory position,
+        LzMsgGroupInfo memory lzMsgInfo,
+        uint256[] memory fees
+    ) internal returns (CrossChainSignal[] memory, LzMsgGroupInfo memory) {
+        if (lzMsgInfo.currentChainId == position.chainId) {
+            ccMsgs[lzMsgInfo.currentCount] = ccs;
+            ++lzMsgInfo.currentCount;
         } else {
-            if (currentChainId != 0) {
-                assembly {
-                    mstore(ccMsgs, currentCount)
+            if (lzMsgInfo.currentChainId != 0) {
+                {
+                    uint256 currentCount = lzMsgInfo.currentCount;
+                    assembly {
+                        mstore(ccMsgs, currentCount)
+                    }
                 }
+                ccMsgs[0].value = fees[lzMsgInfo.totalMsgCount];
                 bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
 
-                Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
+                Chain memory dstChain = chainInfo.getChainInfo(lzMsgInfo.currentChainId);
 
-                bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({_gas: lzGasLookup[ccsType], _value: 0});
+                bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({
+                    _gas: lzGasLookup[ccs.ccsType],
+                    _value: uint128(fees[lzMsgInfo.totalMsgCount])
+                });
 
                 _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
 
-                currentCount = 0;
-                currentChainId = position.chainId;
-                ccMsgs = new CrossChainSignal[](positionsLength);
+                lzMsgInfo.currentCount = 0;
+                ++lzMsgInfo.totalMsgCount;
+                lzMsgInfo.currentChainId = position.chainId;
+                ccMsgs = new CrossChainSignal[](lzMsgInfo.positionsLength);
             }
 
-            ccMsgs[currentCount] = ccs;
-            currentChainId = position.chainId;
-            ++currentCount;
+            ccMsgs[lzMsgInfo.currentCount] = ccs;
+            lzMsgInfo.currentChainId = position.chainId;
+            ++lzMsgInfo.currentCount;
         }
         // if it is the last message and we have a chainId in the array we send the message
-        if (currentIdx == positionsLength - 1 && currentCount != 0) {
-            assembly {
-                mstore(ccMsgs, currentCount)
+        if (currentIdx == lzMsgInfo.positionsLength - 1 && lzMsgInfo.currentCount != 0) {
+            {
+                uint256 currentCount = lzMsgInfo.currentCount;
+                assembly {
+                    mstore(ccMsgs, currentCount)
+                }
             }
+            ccMsgs[0].value = fees[lzMsgInfo.totalMsgCount];
             bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
-            Chain memory dstChain = chainInfo.getChainInfo(currentChainId);
+            Chain memory dstChain = chainInfo.getChainInfo(lzMsgInfo.currentChainId);
 
-            bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({_gas: lzGasLookup[ccsType], _value: 0});
+            bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({
+                _gas: lzGasLookup[ccs.ccsType],
+                _value: uint128(fees[lzMsgInfo.totalMsgCount])
+            });
 
             _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
         }
 
-        return (ccMsgs, currentChainId, currentCount);
+        return (ccMsgs, lzMsgInfo);
     }
 
     /* =========================================================== */
@@ -597,11 +612,11 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     function _refund(
         TransactionCompleteSignals memory _txCompleteSignal,
         SliceTransactionInfo memory _txInfo,
-        Position[] memory _positions
+        Position[] memory _positions,
+        uint256[] calldata fees
     ) private {
         CrossChainSignal[] memory ccMsgs = new CrossChainSignal[](_txCompleteSignal.positionsOkIdxs.length);
-        uint256 currentChainId;
-        uint256 currentCount;
+        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, _txCompleteSignal.positionsOkIdxs.length);
 
         // loop through all the positions that have already been transferred to the contract
         for (uint256 i = 0; i < _txCompleteSignal.positionsOkIdxs.length; i++) {
@@ -620,17 +635,16 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                     success: false,
                     user: _txInfo.user,
                     underlying: _positions[i].token,
-                    units: _amountOut
+                    units: _amountOut,
+                    value: 0
                 });
-                (ccMsgs, currentChainId, currentCount) = groupAndSendLzMsg(
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(
                     ccMsgs,
-                    currentChainId,
-                    currentCount,
                     i,
-                    _txCompleteSignal.positionsOkIdxs.length,
-                    CrossChainSignalType.REFUND,
                     ccs,
-                    _positions[i]
+                    _positions[i],
+                    lzMsgInfo,
+                    fees
                 );
             }
         }
