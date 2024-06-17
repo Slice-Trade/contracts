@@ -59,8 +59,6 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         lzGasLookup[CrossChainSignalType.REFUND_COMPLETE] = 200000;
     }
 
-    receive() external payable {}
-
     /* =========================================================== */
     /*   ===================    EXTERNAL   ====================    */
     /* =========================================================== */
@@ -412,7 +410,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         Chain memory srcChain = chainInfo.getChainInfo(ccs[0].srcChainId);
         // send LZ message
-        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded);
+        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded, ccs[0].user);
     }
 
     function handleRedeemSignal(CrossChainSignal[] memory ccs) internal {
@@ -444,7 +442,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         Chain memory srcChain = chainInfo.getChainInfo(ccs[0].srcChainId);
 
-        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded);
+        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded, ccs[0].user);
     }
 
     function handleRedeemCompleteSignal(CrossChainSignal[] memory ccs) internal {
@@ -495,7 +493,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         Chain memory srcChain = chainInfo.getChainInfo(ccs[0].srcChainId);
 
         // send LZ message
-        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded);
+        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded,ccs[0].user);
     }
 
     function handleRefundCompleteSignal(CrossChainSignal[] memory ccs) internal {
@@ -547,7 +545,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                     _value: uint128(fees[lzMsgInfo.totalMsgCount])
                 });
 
-                _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
+                _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded, ccs.user);
 
                 lzMsgInfo.currentCount = 0;
                 ++lzMsgInfo.totalMsgCount;
@@ -576,7 +574,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                 _value: uint128(fees[lzMsgInfo.totalMsgCount])
             });
 
-            _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded);
+            _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded, ccs.user);
         }
 
         return (ccMsgs, lzMsgInfo);
@@ -599,13 +597,12 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     /* =========================================================== */
     /*   ===================    PRIVATE    ====================    */
     /* =========================================================== */
-    function _sendLayerZeroMessage(uint32 _lzEndpointId, bytes memory _lzSendOpts, bytes memory _ccsEncoded) private {
+    function _sendLayerZeroMessage(uint32 _lzEndpointId, bytes memory _lzSendOpts, bytes memory _ccsEncoded, address _refundAddress) private {
         MessagingFee memory _fee = _quote(_lzEndpointId, _ccsEncoded, _lzSendOpts, false);
 
-        //_lzSend(_lzEndpointId, _ccsEncoded, _lzSendOpts, _fee, payable(address(this)));
         endpoint.send{value: _fee.nativeFee}(
             MessagingParams(_lzEndpointId, _getPeerOrRevert(_lzEndpointId), _ccsEncoded, _lzSendOpts, false),
-            payable(address(this))
+            payable(_refundAddress)
         );
     }
 

@@ -491,8 +491,7 @@ contract SliceTokenTest is Helper {
         deal(address(usdc), dev, 10 ether);
         vm.startPrank(dev);
         vm.deal(dev, 100 ether);
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
+
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
         
         uint256[] memory fees = new uint256[](1);
@@ -522,8 +521,7 @@ contract SliceTokenTest is Helper {
         deal(address(usdc), dev, 10 ether);
         vm.startPrank(dev);
         vm.deal(dev, 100 ether);
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
+
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
         
         uint256[] memory fees = new uint256[](1);
@@ -547,8 +545,7 @@ contract SliceTokenTest is Helper {
         deal(address(usdc), dev, 10 ether);
         vm.startPrank(dev);
         vm.deal(dev, 100 ether);
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
+
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
 
         uint256[] memory fees = new uint256[](1);
@@ -573,8 +570,7 @@ contract SliceTokenTest is Helper {
         deal(address(usdc), dev, 10 ether);
         vm.startPrank(dev);
         vm.deal(dev, 100 ether);
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
+
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
         
         uint256[] memory fees = new uint256[](1);
@@ -599,8 +595,7 @@ contract SliceTokenTest is Helper {
         deal(address(usdc), dev, 10 ether);
         vm.startPrank(dev);
         vm.deal(dev, 100 ether);
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
+
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
         
         uint256[] memory fees = new uint256[](1);
@@ -655,8 +650,7 @@ contract SliceTokenTest is Helper {
         deal(address(usdc), dev, 10 ether);
         vm.startPrank(dev);
         vm.deal(dev, 100 ether);
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
+
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
         
         uint256[] memory fees = new uint256[](1);
@@ -677,8 +671,7 @@ contract SliceTokenTest is Helper {
         deal(address(usdc), dev, 10 ether);
         vm.startPrank(dev);
         vm.deal(dev, 100 ether);
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
+
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
        
         uint256[] memory fees = new uint256[](1);
@@ -746,8 +739,7 @@ contract SliceTokenTest is Helper {
         deal(address(usdc), dev, 10 ether);
         vm.startPrank(dev);
         vm.deal(dev, 100 ether);
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
+
         IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(core)))));
         
         uint256[] memory fees = new uint256[](1);

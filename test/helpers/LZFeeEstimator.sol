@@ -6,11 +6,11 @@ import "forge-std/src/console.sol";
 import {MessagingFee} from "@lz-oapp-v2/OApp.sol";
 import {ILayerZeroEndpointV2, MessagingParams} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
 
-import {IChainInfo} from "../interfaces/IChainInfo.sol";
-import {CrossChainData} from "../libs/CrossChainData.sol";
-import {SliceCore} from "../SliceCore.sol";
-import {ISliceToken} from "../SliceToken.sol";
-import "../Structs.sol";
+import {IChainInfo} from "../../src/interfaces/IChainInfo.sol";
+import {CrossChainData} from "../../src/libs/CrossChainData.sol";
+import {SliceCore} from "../../src/SliceCore.sol";
+import {ISliceToken} from "../../src/SliceToken.sol";
+import "../../src/Structs.sol";
 
 contract LZFeeEstimator {
     IChainInfo public immutable chainInfo;

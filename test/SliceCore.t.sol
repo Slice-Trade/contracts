@@ -21,9 +21,8 @@ import {IDeployer} from "../script/IDeployer.sol";
 
 import {TokenMock} from "./mocks/TokenMock.sol";
 
-import {LZFeeEstimator} from "../src/utils/LZFeeEstimator.sol";
+import {LZFeeEstimator} from "./helpers/LZFeeEstimator.sol";
 
-// latest slice core : 0x9d401eBb513AAc7858DdB2E0bb66d8FBa5932FA8
 contract SliceCoreTest is Helper {
     using CrossChainData for SliceCoreTest;
 
@@ -1327,8 +1326,6 @@ contract SliceCoreTest is Helper {
 
         vm.deal(dev, 100 ether);
 
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
         uint256[] memory fees = new uint256[](1);
         fees[0] = 18561664197127658;
 
@@ -1401,8 +1398,6 @@ contract SliceCoreTest is Helper {
 
         vm.deal(dev, 100 ether);
 
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
         uint256[] memory fees = new uint256[](1);
         fees[0] = 18561664197127658;
 
