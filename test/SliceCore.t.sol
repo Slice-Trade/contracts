@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {ILayerZeroEndpointV2, MessagingParams} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
 import {IOAppReceiver, Origin} from "@lz-oapp-v2/interfaces/IOAppReceiver.sol";
 import {IOAppCore} from "@lz-oapp-v2/interfaces/IOAppCore.sol";
 
@@ -20,7 +21,8 @@ import {IDeployer} from "../script/IDeployer.sol";
 
 import {TokenMock} from "./mocks/TokenMock.sol";
 
-// latest slice core : 0x9d401eBb513AAc7858DdB2E0bb66d8FBa5932FA8
+import {LZFeeEstimator} from "./helpers/LZFeeEstimator.sol";
+
 contract SliceCoreTest is Helper {
     using CrossChainData for SliceCoreTest;
 
@@ -201,6 +203,62 @@ contract SliceCoreTest is Helper {
         vm.stopPrank();
     }
 
+    function test_LZFeeEstimator() public {
+        vm.startPrank(dev);
+        Position memory ccPos2 = Position(56, address(wmaticPolygon), 18, wmaticUnits);
+        Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
+
+        ccPositions[0] = ccPos2;
+        ccPositions.push(ccPos2);
+
+        ccPositions.push(ccPos);
+        ccPositions.push(ccPos);
+
+        core.setPeer(30102, bytes32(uint256(uint160(address(core)))));
+
+        address ccTokenAddr2 = core.createSlice("CC Slice", "CC", ccPositions);
+
+        LZFeeEstimator feeEstimator =
+            new LZFeeEstimator(core, core.chainInfo(), ILayerZeroEndpointV2(getAddress("polygon.layerZeroEndpoint")));
+        uint128[] memory testingg = new uint128[](2);
+        testingg[0] = 2000000000000000;
+        testingg[1] = 1000000000000000;
+
+        uint256[] memory fees = feeEstimator.estimateLzFee(ccTokenAddr2, CrossChainSignalType.MINT, testingg);
+        uint256 feeTotal;
+        for (uint256 i = 0; i < fees.length; i++) {
+            feeTotal += fees[i];
+            // TODO Add assertions for fees
+        }
+
+        vm.stopPrank();
+    }
+
+    function test_Cannot_LzReceive_NotEnoughMsgValue() public {
+        CrossChainSignal memory ccs = CrossChainSignal({
+            id: bytes32(0),
+            srcChainId: uint32(block.chainid),
+            ccsType: CrossChainSignalType.REDEEM,
+            success: false,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            units: wmaticUnits,
+            value: 1 ether
+        });
+
+        CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
+        ccsMsgs[0] = ccs;
+
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
+
+        Origin memory origin =
+            Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
+
+        vm.expectRevert("Not enough msg value provided");
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(core).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+    }
+
     /* =========================================================== */
     /*   ==================    createSlice   ==================    */
     /* =========================================================== */
@@ -271,8 +329,8 @@ contract SliceCoreTest is Helper {
         vm.expectEmit(true, true, true, false);
         // verify that event is emitted
         emit ISliceCore.UnderlyingAssetsCollected(address(token), 1 ether, dev);
-
-        token.mint(1 ether);
+        uint256[] memory fees;
+        token.mint(1 ether, fees);
 
         uint256 wethBalance = weth.balanceOf(dev);
         uint256 linkBalance = link.balanceOf(dev);
@@ -317,8 +375,8 @@ contract SliceCoreTest is Helper {
         vm.expectEmit(true, true, true, false);
         // verify that event is emitted
         emit ISliceCore.UnderlyingAssetsCollected(address(token), sliceTokenAmount, dev);
-
-        token.mint(sliceTokenAmount);
+        uint256[] memory fees;
+        token.mint(sliceTokenAmount, fees);
 
         uint256 wethBalance = weth.balanceOf(dev);
         uint256 linkBalance = link.balanceOf(dev);
@@ -386,8 +444,8 @@ contract SliceCoreTest is Helper {
         link.approve(address(core), linkUnits);
         wbtc.approve(address(core), wbtcUnits);
         tokenMock.approve(address(core), mockTokenUnits);
-
-        deployedSliceToken.mint(1 ether);
+        uint256[] memory fees;
+        deployedSliceToken.mint(1 ether, fees);
 
         uint256 mockTokenBalance = tokenMock.balanceOf(dev);
         assertEq(0, mockTokenBalance);
@@ -396,16 +454,17 @@ contract SliceCoreTest is Helper {
     }
 
     function test_Cannot_CollectUnderlying_NotRegisteredSliceToken() public {
+        uint256[] memory fees;
         vm.expectRevert(bytes4(keccak256("UnregisteredSliceToken()")));
-        core.collectUnderlying(bytes32(0));
+        core.collectUnderlying(bytes32(0), fees);
     }
 
     function test_Cannot_CollectUnderlying_InvalidMintId() public {
         vm.prank(address(token));
 
+        uint256[] memory fees;
         vm.expectRevert(bytes4(keccak256("MintIdDoesNotExist()")));
-
-        core.collectUnderlying(bytes32(0));
+        core.collectUnderlying(bytes32(0), fees);
     }
 
     function test_Cannot_CollectUnderlying_LocalAssetTransferFailed_NoFunds() public {
@@ -414,9 +473,9 @@ contract SliceCoreTest is Helper {
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
         wbtc.approve(address(core), wbtcUnits);
-
+        uint256[] memory fees;
         vm.expectRevert();
-        token.mint(1 ether);
+        token.mint(1 ether, fees);
 
         vm.stopPrank();
     }
@@ -427,10 +486,11 @@ contract SliceCoreTest is Helper {
         deal(address(wbtc), address(dev), wbtcUnits);
 
         vm.startPrank(dev);
+        uint256[] memory fees;
 
         vm.expectRevert();
 
-        token.mint(1 ether);
+        token.mint(1 ether, fees);
     }
 
     function test_Cannot_CollectUnderlying_NoLzPeer() public {
@@ -446,10 +506,12 @@ contract SliceCoreTest is Helper {
         ccPositions.push(ccPos);
 
         deal(address(core), 10 ether);
-
+        uint256[] memory fees = new uint256[](2);
+        fees[0] = 1 ether;
+        fees[1] = 1 ether;
         address ccTokenAddr2 = core.createSlice("CC Slice", "CC", ccPositions);
         vm.expectRevert();
-        SliceToken(ccTokenAddr2).mint(1 ether);
+        SliceToken(ccTokenAddr2).mint(1 ether, fees);
     }
 
     function test_CrossChainMessaging() public {
@@ -466,13 +528,16 @@ contract SliceCoreTest is Helper {
 
         core.setPeer(30102, bytes32(uint256(uint160(address(core)))));
 
-        deal(address(core), 10 ether);
+        deal(dev, 100 ether);
 
         address ccTokenAddr2 = core.createSlice("CC Slice", "CC", ccPositions);
 
-        vm.recordLogs();
+        uint256[] memory fees = new uint256[](2);
+        fees[0] = 100;
+        fees[1] = 100;
 
-        SliceToken(ccTokenAddr2).mint(1 ether);
+        vm.recordLogs();
+        SliceToken(ccTokenAddr2).mint{value: 10 ether}(1 ether, fees);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
@@ -484,6 +549,7 @@ contract SliceCoreTest is Helper {
                 CrossChainSignal[] memory signals = abi.decode(packet.message, (CrossChainSignal[]));
                 for (uint256 j = 0; j < signals.length; j++) {
                     console.log(signals[j].srcChainId);
+                    // TODO: Do assertions here for signal params
                 }
             }
         }
@@ -523,13 +589,13 @@ contract SliceCoreTest is Helper {
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
         wbtc.approve(address(core), wbtcUnits);
-
-        token.mint(1 ether);
+        uint256[] memory fees;
+        token.mint(1 ether, fees);
         uint256 wethTokenbalanceBefore = weth.balanceOf(address(core));
         uint256 linkTokenbalanceBefore = link.balanceOf(address(core));
         uint256 wbtcTokenbalanceBefore = wbtc.balanceOf(address(core));
         // call redeem underlying
-        token.redeem(1 ether);
+        token.redeem(1 ether, fees);
 
         // verify that the assets are in the user's wallet and gone from the slice token
         uint256 wethBalance = weth.balanceOf(address(dev));
@@ -571,14 +637,14 @@ contract SliceCoreTest is Helper {
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
         wbtc.approve(address(core), wbtcUnits);
-
-        token.mint(sliceTokenAmount);
+        uint256[] memory fees;
+        token.mint(sliceTokenAmount, fees);
 
         uint256 wethTokenbalanceBefore = weth.balanceOf(address(core));
         uint256 linkTokenbalanceBefore = link.balanceOf(address(core));
         uint256 wbtcTokenbalanceBefore = wbtc.balanceOf(address(core));
         // call redeem underlying
-        token.redeem(sliceTokenAmount);
+        token.redeem(sliceTokenAmount, fees);
 
         uint256 wethBalance = weth.balanceOf(address(dev));
         uint256 linkBalance = link.balanceOf(address(dev));
@@ -603,9 +669,11 @@ contract SliceCoreTest is Helper {
     function test_RedeemUnderlying_CrossChain() public {
         (bytes32 mintId, address polygonCore) = _mintCrossChain();
         assertNotEq(bytes32(0), mintId);
-
         vm.startPrank(dev);
-        bytes32 redeemId = ccToken.redeem(1 ether);
+
+        (, uint256 feeTotal, uint128[] memory fees, uint256[] memory feesForMsgs) =
+            _estimateFee(polygonCore, CrossChainSignalType.REDEEM, CrossChainSignalType.REDEEM_COMPLETE);
+        bytes32 redeemId = ccToken.redeem{value: feeTotal}(1 ether, feesForMsgs);
         assertNotEq(bytes32(0), redeemId);
 
         CrossChainSignal memory ccs = CrossChainSignal({
@@ -615,7 +683,8 @@ contract SliceCoreTest is Helper {
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
-            units: wmaticUnits
+            units: wmaticUnits,
+            value: uint256(fees[0])
         });
 
         CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
@@ -626,10 +695,10 @@ contract SliceCoreTest is Helper {
         makePersistent(address(ccToken));
         // change network
         selectPolygon();
-        deal(address(polygonCore), 100 ether);
+        deal(getAddress("polygon.layerZeroEndpoint"), 100 ether);
         vm.stopPrank();
         vm.prank(getAddress("polygon.layerZeroEndpoint"));
-        IOAppReceiver(polygonCore).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+        IOAppReceiver(polygonCore).lzReceive{value: uint256(fees[0])}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
 
         // verify that asset has been transferred from user to core
         uint256 wmaticBalanceUser = wmaticPolygon.balanceOf(dev);
@@ -645,7 +714,8 @@ contract SliceCoreTest is Helper {
             success: true,
             user: dev,
             underlying: address(wmaticPolygon),
-            units: wmaticUnits
+            units: wmaticUnits,
+            value: 0
         });
 
         ccsMsgs[0] = _ccsResponse2;
@@ -668,16 +738,18 @@ contract SliceCoreTest is Helper {
     }
 
     function test_Cannot_RedeemUnderlying_NotAuthorized() public {
+        uint256[] memory fees;
         // verify that it reverts with the correct reason
         vm.expectRevert(bytes4(keccak256("UnregisteredSliceToken()")));
         // call redeem from not registered slice token
-        core.redeemUnderlying(bytes32(0));
+        core.redeemUnderlying(bytes32(0), fees);
     }
 
     function test_Cannot_RedeemUnderlying_RedeemIdDoesNotExist() public {
+        uint256[] memory fees;
         vm.prank(address(ccToken));
         vm.expectRevert(bytes4(keccak256("RedeemIdDoesNotExist()")));
-        core.redeemUnderlying(bytes32(""));
+        core.redeemUnderlying(bytes32(""), fees);
     }
 
     function test_Cannot_RedeemUnderlying_LocalTransferFailed() public {
@@ -691,14 +763,14 @@ contract SliceCoreTest is Helper {
         link.approve(address(core), linkUnits);
         wbtc.approve(address(core), wbtcUnits);
 
-        token.mint(1 ether);
+        uint256[] memory fees;
+        token.mint(1 ether, fees);
 
         deal(address(weth), address(core), 0);
         deal(address(link), address(core), 0);
         deal(address(wbtc), address(core), 0);
-
         vm.expectRevert();
-        token.redeem(1 ether);
+        token.redeem(1 ether, fees);
     }
 
     /* =========================================================== */
@@ -714,12 +786,11 @@ contract SliceCoreTest is Helper {
         // approve that 1 asset
         vm.startPrank(dev);
         weth.approve(address(core), wethUnits);
-
+        uint256[] memory fees;
         // make sure that the whole process fails with the correct error
         vm.expectRevert();
-
         // make sure that all balances are unchanged
-        token.mint(1 ether);
+        token.mint(1 ether, fees);
     }
 
     function test_Refund_CrossChain_refundLocal() public {
@@ -736,7 +807,8 @@ contract SliceCoreTest is Helper {
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
-            units: wmaticUnits
+            units: wmaticUnits,
+            value: 0
         });
         CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
         ccsMsgs[0] = _ccsResponse2;
@@ -771,7 +843,9 @@ contract SliceCoreTest is Helper {
         vm.expectEmit(true, true, false, false);
         emit ISliceToken.RefundCompleted(dev, 1 ether);
         // do the refund calls
-        ccToken.refund(mintId);
+        (, uint256 totalFees,, uint256[] memory feesForMsgs) =
+            _estimateFee(polygonCore, CrossChainSignalType.REFUND, CrossChainSignalType.REFUND_COMPLETE);
+        ccToken.refund{value: totalFees}(mintId, feesForMsgs);
 
         // get the mint info from the slice token
         SliceTransactionInfo memory txInfo2 = ccToken.getMint(mintId);
@@ -796,7 +870,8 @@ contract SliceCoreTest is Helper {
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
-            units: wmaticUnits
+            units: wmaticUnits,
+            value: 0
         });
 
         CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
@@ -843,23 +918,20 @@ contract SliceCoreTest is Helper {
     function test_Cannot_Refund_NotSliceToken() public {
         // make sure that refund can only be called by slice token
         SliceTransactionInfo memory _txInfo;
+        uint256[] memory fees;
         vm.expectRevert(bytes4(keccak256("UnregisteredSliceToken()")));
-        core.refund(_txInfo);
+        core.refund(_txInfo, fees);
     }
 
     function test_Cannot_Refund_InvalidState() public {
         // make sure that refund can only be called if state is refunding
         vm.expectRevert(bytes4(keccak256("InvalidTransactionState()")));
 
-        SliceTransactionInfo memory _txInfo = SliceTransactionInfo({
-            id: bytes32(0),
-            quantity: 1 ether,
-            user: dev,
-            state: TransactionState.OPEN
-        });
-
+        SliceTransactionInfo memory _txInfo =
+            SliceTransactionInfo({id: bytes32(0), quantity: 1 ether, user: dev, state: TransactionState.OPEN});
+        uint256[] memory fees;
         vm.prank(address(token));
-        core.refund(_txInfo);
+        core.refund(_txInfo, fees);
     }
 
     function test_Cannot_Refund_NotAllCrossChainSignalsReceived() public {
@@ -868,13 +940,14 @@ contract SliceCoreTest is Helper {
         _doFailedMintOnPolygon(mintId);
 
         selectMainnet();
+        uint256[] memory fees;
 
         vm.prank(address(core));
         ccToken.mintFailed(mintId);
 
         // make sure it fails with the correct error
         vm.expectRevert(bytes4(keccak256("NotAllCrossChainSignalsReceived()")));
-        ccToken.refund(mintId);
+        ccToken.refund(mintId, fees);
     }
 
     /* =========================================================== */
@@ -996,9 +1069,9 @@ contract SliceCoreTest is Helper {
         weth.approve(address(core), wethUnits);
         link.approve(address(core), linkUnits);
         wbtc.approve(address(core), wbtcUnits);
-
+        uint256[] memory fees;
         vm.expectRevert();
-        token.mint(1 ether);
+        token.mint(1 ether, fees);
         vm.stopPrank();
     }
 
@@ -1016,7 +1089,8 @@ contract SliceCoreTest is Helper {
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
-            units: wmaticUnits
+            units: wmaticUnits,
+            value: 0
         });
         CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
         ccsMsgs[0] = _ccsResponse2;
@@ -1039,13 +1113,11 @@ contract SliceCoreTest is Helper {
     /* =========================================================== */
     function _mintCrossChain() internal returns (bytes32 mintId, address polygonCore) {
         vm.startPrank(dev);
+        (address pCore, uint256 feeTotal,, uint256[] memory feesForMsgs) =
+            _estimateFee(address(0), CrossChainSignalType.MINT, CrossChainSignalType.MINT_COMPLETE);
+        polygonCore = pCore;
 
-        vm.deal(dev, 100 ether);
-
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
-
-        mintId = ccToken.mint(1 ether);
+        mintId = ccToken.mint{value: feeTotal}(1 ether, feesForMsgs);
         assertNotEq(bytes32(0), mintId);
 
         // prepare cross chain logic
@@ -1056,7 +1128,8 @@ contract SliceCoreTest is Helper {
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
-            units: wmaticUnits
+            units: wmaticUnits,
+            value: 52517460394191527535
         });
 
         CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
@@ -1071,77 +1144,53 @@ contract SliceCoreTest is Helper {
         // change network
         selectPolygon();
 
-        (polygonCore,) = deployTestContracts(ChainSelect.POLYGON, "");
+        _mintCrossChainPolygonPart(polygonCore, origin, ccsEncoded, mintId, 1 ether);
+    }
 
-        deal(address(wmaticPolygon), dev, wmaticUnits);
-        wmaticPolygon.approve(polygonCore, wmaticUnits);
+    function _estimateFee(address polygonCore, CrossChainSignalType type1, CrossChainSignalType typeRes)
+        private
+        returns (address, uint256, uint128[] memory, uint256[] memory)
+    {
+        uint128[] memory fees = new uint128[](1);
 
-        vm.deal(polygonCore, 100 ether);
-        vm.stopPrank();
+        selectPolygon();
+        if (polygonCore == address(0)) {
+            (polygonCore,) = deployTestContracts(ChainSelect.POLYGON, "");
+        }
 
-        vm.expectRevert();
-        IOAppReceiver(polygonCore).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
-
-        vm.prank(dev);
-        IOAppCore(polygonCore).setPeer(30101, bytes32(uint256(uint160(address(users[2])))));
-
-        Origin memory fakeOrigin =
-            Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(users[2])))), nonce: 1});
-
-        vm.expectRevert(bytes4(keccak256("OriginNotSliceCore()")));
-        vm.prank(getAddress("polygon.layerZeroEndpoint"));
-        IOAppReceiver(polygonCore).lzReceive(fakeOrigin, bytes32(0), ccsEncoded, dev, bytes(""));
-
-        vm.prank(dev);
-        IOAppCore(polygonCore).setPeer(30101, bytes32(uint256(uint160(address(core)))));
-        // call lzReceive with correct message, value from endpoint address
-        vm.prank(getAddress("polygon.layerZeroEndpoint"));
-        IOAppReceiver(polygonCore).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
-
-        // verify that asset has been transferred from user to core
-        uint256 wmaticBalanceUser = wmaticPolygon.balanceOf(dev);
-        assertEq(0, wmaticBalanceUser);
-
-        uint256 wmaticBalanceCore = wmaticPolygon.balanceOf(address(polygonCore));
-        assertEq(wmaticUnits, wmaticBalanceCore);
-
-        // create cross chain signal
-        CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
-            id: mintId,
-            srcChainId: uint32(block.chainid),
-            ccsType: CrossChainSignalType.MINT_COMPLETE,
-            success: true,
-            user: dev,
-            underlying: address(wmaticPolygon),
-            units: wmaticUnits
-        });
-
-        ccsMsgs[0] = _ccsResponse2;
-
-        bytes memory ccsEncoded2 = abi.encode(ccsMsgs);
-
-        Origin memory originResponse =
-            Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polygonCore)))), nonce: 1});
+        LZFeeEstimator feeEstimatorPolygon = new LZFeeEstimator(
+            SliceCore(payable(polygonCore)),
+            SliceCore(payable(polygonCore)).chainInfo(),
+            ILayerZeroEndpointV2(getAddress("polygon.layerZeroEndpoint"))
+        );
+        uint256 polygonFee = feeEstimatorPolygon.estimateLzFeeCompleted(ccPositions, typeRes, 1);
+        fees[0] = uint128(polygonFee);
 
         selectMainnet();
 
-        // verify that mint is complete
-        vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsCollected(address(ccToken), 1 ether, dev);
+        vm.deal(dev, 100 ether);
 
-        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
-        IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));
+        LZFeeEstimator feeEstimator =
+            new LZFeeEstimator(core, core.chainInfo(), ILayerZeroEndpointV2(getAddress("polygon.layerZeroEndpoint")));
+
+        uint256[] memory feesForMsgs = feeEstimator.estimateLzFee(address(ccToken), type1, fees);
+
+        uint256 feeTotal;
+        for (uint256 i = 0; i < feesForMsgs.length; i++) {
+            feeTotal += feesForMsgs[i];
+        }
+
+        return (polygonCore, feeTotal, fees, feesForMsgs);
     }
 
     function _mintCrossChainFuzz(uint256 sliceTokenAmount) internal returns (bytes32 mintId, address polygonCore) {
         vm.startPrank(dev);
 
-        vm.deal(dev, 100 ether);
+        (address pCore, uint256 feeTotal,, uint256[] memory feesForMsgs) =
+            _estimateFee(address(0), CrossChainSignalType.MINT, CrossChainSignalType.MINT_COMPLETE);
+        polygonCore = pCore;
 
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
-
-        mintId = ccToken.mint(sliceTokenAmount);
+        mintId = ccToken.mint{value: feeTotal}(sliceTokenAmount, feesForMsgs);
         assertNotEq(bytes32(0), mintId);
 
         wmaticUnits = CrossChainData.calculateAmountOutMin(sliceTokenAmount, wmaticUnits, 18);
@@ -1154,7 +1203,8 @@ contract SliceCoreTest is Helper {
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
-            units: wmaticUnits
+            units: wmaticUnits,
+            value: 52517460394191527535
         });
 
         CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
@@ -1169,8 +1219,16 @@ contract SliceCoreTest is Helper {
         // change network
         selectPolygon();
 
-        (polygonCore,) = deployTestContracts(ChainSelect.POLYGON, "");
+        _mintCrossChainPolygonPart(polygonCore, origin, ccsEncoded, mintId, sliceTokenAmount);
+    }
 
+    function _mintCrossChainPolygonPart(
+        address polygonCore,
+        Origin memory origin,
+        bytes memory ccsEncoded,
+        bytes32 mintId,
+        uint256 sliceTokenAmount
+    ) internal {
         deal(address(wmaticPolygon), dev, wmaticUnits);
         wmaticPolygon.approve(polygonCore, wmaticUnits);
 
@@ -1192,9 +1250,13 @@ contract SliceCoreTest is Helper {
 
         vm.prank(dev);
         IOAppCore(polygonCore).setPeer(30101, bytes32(uint256(uint160(address(core)))));
-        // call lzReceive with correct message, value from endpoint address
+
+        deal(getAddress("polygon.layerZeroEndpoint"), 100 ether);
+
         vm.prank(getAddress("polygon.layerZeroEndpoint"));
-        IOAppReceiver(polygonCore).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+        IOAppReceiver(polygonCore).lzReceive{value: 52517460394191527535}(
+            origin, bytes32(0), ccsEncoded, dev, bytes("")
+        );
 
         // verify that asset has been transferred from user to core
         uint256 wmaticBalanceUser = wmaticPolygon.balanceOf(dev);
@@ -1203,32 +1265,37 @@ contract SliceCoreTest is Helper {
         uint256 wmaticBalanceCore = wmaticPolygon.balanceOf(address(polygonCore));
         assertEq(wmaticUnits, wmaticBalanceCore);
 
-        // create cross chain signal
-        CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
-            id: mintId,
-            srcChainId: uint32(block.chainid),
-            ccsType: CrossChainSignalType.MINT_COMPLETE,
-            success: true,
-            user: dev,
-            underlying: address(wmaticPolygon),
-            units: wmaticUnits
-        });
+        {
+            // create cross chain signal
+            CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
+                id: mintId,
+                srcChainId: uint32(block.chainid),
+                ccsType: CrossChainSignalType.MINT_COMPLETE,
+                success: true,
+                user: dev,
+                underlying: address(wmaticPolygon),
+                units: wmaticUnits,
+                value: 0
+            });
+            CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
+            ccsMsgs[0] = _ccsResponse2;
 
-        ccsMsgs[0] = _ccsResponse2;
+            bytes memory ccsEncoded2 = abi.encode(ccsMsgs);
 
-        bytes memory ccsEncoded2 = abi.encode(ccsMsgs);
+            selectMainnet();
+            // verify that mint is complete
+            vm.expectEmit(true, true, true, false);
+            emit ISliceCore.UnderlyingAssetsCollected(address(ccToken), sliceTokenAmount, dev);
 
+            vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+            IOAppReceiver(core).lzReceive(_createOriginResp(polygonCore), bytes32(0), ccsEncoded2, dev, bytes(""));
+        }
+    }
+
+    function _createOriginResp(address polygonCore) internal pure returns (Origin memory) {
         Origin memory originResponse =
             Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polygonCore)))), nonce: 1});
-
-        selectMainnet();
-
-        // verify that mint is complete
-        vm.expectEmit(true, true, true, false);
-        emit ISliceCore.UnderlyingAssetsCollected(address(ccToken), sliceTokenAmount, dev);
-
-        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
-        IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));
+        return originResponse;
     }
 
     function _prepareCrossChainRefund() private returns (bytes32 mintId) {
@@ -1259,10 +1326,10 @@ contract SliceCoreTest is Helper {
 
         vm.deal(dev, 100 ether);
 
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
+        uint256[] memory fees = new uint256[](1);
+        fees[0] = 18561664197127658;
 
-        mintId = ccToken.mint(1 ether);
+        mintId = ccToken.mint{value: 18561664197127658}(1 ether, fees);
         assertNotEq(bytes32(0), mintId);
 
         vm.stopPrank();
@@ -1278,7 +1345,8 @@ contract SliceCoreTest is Helper {
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
-            units: wmaticUnits
+            units: wmaticUnits,
+            value: 0
         });
 
         CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
@@ -1330,10 +1398,10 @@ contract SliceCoreTest is Helper {
 
         vm.deal(dev, 100 ether);
 
-        (bool success,) = address(core).call{value: 1 ether}("");
-        assertTrue(success);
+        uint256[] memory fees = new uint256[](1);
+        fees[0] = 18561664197127658;
 
-        mintId = ccToken.mint(1 ether);
+        mintId = ccToken.mint{value: 18561664197127658}(1 ether, fees);
         assertNotEq(bytes32(0), mintId);
 
         vm.stopPrank();
@@ -1349,7 +1417,8 @@ contract SliceCoreTest is Helper {
             success: false,
             user: dev,
             underlying: address(wmaticPolygon),
-            units: wmaticUnits
+            units: wmaticUnits,
+            value: 0
         });
 
         CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](1);
@@ -1389,7 +1458,8 @@ contract SliceCoreTest is Helper {
             success: true,
             user: dev,
             underlying: address(wmaticPolygon),
-            units: wmaticUnits
+            units: wmaticUnits,
+            value: 0
         });
 
         CrossChainSignal[] memory ccsMsgs2 = new CrossChainSignal[](1);
@@ -1424,8 +1494,10 @@ contract SliceCoreTest is Helper {
         SliceTransactionInfo memory txInfo = ccToken.getMint(mintId);
         bool isStateFailed = txInfo.state == TransactionState.FAILED;
         assertEq(isStateFailed, true);
-
-        ccToken.refund(mintId);
+        // TODO LZ
+        (, uint256 totalFees,, uint256[] memory feesForMsgs) =
+            _estimateFee(polygonCore, CrossChainSignalType.REFUND, CrossChainSignalType.REFUND_COMPLETE);
+        ccToken.refund{value: totalFees}(mintId, feesForMsgs);
 
         // get the mint info from the slice token
         SliceTransactionInfo memory txInfo2 = ccToken.getMint(mintId);

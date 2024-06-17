@@ -29,21 +29,21 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
      *
      * @param mintID The ID that uniquely identifies this mint transaction within the system
      */
-    function collectUnderlying(bytes32 mintID) external payable;
+    function collectUnderlying(bytes32 mintID, uint256[] calldata fees) external payable;
 
     /**
      * @dev Transfers out the underlying assets for a given Slice token to the given user.
      *
      * @param redeemID The ID that uniquely identifies this transaction within the system
      */
-    function redeemUnderlying(bytes32 redeemID) external payable;
+    function redeemUnderlying(bytes32 redeemID, uint256[] calldata fees) external payable;
 
     /**
      * @dev Handles the refund procedure for a failed mint
      *
      * @param txInfo The transaction info struct for the failed mint
      */
-    function refund(SliceTransactionInfo memory txInfo) external payable;
+    function refund(SliceTransactionInfo memory txInfo, uint256[] calldata fees) external payable;
     
     /**
      * @dev Returns whether a given address is authorized to create a Slice token.

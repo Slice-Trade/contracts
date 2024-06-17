@@ -100,6 +100,7 @@ struct CrossChainSignal {
     address user;
     address underlying;
     uint256 units;
+    uint256 value;
 }
 
 /**
@@ -111,4 +112,11 @@ struct CrossChainSignal {
 struct CrossChainGas {
     uint256 gasForAdapter;
     uint256 gasForPayload;
+}
+
+struct LzMsgGroupInfo {
+    uint256 currentCount;
+    uint256 currentChainId;
+    uint8 totalMsgCount;
+    uint256 positionsLength;
 }
