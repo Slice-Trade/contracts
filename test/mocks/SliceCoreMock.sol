@@ -30,12 +30,12 @@ contract SliceCoreMock {
     /**
      * @dev See ISliceCore - purchaseUnderlyingAssets
      */
-    function collectUnderlying(bytes32 _mintID, uint256[] memory fees) external payable {}
+    function collectUnderlying(bytes32 _mintID, uint128[] memory fees) external payable {}
 
     /**
      * @dev See ISliceCore - redeemUnderlying
      */
-    function redeemUnderlying(bytes32 _redeemID, uint256[] memory fees) external {}
+    function redeemUnderlying(bytes32 _redeemID, uint128[] memory fees) external {}
 
     function mintComplete(bytes32 _mintID, address _sliceToken) external {
         ISliceToken(_sliceToken).mintComplete(_mintID);

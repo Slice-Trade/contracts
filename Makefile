@@ -21,3 +21,6 @@ update:
 test:
 	forge test
 
+security:
+	slither .
+

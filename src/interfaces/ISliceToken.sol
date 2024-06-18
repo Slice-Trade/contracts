@@ -34,7 +34,7 @@ interface ISliceToken is IERC20 {
      *
      * @return bytes32 The mint ID
      */
-    function mint(uint256 sliceTokenQuantity, uint256[] calldata fees) external payable returns (bytes32);
+    function mint(uint256 sliceTokenQuantity, uint128[] calldata fees) external payable returns (bytes32);
 
     /**
      * @dev Called by the SliceCore contract when a manual mint transaction has failed
@@ -56,7 +56,7 @@ interface ISliceToken is IERC20 {
      *
      * @return bytes32 The redeem ID
      */
-    function redeem(uint256 sliceTokenQuantity, uint256[] calldata fees) external payable returns (bytes32);
+    function redeem(uint256 sliceTokenQuantity, uint128[] calldata fees) external payable returns (bytes32);
 
     /**
      * @dev Called by the SliceCore contract when a redeem transaction is confirmed completed by all the cross-chain contracts
@@ -70,7 +70,7 @@ interface ISliceToken is IERC20 {
      * 
      * @param mintID The ID that uniquely identifies this transaction within the system
      */
-    function refund(bytes32 mintID, uint256[] calldata fees) external payable;
+    function refund(bytes32 mintID, uint128[] calldata fees) external payable;
 
     /**
      * @dev Called by the SliceCore contract when a refund transaction is confirmed completed by all cross-chain contracts

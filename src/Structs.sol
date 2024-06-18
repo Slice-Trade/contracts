@@ -119,4 +119,5 @@ struct LzMsgGroupInfo {
     uint256 currentChainId;
     uint8 totalMsgCount;
     uint256 positionsLength;
+    uint256 providedFee;
 }

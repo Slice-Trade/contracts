@@ -6,6 +6,7 @@ import "forge-std/src/console.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {MessagingParams, MessagingReceipt} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
 import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -24,7 +25,7 @@ import "./Structs.sol";
  * @author Lajos Deme, Blind Labs
  * @notice The core logic contract of the architecture, provides cross-chain underlying asset management
  */
-contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
+contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
     using SafeERC20 for IERC20;
 
     IChainInfo public immutable chainInfo;
@@ -97,8 +98,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     /**
      * @dev See ISliceCore - collectUnderlying
      */
-
-    function collectUnderlying(bytes32 mintID, uint256[] calldata fees) external payable nonReentrant {
+    function collectUnderlying(bytes32 mintID, uint128[] calldata fees) external payable nonReentrant {
         // check that slice token (msg.sender) is registered
         if (!registeredSliceTokens[msg.sender]) {
             revert UnregisteredSliceToken();
@@ -118,7 +118,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         // get the underlying positions from the slice token
         Position[] memory positions = ISliceToken(msg.sender).getPositions();
 
-        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, positions.length);
+        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, positions.length, msg.value);
 
         CrossChainSignal[] memory ccMsgs = new CrossChainSignal[](positions.length);
 
@@ -161,7 +161,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     /**
      * @dev See ISliceCore - redeemUnderlying
      */
-    function redeemUnderlying(bytes32 redeemID, uint256[] calldata fees) external payable nonReentrant {
+    function redeemUnderlying(bytes32 redeemID, uint128[] calldata fees) external payable nonReentrant {
         // check that slice token (msg.sender) is registered
         if (!registeredSliceTokens[msg.sender]) {
             revert UnregisteredSliceToken();
@@ -185,7 +185,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         uint256 len = positions.length;
 
         CrossChainSignal[] memory ccMsgs = new CrossChainSignal[](len);
-        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, len);
+        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, len, msg.value);
 
         for (uint256 i = 0; i < len; i++) {
             uint256 _amount =
@@ -218,7 +218,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         }
     }
 
-    function refund(SliceTransactionInfo calldata txInfo, uint256[] calldata fees) external payable nonReentrant {
+    function refund(SliceTransactionInfo calldata txInfo, uint128[] calldata fees) external payable nonReentrant {
         if (!isSliceTokenRegistered(msg.sender)) {
             revert UnregisteredSliceToken();
         }
@@ -244,6 +244,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         // if yes update state to REFUNDED in slice token
         if (_allSignalsReceived && _allTransfersRefunded) {
+            emit UnderlyingAssetsRefunded({token: _txCompleteSignal.token, mintId: txInfo.id, owner: txInfo.user});
             ISliceToken(_txCompleteSignal.token).refundComplete(txInfo.id);
         }
     }
@@ -253,6 +254,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
      */
     function changeSliceTokenCreationEnabled(bool _isEnabled) external onlyOwner {
         isTokenCreationEnabled = _isEnabled;
+        emit ChangedSliceTokenCreationEnabled(_isEnabled);
     }
 
     /**
@@ -260,10 +262,12 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
      */
     function changeApprovedSliceTokenCreator(address user, bool isApproved) external onlyOwner {
         approvedSliceTokenCreators[user] = isApproved;
+        emit ChangedApprovedSliceTokenCreator(user, isApproved);
     }
 
     function setLzGas(CrossChainSignalType ccsType, uint128 gas) external onlyOwner {
         lzGasLookup[ccsType] = gas;
+        emit SetLzGas(ccsType, gas);
     }
 
     /* =========================================================== */
@@ -410,7 +414,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         Chain memory srcChain = chainInfo.getChainInfo(ccs[0].srcChainId);
         // send LZ message
-        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded, ccs[0].user);
+        _lzSend(srcChain.lzEndpointId, ccsEncoded, _lzSendOpts, MessagingFee(msg.value, 0), ccs[0].user);
     }
 
     function handleRedeemSignal(CrossChainSignal[] memory ccs) internal {
@@ -442,7 +446,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
         Chain memory srcChain = chainInfo.getChainInfo(ccs[0].srcChainId);
 
-        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded, ccs[0].user);
+        _lzSend(srcChain.lzEndpointId, ccsEncoded, _lzSendOpts, MessagingFee(msg.value, 0), ccs[0].user);
     }
 
     function handleRedeemCompleteSignal(CrossChainSignal[] memory ccs) internal {
@@ -493,7 +497,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         Chain memory srcChain = chainInfo.getChainInfo(ccs[0].srcChainId);
 
         // send LZ message
-        _sendLayerZeroMessage(srcChain.lzEndpointId, _lzSendOpts, ccsEncoded,ccs[0].user);
+        _lzSend(srcChain.lzEndpointId, ccsEncoded, _lzSendOpts, MessagingFee(msg.value, 0), ccs[0].user);
     }
 
     function handleRefundCompleteSignal(CrossChainSignal[] memory ccs) internal {
@@ -511,6 +515,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             // if all received call slice token
             // if yes update state to REFUNDED in slice token
             if (_allSignalsReceived && _allTransfersRefunded) {
+                emit UnderlyingAssetsRefunded({token: _txCompleteSignal.token, mintId: ccs[i].id, owner: ccs[i].user});
                 ISliceToken(_txCompleteSignal.token).refundComplete(ccs[i].id);
             }
         }
@@ -522,7 +527,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         CrossChainSignal memory ccs,
         Position memory position,
         LzMsgGroupInfo memory lzMsgInfo,
-        uint256[] memory fees
+        uint128[] memory fees
     ) internal returns (CrossChainSignal[] memory, LzMsgGroupInfo memory) {
         if (lzMsgInfo.currentChainId == position.chainId) {
             ccMsgs[lzMsgInfo.currentCount] = ccs;
@@ -542,14 +547,21 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
 
                 bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({
                     _gas: lzGasLookup[ccs.ccsType],
-                    _value: uint128(fees[lzMsgInfo.totalMsgCount])
+                    _value: fees[lzMsgInfo.totalMsgCount]
                 });
 
-                _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded, ccs.user);
+                MessagingReceipt memory receipt = _lzSend(
+                    dstChain.lzEndpointId,
+                    ccsMsgsEncoded,
+                    _lzSendOpts,
+                    MessagingFee(lzMsgInfo.providedFee, 0),
+                    address(this)
+                );
 
                 lzMsgInfo.currentCount = 0;
                 ++lzMsgInfo.totalMsgCount;
                 lzMsgInfo.currentChainId = position.chainId;
+                lzMsgInfo.providedFee -= receipt.fee.nativeFee;
                 ccMsgs = new CrossChainSignal[](lzMsgInfo.positionsLength);
             }
 
@@ -569,12 +581,14 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
             bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
             Chain memory dstChain = chainInfo.getChainInfo(lzMsgInfo.currentChainId);
 
-            bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({
-                _gas: lzGasLookup[ccs.ccsType],
-                _value: uint128(fees[lzMsgInfo.totalMsgCount])
-            });
+            bytes memory _lzSendOpts =
+                CrossChainData.createLzSendOpts({_gas: lzGasLookup[ccs.ccsType], _value: fees[lzMsgInfo.totalMsgCount]});
 
-            _sendLayerZeroMessage(dstChain.lzEndpointId, _lzSendOpts, ccsMsgsEncoded, ccs.user);
+            MessagingReceipt memory receipt = _lzSend(
+                dstChain.lzEndpointId, ccsMsgsEncoded, _lzSendOpts, MessagingFee(lzMsgInfo.providedFee, 0), ccs.user
+            );
+            ++lzMsgInfo.totalMsgCount;
+            lzMsgInfo.providedFee -= receipt.fee.nativeFee;
         }
 
         return (ccMsgs, lzMsgInfo);
@@ -597,23 +611,14 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
     /* =========================================================== */
     /*   ===================    PRIVATE    ====================    */
     /* =========================================================== */
-    function _sendLayerZeroMessage(uint32 _lzEndpointId, bytes memory _lzSendOpts, bytes memory _ccsEncoded, address _refundAddress) private {
-        MessagingFee memory _fee = _quote(_lzEndpointId, _ccsEncoded, _lzSendOpts, false);
-
-        endpoint.send{value: _fee.nativeFee}(
-            MessagingParams(_lzEndpointId, _getPeerOrRevert(_lzEndpointId), _ccsEncoded, _lzSendOpts, false),
-            payable(_refundAddress)
-        );
-    }
-
     function _refund(
         TransactionCompleteSignals memory _txCompleteSignal,
         SliceTransactionInfo memory _txInfo,
         Position[] memory _positions,
-        uint256[] calldata fees
+        uint128[] calldata fees
     ) private {
         CrossChainSignal[] memory ccMsgs = new CrossChainSignal[](_txCompleteSignal.positionsOkIdxs.length);
-        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, _txCompleteSignal.positionsOkIdxs.length);
+        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, _txCompleteSignal.positionsOkIdxs.length, msg.value);
 
         // loop through all the positions that have already been transferred to the contract
         for (uint256 i = 0; i < _txCompleteSignal.positionsOkIdxs.length; i++) {
@@ -635,14 +640,7 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
                     units: _amountOut,
                     value: 0
                 });
-                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(
-                    ccMsgs,
-                    i,
-                    ccs,
-                    _positions[i],
-                    lzMsgInfo,
-                    fees
-                );
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, i, ccs, _positions[i], lzMsgInfo, fees);
             }
         }
     }
@@ -651,4 +649,32 @@ contract SliceCore is ISliceCore, Ownable, OApp, ReentrancyGuard {
         IERC20(_position.token).safeTransfer(_user, _amountOut);
         ++refundSignals[_mintID];
     }
+
+    /* =========================================================== */
+    /*    ================    OWNABLE2STEP    ==================   */
+    /* =========================================================== */
+    /**
+     * @dev This must be overriden because OApp uses Ownable without 2 step. SliceCore uses Ownable2Step everywhere.
+     */
+    function transferOwnership(address newOwner) public override(Ownable, Ownable2Step) onlyOwner {
+        Ownable2Step.transferOwnership(newOwner);
+    }
+
+    /**
+     * @dev This must be overriden because OApp uses Ownable without 2 step. SliceCore uses Ownable2Step everywhere.
+     */
+    function _transferOwnership(address newOwner) internal override(Ownable, Ownable2Step) {
+        Ownable2Step._transferOwnership(newOwner);
+    }
+
+    /* =========================================================== */
+    /*    =================    OAPP LZSEND    ==================   */
+    /* =========================================================== */
+    /// @dev Batch send requires overriding this function from OAppSender because the msg.value contains multiple fees
+    function _payNative(uint256 _nativeFee) internal virtual override returns (uint256 nativeFee) {
+        if (msg.value < _nativeFee) revert NotEnoughNative(msg.value);
+        return _nativeFee;
+    }
+
+    receive() external payable {}
 }

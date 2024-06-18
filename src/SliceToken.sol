@@ -42,6 +42,7 @@ contract SliceToken is ISliceToken, ERC20 {
         ERC20(_name, _symbol)
     {
         sliceCore = _sliceCore;
+        require(sliceCore != address(0), "SliceToken: Slice Core can't be zero address");
 
         positions.push(_positions[0]);
         posIdx[_positions[0].token] = 0;
@@ -89,7 +90,7 @@ contract SliceToken is ISliceToken, ERC20 {
     /**
      * @dev See ISliceToken - mint
      */
-    function mint(uint256 sliceTokenQuantity, uint256[] calldata fees) external payable returns (bytes32) {
+    function mint(uint256 sliceTokenQuantity, uint128[] calldata fees) external payable returns (bytes32) {
         verifySliceTokenQuantity(sliceTokenQuantity);
 
         uint256 nonce = nonces[msg.sender]++;
@@ -137,7 +138,7 @@ contract SliceToken is ISliceToken, ERC20 {
     /**
      * @dev See ISliceToken - redeem
      */
-    function redeem(uint256 sliceTokenQuantity, uint256[] calldata fees) external payable returns (bytes32) {
+    function redeem(uint256 sliceTokenQuantity, uint128[] calldata fees) external payable returns (bytes32) {
         verifySliceTokenQuantity(sliceTokenQuantity);
         
         // make sure the user has enough balance
@@ -203,7 +204,7 @@ contract SliceToken is ISliceToken, ERC20 {
         emit SliceRedeemed(_txInfo.user, _txInfo.quantity);
     }
 
-    function refund(bytes32 mintID, uint256[] calldata fees) external payable {
+    function refund(bytes32 mintID, uint128[] calldata fees) external payable {
         SliceTransactionInfo memory _txInfo = mints[mintID];
 
         if (_txInfo.id != mintID || _txInfo.id == bytes32(0)) {
