@@ -127,6 +127,100 @@ contract SliceTokenTest is Helper {
 
         vm.stopPrank();
     }
+    /* =========================================================== */
+    /*    =================    constructor   ==================    */
+    /* =========================================================== */
+    function test_Cannot_Deploy_SliceCoreNull() public {
+        vm.expectRevert(bytes4(keccak256("SliceCoreNull()")));
+        new SliceToken("Test","T",positions,address(0));
+    }
+
+    function test_Cannot_Deploy_PositionsEmpty() public {
+        Position[] memory emptyPositions;
+        vm.expectRevert(bytes4(keccak256("PositionsEmpty()")));
+        new SliceToken("Test", "T", emptyPositions, address(core));
+    }
+
+    function test_Cannot_Deploy_InvalidTokenAddress() public {
+        Position memory pos2 = Position({
+            chainId: 137,
+            token: address(wmaticPolygon),
+            decimals: 18,
+            units: 1 ether
+        });
+
+        Position memory pos1 = Position({
+            chainId: 137,
+            token: address(0),
+            decimals: 18,
+            units: 1 ether
+        });
+
+        Position[] memory _positions = new Position[](2);
+        _positions[0] = pos1;
+        _positions[1] = pos2;
+
+        vm.expectRevert(bytes4(keccak256("InvalidTokenAddress()")));
+        new SliceToken("Test", "T", _positions, address(core));
+    }
+    
+
+    function test_Cannot_Deploy_InsufficientPositionUnits(uint8 decimals) public {
+        vm.assume(decimals < 78);
+
+        uint256 units = (10**decimals) - 1;
+        Position memory pos = Position({
+            chainId: 137,
+            token: address(token),
+            decimals: decimals,
+            units: units
+        });
+        Position[] memory _positions = new Position[](1);
+        _positions[0] = pos;
+
+        vm.expectRevert(bytes4(keccak256("InsufficientPositionUnits()")));
+        new SliceToken("Test", "T", _positions, address(core));
+    }
+
+    function test_Cannot_Deploy_UnorderedChainIds() public {
+        Position memory pos2 = Position({
+            chainId: 1,
+            token: address(token),
+            decimals: 18,
+            units: 1 ether
+        });
+
+        Position memory pos1 = Position({
+            chainId: 137,
+            token: address(token),
+            decimals: 18,
+            units: 1 ether
+        });
+
+
+        Position memory pos3 = Position({
+            chainId: 420,
+            token: address(token),
+            decimals: 18,
+            units: 1 ether
+        });
+
+        Position memory pos4 = Position({
+            chainId: 69,
+            token: address(token),
+            decimals: 18,
+            units: 1 ether
+        });
+
+        Position[] memory _positions = new Position[](4);
+        _positions[0] = pos1;
+        _positions[1] = pos2;
+        _positions[2] = pos3;
+        _positions[3] = pos4;
+
+        vm.expectRevert(bytes4(keccak256("UnorderedChainIds()")));
+        new SliceToken("Test", "T", _positions, address(core));
+    }
 
     /* =========================================================== */
     /*   =================    mintComplete   ==================    */

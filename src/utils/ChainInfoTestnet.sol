@@ -3,7 +3,6 @@ pragma solidity 0.8.26;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../Structs.sol";
-import "./Bytes32String.sol";
 
 contract ChainInfo is Ownable {
     mapping(uint256 => Chain) public chains;

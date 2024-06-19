@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {ISliceCore} from "./interfaces/ISliceCore.sol";
 import {ISliceToken} from "./interfaces/ISliceToken.sol";
@@ -16,7 +17,7 @@ import "forge-std/src/console.sol";
  * @author Lajos Deme, Blind Labs
  * @notice ERC20 contract providing exposure to a basket of underlying assets
  */
-contract SliceToken is ISliceToken, ERC20 {
+contract SliceToken is ISliceToken, ERC20, ReentrancyGuard {
     address public immutable sliceCore;
     Position[] public positions;
     mapping(address => uint256) public posIdx;
@@ -41,17 +42,25 @@ contract SliceToken is ISliceToken, ERC20 {
     constructor(string memory _name, string memory _symbol, Position[] memory _positions, address _sliceCore)
         ERC20(_name, _symbol)
     {
+        if (_sliceCore == address(0)) revert SliceCoreNull();
+
+        if (_positions.length == 0) revert PositionsEmpty();
+
         sliceCore = _sliceCore;
-        require(sliceCore != address(0), "SliceToken: Slice Core can't be zero address");
 
-        positions.push(_positions[0]);
-        posIdx[_positions[0].token] = 0;
+        for (uint256 i = 0; i < _positions.length; i++) {
+            if (_positions[i].token == address(0)) revert InvalidTokenAddress();
 
-        for (uint256 i = 1; i < _positions.length; i++) {
-            // check that the positions are ordered by chain ID -> will make it easier to group CrossChainSignals
-            if (_positions[i].chainId < _positions[i - 1].chainId) {
+            // check that each position's units are bigger than 1
+            if (_positions[i].units < 10 ** _positions[i].decimals) {
+                revert InsufficientPositionUnits();
+            }
+
+            // check that the positions are ordered by chain ID -> will make it easier to group signals by chainID in SliceCore.groupAndSendLzMsg
+            if (i > 0 && _positions[i].chainId < _positions[i - 1].chainId) {
                 revert UnorderedChainIds();
             }
+
             positions.push(_positions[i]);
             posIdx[_positions[i].token] = i;
         }
@@ -60,6 +69,39 @@ contract SliceToken is ISliceToken, ERC20 {
     /* =========================================================== */
     /*   ===================    EXTERNAL   ====================    */
     /* =========================================================== */
+    /**
+     * @dev See ISliceToken - mint
+     */
+    function mint(uint256 sliceTokenQuantity, uint128[] calldata fees)
+        external
+        payable
+        nonReentrant
+        returns (bytes32)
+    {
+        verifySliceTokenQuantity(sliceTokenQuantity);
+
+        uint256 nonce = nonces[msg.sender]++;
+
+        bytes32 mintId = keccak256(
+            abi.encodePacked(
+                this.mint.selector, block.chainid, msg.sender, address(this), sliceTokenQuantity, block.timestamp, nonce
+            )
+        );
+
+        SliceTransactionInfo memory txInfo = SliceTransactionInfo({
+            id: mintId,
+            quantity: sliceTokenQuantity,
+            user: msg.sender,
+            state: TransactionState.OPEN
+        });
+
+        mints[mintId] = txInfo;
+
+        ISliceCore(sliceCore).collectUnderlying{value: msg.value}(mintId, fees);
+
+        return mintId;
+    }
+
     /**
      * @dev See ISliceToken - mintComplete
      */
@@ -88,32 +130,6 @@ contract SliceToken is ISliceToken, ERC20 {
     }
 
     /**
-     * @dev See ISliceToken - mint
-     */
-    function mint(uint256 sliceTokenQuantity, uint128[] calldata fees) external payable returns (bytes32) {
-        verifySliceTokenQuantity(sliceTokenQuantity);
-
-        uint256 nonce = nonces[msg.sender]++;
-
-        bytes32 mintId = keccak256(
-            abi.encodePacked(this.mint.selector, msg.sender, address(this), sliceTokenQuantity, block.timestamp, nonce)
-        );
-
-        SliceTransactionInfo memory txInfo = SliceTransactionInfo({
-            id: mintId,
-            quantity: sliceTokenQuantity,
-            user: msg.sender,
-            state: TransactionState.OPEN
-        });
-
-        mints[mintId] = txInfo;
-
-        ISliceCore(sliceCore).collectUnderlying{value: msg.value}(mintId, fees);
-
-        return mintId;
-    }
-
-    /**
      * @dev See ISliceToken - mintFailed
      */
     function mintFailed(bytes32 mintID) external onlySliceCore {
@@ -138,9 +154,14 @@ contract SliceToken is ISliceToken, ERC20 {
     /**
      * @dev See ISliceToken - redeem
      */
-    function redeem(uint256 sliceTokenQuantity, uint128[] calldata fees) external payable returns (bytes32) {
+    function redeem(uint256 sliceTokenQuantity, uint128[] calldata fees)
+        external
+        payable
+        nonReentrant
+        returns (bytes32)
+    {
         verifySliceTokenQuantity(sliceTokenQuantity);
-        
+
         // make sure the user has enough balance
         if (balanceOf(msg.sender) < sliceTokenQuantity) {
             revert InsufficientBalance();
@@ -153,7 +174,15 @@ contract SliceToken is ISliceToken, ERC20 {
 
         // create redeem ID
         bytes32 redeemID = keccak256(
-            abi.encodePacked(this.redeem.selector, msg.sender, address(this), sliceTokenQuantity, block.timestamp, nonce)
+            abi.encodePacked(
+                this.redeem.selector,
+                block.chainid,
+                msg.sender,
+                address(this),
+                sliceTokenQuantity,
+                block.timestamp,
+                nonce
+            )
         );
 
         // create tx info
@@ -204,7 +233,7 @@ contract SliceToken is ISliceToken, ERC20 {
         emit SliceRedeemed(_txInfo.user, _txInfo.quantity);
     }
 
-    function refund(bytes32 mintID, uint128[] calldata fees) external payable {
+    function refund(bytes32 mintID, uint128[] calldata fees) external payable nonReentrant {
         SliceTransactionInfo memory _txInfo = mints[mintID];
 
         if (_txInfo.id != mintID || _txInfo.id == bytes32(0)) {
