@@ -360,7 +360,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
                 // update the tx state to failed
                 ++transactionCompleteSignals[ccs[i].id].signalsFailed;
                 ISliceToken(txCompleteSignals.token).mintFailed(ccs[i].id);
-                return;
+                continue;
             }
 
             // register complete signal
@@ -631,12 +631,9 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         }
     }
 
-    function _sendLzMsg(
-        CrossChainSignalType ccsType,
-        bytes memory ccsEncoded,
-        uint32 srcChainId,
-        address refundAddress
-    ) private {
+    function _sendLzMsg(CrossChainSignalType ccsType, bytes memory ccsEncoded, uint32 srcChainId, address refundAddress)
+        private
+    {
         bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({_gas: lzGasLookup[ccsType], _value: 0});
 
         Chain memory srcChain = chainInfo.getChainInfo(srcChainId);
