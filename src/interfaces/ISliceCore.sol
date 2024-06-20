@@ -12,7 +12,14 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
     event UnderlyingAssetsCollected(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
     /* Emitted when the underlying assets in a Slice token are redeemed by a Slice token owner */
     event UnderlyingAssetsRedeemed(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
+    /* Emitted when the underlying assets that were transferred during a failed mint are refunded to the user */
+    event UnderlyingAssetsRefunded(address indexed token, bytes32 indexed mintId, address indexed owner);
 
+    event ChangedSliceTokenCreationEnabled(bool indexed isEnabled);
+
+    event ChangedApprovedSliceTokenCreator(address indexed user, bool indexed isApproved);
+
+    event SetLzGas(CrossChainSignalType indexed ccsType, uint128 indexed gas);
     /**
      * @dev Deploys a new Slice token contract. Can only be called by verified addresses.
      *
@@ -29,21 +36,21 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
      *
      * @param mintID The ID that uniquely identifies this mint transaction within the system
      */
-    function collectUnderlying(bytes32 mintID, uint256[] calldata fees) external payable;
+    function collectUnderlying(bytes32 mintID, uint128[] calldata fees) external payable;
 
     /**
      * @dev Transfers out the underlying assets for a given Slice token to the given user.
      *
      * @param redeemID The ID that uniquely identifies this transaction within the system
      */
-    function redeemUnderlying(bytes32 redeemID, uint256[] calldata fees) external payable;
+    function redeemUnderlying(bytes32 redeemID, uint128[] calldata fees) external payable;
 
     /**
      * @dev Handles the refund procedure for a failed mint
      *
      * @param txInfo The transaction info struct for the failed mint
      */
-    function refund(SliceTransactionInfo memory txInfo, uint256[] calldata fees) external payable;
+    function refund(SliceTransactionInfo memory txInfo, uint128[] calldata fees) external payable;
     
     /**
      * @dev Returns whether a given address is authorized to create a Slice token.
