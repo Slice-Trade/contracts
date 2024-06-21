@@ -16,7 +16,7 @@ import "../src/interfaces/ISliceCoreErrors.sol";
 import "../src/SliceCore.sol";
 import "../src/SliceToken.sol";
 import {Chain as SliceChain} from "../src/Structs.sol";
-import "../src/libs/SliceTokenDeployer.sol";
+import "../src/utils/SliceTokenDeployer.sol";
 
 import {IDeployer} from "../script/IDeployer.sol";
 
@@ -26,7 +26,7 @@ import {LZFeeEstimator} from "./helpers/LZFeeEstimator.sol";
 import {CrossChainPositionCreator} from "./helpers/CrossChainPositionCreator.sol";
 
 contract SliceCoreTest is Helper {
-    using CrossChainData for SliceCoreTest;
+    using TokenAmountUtils for SliceCoreTest;
 
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
     uint256 immutable POLYGON_BLOCK_NUMBER = 55101688; //TSTAMP: 1711459720
@@ -361,12 +361,12 @@ contract SliceCoreTest is Helper {
     function test_CollectUnderlying_Fuzz(uint256 sliceTokenAmount) public {
         vm.assume(sliceTokenAmount < 1000 ether);
 
-        uint256 minBtcUnits = CrossChainData.getMinimumAmountInSliceToken(8);
+        uint256 minBtcUnits = TokenAmountUtils.getMinimumAmountInSliceToken(8);
         vm.assume(sliceTokenAmount > minBtcUnits);
 
-        wethUnits = CrossChainData.calculateAmountOutMin(sliceTokenAmount, wethUnits, 18);
-        linkUnits = CrossChainData.calculateAmountOutMin(sliceTokenAmount, linkUnits, 18);
-        wbtcUnits = CrossChainData.calculateAmountOutMin(sliceTokenAmount, wbtcUnits, 8);
+        wethUnits = TokenAmountUtils.calculateAmountOutMin(sliceTokenAmount, wethUnits, 18);
+        linkUnits = TokenAmountUtils.calculateAmountOutMin(sliceTokenAmount, linkUnits, 18);
+        wbtcUnits = TokenAmountUtils.calculateAmountOutMin(sliceTokenAmount, wbtcUnits, 8);
 
         deal(address(weth), address(dev), wethUnits);
         deal(address(link), address(dev), linkUnits);
@@ -417,7 +417,7 @@ contract SliceCoreTest is Helper {
         vm.assume(positionsLength >= 1);
         vm.assume(positionsLength <= 20);
 
-        uint256 minBtcUnits = CrossChainData.getMinimumAmountInSliceToken(8);
+        uint256 minBtcUnits = TokenAmountUtils.getMinimumAmountInSliceToken(8);
         vm.assume(sliceTokenAmount > minBtcUnits);
 
         (bytes32 mintId,) = _mintCrossChainFuzz(sliceTokenAmount, positionsLength);
@@ -583,24 +583,53 @@ contract SliceCoreTest is Helper {
         vm.stopPrank();
     }
 
-    function bytes32ToHexString(bytes32 _bytes32) public pure returns (string memory) {
-        bytes memory hexChars = "0123456789abcdef";
-        bytes memory str = new bytes(64);
-        for (uint256 i = 0; i < 32; i++) {
-            str[i * 2] = hexChars[uint256(uint8(_bytes32[i] >> 4))];
-            str[1 + i * 2] = hexChars[uint256(uint8(_bytes32[i] & 0x0f))];
-        }
-        return string(str);
-    }
+    function test_MintComplete(uint8 length) public {
+        vm.assume(length >= 1);
+        vm.assume(length <= 20);
+        Position[] memory _positions = ccPosCreator.getCCPositions(length);
 
-    function bytesToHexString(bytes memory _bytes) public pure returns (string memory) {
-        bytes memory hexChars = "0123456789abcdef";
-        bytes memory str = new bytes(_bytes.length * 2);
-        for (uint256 i = 0; i < _bytes.length; i++) {
-            str[i * 2] = hexChars[uint256(uint8(_bytes[i] >> 4))];
-            str[1 + i * 2] = hexChars[uint256(uint8(_bytes[i] & 0x0f))];
+        for (uint256 i = 1; i < _positions.length; i++) {
+            ccPositions.push(_positions[i]);
         }
-        return string(str);
+        vm.startPrank(dev);
+
+        address ccTokenManyPos = core.createSlice("CCSlice", "CCS", ccPositions);
+        ccToken = SliceToken(ccTokenManyPos);
+
+        (address pCore, uint256 feeTotal,, uint256[] memory feesForMsgs) =
+            _estimateFee(address(0), CrossChainSignalType.MINT, CrossChainSignalType.MINT_COMPLETE);
+        address polygonCore = pCore;
+
+        bytes32 mintId = ccToken.mint{value: feeTotal}(1 ether, toUint128Array(feesForMsgs));
+
+        CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](ccPositions.length);
+
+        for (uint256 i = 0; i < ccPositions.length; i++) {
+            {
+                CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
+                    id: mintId,
+                    srcChainId: uint32(block.chainid),
+                    ccsType: CrossChainSignalType.MINT_COMPLETE,
+                    success: failAtIdx != int8(int256(i)),
+                    user: dev,
+                    underlying: ccPositions[i].token,
+                    units: wmaticUnits,
+                    value: 0
+                });
+
+                ccsMsgs[i] = _ccsResponse2;
+            }
+        }
+
+        bytes memory ccsEncoded2 = abi.encode(ccsMsgs);
+
+        if (failAtIdx == -1) {
+            vm.expectEmit(true, true, true, false);
+            emit ISliceCore.UnderlyingAssetsCollected(address(ccToken), 1 ether, dev);
+        }
+        vm.stopPrank();
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+        IOAppReceiver(core).lzReceive(_createOriginResp(polygonCore), bytes32(0), ccsEncoded2, dev, bytes(""));
     }
 
     /* =========================================================== */
@@ -648,12 +677,12 @@ contract SliceCoreTest is Helper {
     function test_RedeemUnderlying_Fuzz(uint256 sliceTokenAmount) public {
         vm.assume(sliceTokenAmount < 1000 ether);
 
-        uint256 minBtcUnits = CrossChainData.getMinimumAmountInSliceToken(8);
+        uint256 minBtcUnits = TokenAmountUtils.getMinimumAmountInSliceToken(8);
         vm.assume(sliceTokenAmount > minBtcUnits);
 
-        wethUnits = CrossChainData.calculateAmountOutMin(sliceTokenAmount, wethUnits, 18);
-        linkUnits = CrossChainData.calculateAmountOutMin(sliceTokenAmount, linkUnits, 18);
-        wbtcUnits = CrossChainData.calculateAmountOutMin(sliceTokenAmount, wbtcUnits, 8);
+        wethUnits = TokenAmountUtils.calculateAmountOutMin(sliceTokenAmount, wethUnits, 18);
+        linkUnits = TokenAmountUtils.calculateAmountOutMin(sliceTokenAmount, linkUnits, 18);
+        wbtcUnits = TokenAmountUtils.calculateAmountOutMin(sliceTokenAmount, wbtcUnits, 8);
 
         deal(address(weth), address(dev), wethUnits);
         deal(address(link), address(dev), linkUnits);
@@ -719,7 +748,7 @@ contract SliceCoreTest is Helper {
                 success: false,
                 user: dev,
                 underlying: ccPositions[i].token,
-                units: CrossChainData.calculateAmountOutMin(sliceTokenAmount, wmaticUnits, 18),
+                units: TokenAmountUtils.calculateAmountOutMin(sliceTokenAmount, wmaticUnits, 18),
                 value: uint256(fees[0])
             });
             ccsMsgs[i] = ccs;
@@ -740,7 +769,7 @@ contract SliceCoreTest is Helper {
 
         for (uint256 i = 0; i < ccPositions.length; i++) {
             assertEq(
-                CrossChainData.calculateAmountOutMin(sliceTokenAmount, wmaticUnits, 18),
+                TokenAmountUtils.calculateAmountOutMin(sliceTokenAmount, wmaticUnits, 18),
                 IERC20(ccPositions[i].token).balanceOf(dev)
             );
             CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
@@ -750,7 +779,7 @@ contract SliceCoreTest is Helper {
                 success: true,
                 user: dev,
                 underlying: ccPositions[i].token,
-                units: CrossChainData.calculateAmountOutMin(sliceTokenAmount, wmaticUnits, 18),
+                units: TokenAmountUtils.calculateAmountOutMin(sliceTokenAmount, wmaticUnits, 18),
                 value: 0
             });
             ccsMsgs[i] = _ccsResponse2;
@@ -1000,38 +1029,38 @@ contract SliceCoreTest is Helper {
     /* =========================================================== */
     /*  ===============    set layer zero gas   =================  */
     /* =========================================================== */
-    function test_SetLzGas() public {
+    function test_SetLzBaseGas() public {
         vm.startPrank(dev);
-        core.setLzGas(CrossChainSignalType.MINT, 888888);
+        core.setLzBaseGas(CrossChainSignalType.MINT, 888888);
         uint256 gas = core.lzGasLookup(CrossChainSignalType.MINT);
         assertEq(gas, 888888);
 
-        core.setLzGas(CrossChainSignalType.MINT_COMPLETE, 888888);
+        core.setLzBaseGas(CrossChainSignalType.MINT_COMPLETE, 888888);
         gas = core.lzGasLookup(CrossChainSignalType.MINT_COMPLETE);
         assertEq(gas, 888888);
 
-        core.setLzGas(CrossChainSignalType.REDEEM, 888888);
+        core.setLzBaseGas(CrossChainSignalType.REDEEM, 888888);
         gas = core.lzGasLookup(CrossChainSignalType.REDEEM);
         assertEq(gas, 888888);
 
-        core.setLzGas(CrossChainSignalType.REDEEM_COMPLETE, 888888);
+        core.setLzBaseGas(CrossChainSignalType.REDEEM_COMPLETE, 888888);
         gas = core.lzGasLookup(CrossChainSignalType.REDEEM_COMPLETE);
         assertEq(gas, 888888);
 
-        core.setLzGas(CrossChainSignalType.REFUND, 888888);
+        core.setLzBaseGas(CrossChainSignalType.REFUND, 888888);
         gas = core.lzGasLookup(CrossChainSignalType.REFUND);
         assertEq(gas, 888888);
 
-        core.setLzGas(CrossChainSignalType.REFUND_COMPLETE, 888888);
+        core.setLzBaseGas(CrossChainSignalType.REFUND_COMPLETE, 888888);
         gas = core.lzGasLookup(CrossChainSignalType.REFUND_COMPLETE);
         assertEq(gas, 888888);
 
         vm.stopPrank();
     }
 
-    function test_Cannot_SetLzGas_NotOwner() public {
+    function test_Cannot_SetLzBaseGas_NotOwner() public {
         vm.expectRevert();
-        core.setLzGas(CrossChainSignalType.MINT, 888888);
+        core.setLzBaseGas(CrossChainSignalType.MINT, 888888);
     }
 
     /* =========================================================== */
@@ -1121,6 +1150,26 @@ contract SliceCoreTest is Helper {
     /* =========================================================== */
     /*  ====================   helpers   =======================   */
     /* =========================================================== */
+    function bytes32ToHexString(bytes32 _bytes32) public pure returns (string memory) {
+        bytes memory hexChars = "0123456789abcdef";
+        bytes memory str = new bytes(64);
+        for (uint256 i = 0; i < 32; i++) {
+            str[i * 2] = hexChars[uint256(uint8(_bytes32[i] >> 4))];
+            str[1 + i * 2] = hexChars[uint256(uint8(_bytes32[i] & 0x0f))];
+        }
+        return string(str);
+    }
+
+    function bytesToHexString(bytes memory _bytes) public pure returns (string memory) {
+        bytes memory hexChars = "0123456789abcdef";
+        bytes memory str = new bytes(_bytes.length * 2);
+        for (uint256 i = 0; i < _bytes.length; i++) {
+            str[i * 2] = hexChars[uint256(uint8(_bytes[i] >> 4))];
+            str[1 + i * 2] = hexChars[uint256(uint8(_bytes[i] & 0x0f))];
+        }
+        return string(str);
+    }
+
     function _estimateFee(address polygonCore, CrossChainSignalType type1, CrossChainSignalType typeRes)
         private
         returns (address, uint256, uint128[] memory, uint256[] memory)
@@ -1233,7 +1282,7 @@ contract SliceCoreTest is Helper {
                 success: false,
                 user: dev,
                 underlying: ccPositions[i].token,
-                units: CrossChainData.calculateAmountOutMin(sliceTokenAmount, wmaticUnits, 18),
+                units: TokenAmountUtils.calculateAmountOutMin(sliceTokenAmount, wmaticUnits, 18),
                 value: i == 0 ? feesForMsgs[0] : 0
             });
 
@@ -1361,7 +1410,7 @@ contract SliceCoreTest is Helper {
                 success: false,
                 user: dev,
                 underlying: ccPositions[i].token,
-                units: CrossChainData.calculateAmountOutMin(sliceTokenAmount, wmaticUnits, 18),
+                units: TokenAmountUtils.calculateAmountOutMin(sliceTokenAmount, wmaticUnits, 18),
                 value: i == 0 ? feesForMsgs[0] : 0
             });
 
@@ -1415,7 +1464,7 @@ contract SliceCoreTest is Helper {
         uint128 fee
     ) internal {
         selectPolygon();
-        uint256 amountOut = CrossChainData.calculateAmountOutMin(sliceTokenAmount, wmaticUnits, 18);
+        uint256 amountOut = TokenAmountUtils.calculateAmountOutMin(sliceTokenAmount, wmaticUnits, 18);
 
         for (uint256 i = 0; i < ccPositions.length; i++) {
             if (failAtIdx == int8(int256(i))) {

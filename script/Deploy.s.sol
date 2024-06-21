@@ -12,6 +12,7 @@ contract SliceCoreDeployer is Script, Constants {
     uint immutable ETH_SEPOLIA_CHAIN_ID = 11155111;
     uint immutable OP_SEPOLIA_CHAIN_ID = 11155420;
     uint immutable BASE_SEPOLIA_CHAIN_ID = 84532;
+    uint immutable ARB_SEPOLIA_CHAIN_ID = 421614;
 
     bytes32 public salt;
     
@@ -63,6 +64,8 @@ contract SliceCoreDeployer is Script, Constants {
             SliceCore(payable(sliceCoreAddress)).setPeer(40245, bytes32(uint256(uint160(sliceCoreAddress))));
         } else if (block.chainid == 84532) {
             SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
+        } else if(block.chainid == ARB_SEPOLIA_CHAIN_ID) {
+            SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
         }
 
         vm.stopBroadcast();
@@ -99,6 +102,13 @@ contract SliceCoreDeployer is Script, Constants {
                 getAddress("base_sepolia.lzEndpoint"),
                 getAddress("base_sepolia.chainInfo"),
                 getAddress("base_sepolia.tokenDeployer"),
+                getAddress("owner")
+            );
+        } else if (block.chainid == ARB_SEPOLIA_CHAIN_ID) {
+            return ConstructorArgs(
+                getAddress("arb_sepolia.lzEndpoint"),
+                getAddress("arb_sepolia.chainInfo"),
+                getAddress("arb_sepolia.tokenDeployer"),
                 getAddress("owner")
             );
         }

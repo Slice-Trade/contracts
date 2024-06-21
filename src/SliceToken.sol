@@ -7,7 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {ISliceCore} from "./interfaces/ISliceCore.sol";
 import {ISliceToken} from "./interfaces/ISliceToken.sol";
 
-import {CrossChainData} from "./libs/CrossChainData.sol";
+import {TokenAmountUtils} from "./libs/TokenAmountUtils.sol";
 
 import "./Structs.sol";
 
@@ -332,7 +332,7 @@ contract SliceToken is ISliceToken, ERC20, ReentrancyGuard {
         }
 
         for (uint256 i = 0; i < positions.length; i++) {
-            uint256 minPositionUnits = CrossChainData.getMinimumAmountInSliceToken(positions[i].decimals);
+            uint256 minPositionUnits = TokenAmountUtils.getMinimumAmountInSliceToken(positions[i].decimals);
             if (_sliceTokenQuantity < minPositionUnits) {
                 revert InsufficientTokenQuantity();
             }

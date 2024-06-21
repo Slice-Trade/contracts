@@ -19,7 +19,7 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
 
     event ChangedApprovedSliceTokenCreator(address indexed user, bool indexed isApproved);
 
-    event SetLzGas(CrossChainSignalType indexed ccsType, uint128 indexed gas);
+    event SetLzBaseGas(CrossChainSignalType indexed ccsType, uint128 indexed gas);
     /**
      * @dev Deploys a new Slice token contract. Can only be called by verified addresses.
      *

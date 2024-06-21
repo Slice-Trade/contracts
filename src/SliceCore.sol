@@ -9,13 +9,14 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {MessagingParams, MessagingReceipt} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
 import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
+import {OptionsBuilder} from "@lz-oapp-v2/libs/OptionsBuilder.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {IChainInfo} from "./interfaces/IChainInfo.sol";
 import {ISliceCore} from "./interfaces/ISliceCore.sol";
 import {ISliceTokenDeployer} from "./interfaces/ISliceTokenDeployer.sol";
 
-import {CrossChainData} from "./libs/CrossChainData.sol";
+import {TokenAmountUtils} from "./libs/TokenAmountUtils.sol";
 
 import {SliceToken, ISliceToken} from "./SliceToken.sol";
 
@@ -27,6 +28,7 @@ import "./Structs.sol";
  */
 contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
     using SafeERC20 for IERC20;
+    using OptionsBuilder for bytes;
 
     IChainInfo public immutable chainInfo;
 
@@ -59,12 +61,13 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         chainInfo = IChainInfo(_chainInfo);
         sliceTokenDeployer = _sliceTokenDeployer;
 
-        lzGasLookup[CrossChainSignalType.MINT] = 300000;
-        lzGasLookup[CrossChainSignalType.MINT_COMPLETE] = 150000;
-        lzGasLookup[CrossChainSignalType.REDEEM] = 200000;
-        lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE] = 150000;
-        lzGasLookup[CrossChainSignalType.REFUND] = 250000;
-        lzGasLookup[CrossChainSignalType.REFUND_COMPLETE] = 200000;
+        lzGasLookup[CrossChainSignalType.MINT] = 300_000;
+        lzGasLookup[CrossChainSignalType.REDEEM] = 250_000;
+        lzGasLookup[CrossChainSignalType.REFUND] = 250_000;
+
+        lzGasLookup[CrossChainSignalType.MINT_COMPLETE] = 160_000;
+        lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE] = 160_000;
+        lzGasLookup[CrossChainSignalType.REFUND_COMPLETE] = 200_000;
     }
 
     /* =========================================================== */
@@ -123,7 +126,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
 
         for (uint256 i = 0; i < positions.length; i++) {
             uint256 _amountOut =
-                CrossChainData.calculateAmountOutMin(txInfo.quantity, positions[i].units, positions[i].decimals);
+                TokenAmountUtils.calculateAmountOutMin(txInfo.quantity, positions[i].units, positions[i].decimals);
             if (isPositionLocal(positions[i])) {
                 IERC20(positions[i].token).safeTransferFrom(txInfo.user, address(this), _amountOut);
                 ++transactionCompleteSignals[mintID].signalsOk;
@@ -178,7 +181,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
 
         for (uint256 i = 0; i < len; i++) {
             uint256 _amount =
-                CrossChainData.calculateAmountOutMin(txInfo.quantity, positions[i].units, positions[i].decimals);
+                TokenAmountUtils.calculateAmountOutMin(txInfo.quantity, positions[i].units, positions[i].decimals);
             if (isPositionLocal(positions[i])) {
                 IERC20(positions[i].token).safeTransfer(txInfo.user, _amount);
                 // increase ready signal after each local transfer
@@ -257,11 +260,6 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         emit ChangedApprovedSliceTokenCreator(user, isApproved);
     }
 
-    function setLzGas(CrossChainSignalType ccsType, uint128 gas) external onlyOwner {
-        lzGasLookup[ccsType] = gas;
-        emit SetLzGas(ccsType, gas);
-    }
-
     /**
      * @dev This is a work around to allow using SafeERC20.safeTransferFrom in a try/catch block
      * This is needed because internal functions can not be used in a try/catch block
@@ -294,6 +292,14 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
      */
     function getRegisteredSliceToken(uint256 idx) external view returns (address) {
         return registeredSliceTokensArray[idx];
+    }
+
+    /* =========================================================== */
+    /*    ====================   PUBLIC   =====================    */
+    /* =========================================================== */
+    function setLzBaseGas(CrossChainSignalType ccsType, uint128 gas) public onlyOwner {
+        lzGasLookup[ccsType] = gas;
+        emit SetLzBaseGas(ccsType, gas);
     }
 
     /* =========================================================== */
@@ -335,10 +341,10 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         // array will always only contain msgs of one type
         CrossChainSignalType ccsType = ccs[0].ccsType;
 
-        if (ccsType == CrossChainSignalType.MINT_COMPLETE) {
-            handleMintCompleteSignal(ccs);
-        } else if (ccsType == CrossChainSignalType.MINT) {
+        if (ccsType == CrossChainSignalType.MINT) {
             handleMintSignal(ccs);
+        } else if (ccsType == CrossChainSignalType.MINT_COMPLETE) {
+            handleMintCompleteSignal(ccs);
         } else if (ccsType == CrossChainSignalType.REDEEM) {
             handleRedeemSignal(ccs);
         } else if (ccsType == CrossChainSignalType.REDEEM_COMPLETE) {
@@ -530,8 +536,8 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
 
                 Chain memory dstChain = chainInfo.getChainInfo(lzMsgInfo.currentChainId);
 
-                bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({
-                    _gas: lzGasLookup[ccs.ccsType],
+                bytes memory _lzSendOpts = _createLzSendOpts({
+                    _gas: requiredGas(ccs.ccsType, uint128(lzMsgInfo.currentCount)),
                     _value: fees[lzMsgInfo.totalMsgCount]
                 });
 
@@ -566,8 +572,10 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
             bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
             Chain memory dstChain = chainInfo.getChainInfo(lzMsgInfo.currentChainId);
 
-            bytes memory _lzSendOpts =
-                CrossChainData.createLzSendOpts({_gas: lzGasLookup[ccs.ccsType], _value: fees[lzMsgInfo.totalMsgCount]});
+            bytes memory _lzSendOpts = _createLzSendOpts({
+                _gas: requiredGas(ccs.ccsType, uint128(lzMsgInfo.currentCount)),
+                _value: fees[lzMsgInfo.totalMsgCount]
+            });
 
             MessagingReceipt memory receipt = _lzSend(
                 dstChain.lzEndpointId, ccsMsgsEncoded, _lzSendOpts, MessagingFee(lzMsgInfo.providedFee, 0), ccs.user
@@ -593,6 +601,28 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         return _transactionCompleteSignal.signalsOk == _numOfPositions;
     }
 
+    function requiredGas(CrossChainSignalType ccsType, uint128 msgsLength) internal view returns (uint128) {
+        uint128 _baseGas = lzGasLookup[ccsType];
+        uint128 _gasStep = gasStep(ccsType);
+
+        uint128 gasRequired = _baseGas + (_gasStep * msgsLength);
+
+        return gasRequired;
+    }
+
+    /* =========================================================== */
+    /*   =================   INTERNAL PURE   ==================    */
+    /* =========================================================== */
+    function gasStep(CrossChainSignalType ccsType) internal pure returns (uint128) {
+        if (
+            ccsType == CrossChainSignalType.MINT || ccsType == CrossChainSignalType.REDEEM
+                || ccsType == CrossChainSignalType.REFUND
+        ) {
+            return 55_000;
+        }
+        return 37_000;
+    }
+
     /* =========================================================== */
     /*   ===================    PRIVATE    ====================    */
     /* =========================================================== */
@@ -608,7 +638,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         // loop through all the positions that have already been transferred to the contract
         for (uint256 i = 0; i < _txCompleteSignal.positionsOkIdxs.length; i++) {
             uint256 _posIdx = _txCompleteSignal.positionsOkIdxs[i];
-            uint256 _amountOut = CrossChainData.calculateAmountOutMin(
+            uint256 _amountOut = TokenAmountUtils.calculateAmountOutMin(
                 _txInfo.quantity, _positions[_posIdx].units, _positions[i].decimals
             );
             // if it is local, refund back to user
@@ -631,10 +661,14 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         }
     }
 
+    function _createLzSendOpts(uint128 _gas, uint128 _value) private pure returns (bytes memory) {
+        return OptionsBuilder.newOptions().addExecutorLzReceiveOption(_gas, _value);
+    }
+
     function _sendLzMsg(CrossChainSignalType ccsType, bytes memory ccsEncoded, uint32 srcChainId, address refundAddress)
         private
     {
-        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({_gas: lzGasLookup[ccsType], _value: 0});
+        bytes memory _lzSendOpts = _createLzSendOpts({_gas: lzGasLookup[ccsType], _value: 0});
 
         Chain memory srcChain = chainInfo.getChainInfo(srcChainId);
 
