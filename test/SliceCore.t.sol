@@ -30,6 +30,7 @@ contract SliceCoreTest is Helper {
 
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
     uint256 immutable POLYGON_BLOCK_NUMBER = 55101688; //TSTAMP: 1711459720
+    uint256 immutable OPTIMISM_BLOCK_NUMBER = 117930462; //TSTAMP: 1711459720
     SliceCore core;
     SliceToken token;
 
@@ -70,7 +71,8 @@ contract SliceCoreTest is Helper {
 
     enum ChainSelect {
         MAINNET,
-        POLYGON
+        POLYGON,
+        OPTIMISM
     }
 
     address polygonLink = 0xb0897686c545045aFc77CF20eC7A532E3120E0F1;
@@ -83,26 +85,30 @@ contract SliceCoreTest is Helper {
             selectMainnet();
         } else if (chainSelect == ChainSelect.POLYGON) {
             selectPolygon();
+        } else if (chainSelect == ChainSelect.OPTIMISM) {
+            selectOptimism();
         }
 
         ChainInfo chainInfo = new ChainInfo();
 
         SliceTokenDeployer deployer = new SliceTokenDeployer();
 
+        address endpoint = getAddress(
+            chainSelect == ChainSelect.MAINNET
+                ? "mainnet.layerZeroEndpoint"
+                : (chainSelect == ChainSelect.POLYGON ? "polygon.layerZeroEndpoint" : "optimism.layerZeroEndpoint")
+        );
+
         bytes memory byteCode = abi.encodePacked(
-            type(SliceCore).creationCode,
-            abi.encode(
-                getAddress(
-                    chainSelect == ChainSelect.MAINNET ? "mainnet.layerZeroEndpoint" : "polygon.layerZeroEndpoint"
-                ),
-                address(chainInfo),
-                address(deployer),
-                dev
-            )
+            type(SliceCore).creationCode, abi.encode(endpoint, address(chainInfo), address(deployer), dev)
         );
 
         IDeployer create3Deployer = IDeployer(
-            getAddress(chainSelect == ChainSelect.MAINNET ? "mainnet.deployer.create3" : "polygon.deployer.create3")
+            getAddress(
+                chainSelect == ChainSelect.MAINNET
+                    ? "mainnet.deployer.create3"
+                    : (chainSelect == ChainSelect.POLYGON ? "polygon.deployer.create3" : "optimism.deployer.create3")
+            )
         );
 
         //address _deployedAddr = create3Deployer.deployedAddress(byteCode, dev, stringToBytes32("TEST"));
@@ -117,7 +123,8 @@ contract SliceCoreTest is Helper {
         ISliceCore(sliceCore).changeApprovedSliceTokenCreator(dev, true);
         // set peer address
         IOAppCore(sliceCore).setPeer(
-            (chainSelect == ChainSelect.MAINNET ? 30109 : 30101), bytes32(uint256(uint160(sliceCore)))
+            (chainSelect == ChainSelect.MAINNET ? 30109 : (chainSelect == ChainSelect.POLYGON ? 30101 : 30101)),
+            bytes32(uint256(uint160(sliceCore)))
         );
 
         tokenAddr = ISliceCore(sliceCore).createSlice("Slice Token", "SC", positions);
@@ -545,7 +552,7 @@ contract SliceCoreTest is Helper {
         fees[1] = 100;
 
         vm.recordLogs();
-        SliceToken(ccTokenAddr2).mint{value: 1 ether}(1 ether, fees);
+        SliceToken(ccTokenAddr2).mint{value: 10 ether}(1 ether, fees);
 
         Vm.Log[] memory entries = vm.getRecordedLogs();
 
@@ -581,6 +588,51 @@ contract SliceCoreTest is Helper {
             }
         }
         vm.stopPrank();
+    }
+
+    /// @dev this test ensures that the message grouping loop does not break if there is a list of local positions in the middle of the positions array
+    function test_CrossChainMessaging_LocalPositionsInTheMiddle() public {
+        vm.startPrank(dev);
+        forkOptimism(OPTIMISM_BLOCK_NUMBER);
+        address linkOp = 0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6;
+        Position memory ccPos2 = Position(10, linkOp, 18, wmaticUnits);
+        Position memory ccPos3 = Position(56, address(wmaticPolygon), 18, wmaticUnits);
+
+        positions.push(ccPos2);
+        positions.push(ccPos3);
+
+        (address sliceCore, address sliceToken) = deployTestContracts(ChainSelect.OPTIMISM, "");
+
+        deal(dev, 100 ether);
+        deal(linkOp, dev, wmaticUnits);
+        IERC20(linkOp).approve(sliceCore, wmaticUnits);
+
+        core = SliceCore(payable(sliceCore));
+        token = SliceToken(sliceToken);
+
+        core.setPeer(30102, bytes32(uint256(uint160(address(core)))));
+
+        uint128[] memory fees = new uint128[](2);
+        fees[0] = 100;
+        fees[1] = 100;
+
+        vm.recordLogs();
+        token.mint{value: 10 ether}(1 ether, fees);
+
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        for (uint256 i = 0; i < entries.length; i++) {
+            if (i == 4) {
+                (bytes memory encodedPayload,,) = abi.decode(entries[i].data, (bytes, bytes, address));
+                Packet memory packet = decodePacket(encodedPayload);
+                console.log(packet.dstEid);
+                assertEq(packet.dstEid, 30101);
+            } else if (i == 7) {
+                (bytes memory encodedPayload,,) = abi.decode(entries[i].data, (bytes, bytes, address));
+                Packet memory packet = decodePacket(encodedPayload);
+                console.log(packet.dstEid);
+                assertEq(packet.dstEid, 30102);
+            }
+        }
     }
 
     function test_MintComplete(uint8 length) public {

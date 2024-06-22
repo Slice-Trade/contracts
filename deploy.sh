@@ -38,6 +38,10 @@ case $1 in
         RPC_URL=$ARB_SEPOLIA_RPC_URL
         echo "Deploying to Arbitrum Sepolia Testnet"
         ;;
+    "scroll-sepolia")
+        RPC_URL=$SCROLL_SEPOLIA_RPC_URL
+        echo "Deploying to Scroll Sepolia Testnet"
+        ;;
     *)
         echo "Chain not implemented"
         exit 1

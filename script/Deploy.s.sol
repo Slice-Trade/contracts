@@ -13,6 +13,7 @@ contract SliceCoreDeployer is Script, Constants {
     uint immutable OP_SEPOLIA_CHAIN_ID = 11155420;
     uint immutable BASE_SEPOLIA_CHAIN_ID = 84532;
     uint immutable ARB_SEPOLIA_CHAIN_ID = 421614;
+    uint immutable SCROLL_SEPOLIA_CHAIN_ID = 534351;
 
     bytes32 public salt;
     
@@ -62,9 +63,13 @@ contract SliceCoreDeployer is Script, Constants {
         } else if (block.chainid == 11155420) {
             SliceCore(payable(sliceCoreAddress)).setPeer(40161, bytes32(uint256(uint160(sliceCoreAddress))));
             SliceCore(payable(sliceCoreAddress)).setPeer(40245, bytes32(uint256(uint160(sliceCoreAddress))));
+            SliceCore(payable(sliceCoreAddress)).setPeer(40170, bytes32(uint256(uint160(sliceCoreAddress))));
+            SliceCore(payable(sliceCoreAddress)).setPeer(40231, bytes32(uint256(uint160(sliceCoreAddress))));
         } else if (block.chainid == 84532) {
             SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
         } else if(block.chainid == ARB_SEPOLIA_CHAIN_ID) {
+            SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
+        } else if(block.chainid == SCROLL_SEPOLIA_CHAIN_ID) {
             SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
         }
 
@@ -109,6 +114,13 @@ contract SliceCoreDeployer is Script, Constants {
                 getAddress("arb_sepolia.lzEndpoint"),
                 getAddress("arb_sepolia.chainInfo"),
                 getAddress("arb_sepolia.tokenDeployer"),
+                getAddress("owner")
+            );
+        } else if (block.chainid == SCROLL_SEPOLIA_CHAIN_ID) {
+            return ConstructorArgs(
+                getAddress("scroll_sepolia.lzEndpoint"),
+                getAddress("scroll_sepolia.chainInfo"),
+                getAddress("scroll_sepolia.tokenDeployer"),
                 getAddress("owner")
             );
         }

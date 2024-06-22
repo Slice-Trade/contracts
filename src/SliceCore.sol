@@ -145,8 +145,12 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
                     value: 0
                 });
 
-                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, i, ccs, positions[i], lzMsgInfo, fees);
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, positions[i], lzMsgInfo, fees);
             }
+        }
+
+        if (lzMsgInfo.currentCount != 0) {
+            _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, fees, txInfo.user);
         }
 
         if (checkPendingTransactionCompleteSignals(mintID)) {
@@ -199,8 +203,12 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
                     value: 0
                 });
 
-                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, i, ccs, positions[i], lzMsgInfo, fees);
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, positions[i], lzMsgInfo, fees);
             }
+        }
+
+        if (lzMsgInfo.currentCount != 0) {
+            _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, fees, txInfo.user);
         }
 
         // if all signals are in call redeemComplete on token contract
@@ -514,7 +522,6 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
 
     function groupAndSendLzMsg(
         CrossChainSignal[] memory ccMsgs,
-        uint256 currentIdx,
         CrossChainSignal memory ccs,
         Position memory position,
         LzMsgGroupInfo memory lzMsgInfo,
@@ -525,34 +532,10 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
             ++lzMsgInfo.currentCount;
         } else {
             if (lzMsgInfo.currentChainId != 0) {
-                {
-                    uint256 currentCount = lzMsgInfo.currentCount;
-                    assembly {
-                        mstore(ccMsgs, currentCount)
-                    }
-                }
-                ccMsgs[0].value = fees[lzMsgInfo.totalMsgCount];
-                bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
-
-                Chain memory dstChain = chainInfo.getChainInfo(lzMsgInfo.currentChainId);
-
-                bytes memory _lzSendOpts = _createLzSendOpts({
-                    _gas: requiredGas(ccs.ccsType, uint128(lzMsgInfo.currentCount)),
-                    _value: fees[lzMsgInfo.totalMsgCount]
-                });
-
-                MessagingReceipt memory receipt = _lzSend(
-                    dstChain.lzEndpointId,
-                    ccsMsgsEncoded,
-                    _lzSendOpts,
-                    MessagingFee(lzMsgInfo.providedFee, 0),
-                    address(this)
-                );
+                (ccMsgs, lzMsgInfo) = _sendGroupedLzMsg(ccMsgs, ccs, lzMsgInfo, fees, address(this));
 
                 lzMsgInfo.currentCount = 0;
-                ++lzMsgInfo.totalMsgCount;
                 lzMsgInfo.currentChainId = position.chainId;
-                lzMsgInfo.providedFee -= receipt.fee.nativeFee;
                 ccMsgs = new CrossChainSignal[](lzMsgInfo.positionsLength);
             }
 
@@ -560,29 +543,36 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
             lzMsgInfo.currentChainId = position.chainId;
             ++lzMsgInfo.currentCount;
         }
-        // if it is the last message and we have a chainId in the array we send the message
-        if (currentIdx == lzMsgInfo.positionsLength - 1 && lzMsgInfo.currentCount != 0) {
-            {
-                uint256 currentCount = lzMsgInfo.currentCount;
-                assembly {
-                    mstore(ccMsgs, currentCount)
-                }
+        return (ccMsgs, lzMsgInfo);
+    }
+
+    function _sendGroupedLzMsg(
+        CrossChainSignal[] memory ccMsgs,
+        CrossChainSignal memory ccs,
+        LzMsgGroupInfo memory lzMsgInfo,
+        uint128[] memory fees,
+        address refundAddress
+    ) private returns (CrossChainSignal[] memory, LzMsgGroupInfo memory) {
+        {
+            uint256 currentCount = lzMsgInfo.currentCount;
+            assembly {
+                mstore(ccMsgs, currentCount)
             }
-            ccMsgs[0].value = fees[lzMsgInfo.totalMsgCount];
-            bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
-            Chain memory dstChain = chainInfo.getChainInfo(lzMsgInfo.currentChainId);
-
-            bytes memory _lzSendOpts = _createLzSendOpts({
-                _gas: requiredGas(ccs.ccsType, uint128(lzMsgInfo.currentCount)),
-                _value: fees[lzMsgInfo.totalMsgCount]
-            });
-
-            MessagingReceipt memory receipt = _lzSend(
-                dstChain.lzEndpointId, ccsMsgsEncoded, _lzSendOpts, MessagingFee(lzMsgInfo.providedFee, 0), ccs.user
-            );
-            ++lzMsgInfo.totalMsgCount;
-            lzMsgInfo.providedFee -= receipt.fee.nativeFee;
         }
+        ccMsgs[0].value = fees[lzMsgInfo.totalMsgCount];
+        bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
+        Chain memory dstChain = chainInfo.getChainInfo(lzMsgInfo.currentChainId);
+
+        bytes memory _lzSendOpts = _createLzSendOpts({
+            _gas: requiredGas(ccs.ccsType, uint128(lzMsgInfo.currentCount)),
+            _value: fees[lzMsgInfo.totalMsgCount]
+        });
+
+        MessagingReceipt memory receipt = _lzSend(
+            dstChain.lzEndpointId, ccsMsgsEncoded, _lzSendOpts, MessagingFee(lzMsgInfo.providedFee, 0), refundAddress
+        );
+        ++lzMsgInfo.totalMsgCount;
+        lzMsgInfo.providedFee -= receipt.fee.nativeFee;
 
         return (ccMsgs, lzMsgInfo);
     }
@@ -639,7 +629,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         for (uint256 i = 0; i < _txCompleteSignal.positionsOkIdxs.length; i++) {
             uint256 _posIdx = _txCompleteSignal.positionsOkIdxs[i];
             uint256 _amountOut = TokenAmountUtils.calculateAmountOutMin(
-                _txInfo.quantity, _positions[_posIdx].units, _positions[i].decimals
+                _txInfo.quantity, _positions[_posIdx].units, _positions[_posIdx].decimals
             );
             // if it is local, refund back to user
             if (isPositionLocal(_positions[_posIdx])) {
@@ -652,12 +642,15 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
                     ccsType: CrossChainSignalType.REFUND,
                     success: false,
                     user: _txInfo.user,
-                    underlying: _positions[i].token,
+                    underlying: _positions[_posIdx].token,
                     units: _amountOut,
                     value: 0
                 });
-                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, i, ccs, _positions[i], lzMsgInfo, fees);
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, _positions[_posIdx], lzMsgInfo, fees);
             }
+        }
+        if (lzMsgInfo.currentCount != 0) {
+            _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, fees, _txInfo.user);
         }
     }
 

@@ -27,6 +27,10 @@ contract Constants {
         setAddress("arb_sepolia.lzEndpoint", 0x6EDCE65403992e310A62460808c4b910D972f10f);
         setAddress("arb_sepolia.chainInfo", 0xfbB5eb88a4C99ae2C5b84184C84460f172f0eC06);
         setAddress("arb_sepolia.tokenDeployer", 0xB72B0771274Ca9a723816Baa775d7AA92d9533A9);
+        
+        setAddress("scroll_sepolia.lzEndpoint", 0x6EDCE65403992e310A62460808c4b910D972f10f);
+        setAddress("scroll_sepolia.chainInfo", 0xBFC2610542C7bcC56eBF526eD95b271a1015F1D1);
+        setAddress("scroll_sepolia.tokenDeployer", 0x9BAD40cD7c4d8Fb9b66778B1eAc02B14552E8b41);
 
         setAddress("deployer.create3", 0x6513Aedb4D1593BA12e50644401D976aebDc90d8);
     }
