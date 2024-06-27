@@ -16,6 +16,12 @@ contract ChainInfo is Ownable {
 
         // Base Sepolia
         chains[84532] = Chain(84532, 40245);
+
+        // Arbitrum Sepolia
+        chains[421614] = Chain(421614, 40231);
+
+        // Scroll Sepolia
+        chains[534351] = Chain(534351, 40170);
     }
 
     function addChain(Chain memory _chain) external onlyOwner {

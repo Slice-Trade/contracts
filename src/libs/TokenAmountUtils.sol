@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {OptionsBuilder} from "@lz-oapp-v2/libs/OptionsBuilder.sol";
-import "../Structs.sol";
-
-library CrossChainData {
-    using OptionsBuilder for bytes;
-
+library TokenAmountUtils {
     function calculateAmountOutMin(uint256 quantity, uint256 units, uint8 decimals) internal pure returns (uint256) {
         quantity = convertDecimals(quantity, decimals);
 
@@ -36,9 +31,5 @@ library CrossChainData {
             uint8 difference = toDecimals - fromDecimals;
             return amount * (10 ** difference);
         }
-    }
-
-    function createLzSendOpts(uint128 _gas, uint128 _value) public pure returns (bytes memory) {
-        return OptionsBuilder.newOptions().addExecutorLzReceiveOption(_gas, _value);
     }
 }

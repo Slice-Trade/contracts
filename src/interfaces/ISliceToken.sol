@@ -23,7 +23,6 @@ interface ISliceToken is IERC20 {
     error AmountLocked();
     error ZeroTokenQuantity();
     error InsufficientTokenQuantity();
-    error IncorrectPricesOrRoutesLength();
     error MintIdDoesNotExist();
     error RedeemIdDoesNotExist();
     error InvalidTransactionState();

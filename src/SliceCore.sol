@@ -9,13 +9,14 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {MessagingParams, MessagingReceipt} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
 import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
+import {OptionsBuilder} from "@lz-oapp-v2/libs/OptionsBuilder.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {IChainInfo} from "./interfaces/IChainInfo.sol";
 import {ISliceCore} from "./interfaces/ISliceCore.sol";
 import {ISliceTokenDeployer} from "./interfaces/ISliceTokenDeployer.sol";
 
-import {CrossChainData} from "./libs/CrossChainData.sol";
+import {TokenAmountUtils} from "./libs/TokenAmountUtils.sol";
 
 import {SliceToken, ISliceToken} from "./SliceToken.sol";
 
@@ -27,6 +28,7 @@ import "./Structs.sol";
  */
 contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
     using SafeERC20 for IERC20;
+    using OptionsBuilder for bytes;
 
     IChainInfo public immutable chainInfo;
 
@@ -59,12 +61,13 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         chainInfo = IChainInfo(_chainInfo);
         sliceTokenDeployer = _sliceTokenDeployer;
 
-        lzGasLookup[CrossChainSignalType.MINT] = 300000;
-        lzGasLookup[CrossChainSignalType.MINT_COMPLETE] = 150000;
-        lzGasLookup[CrossChainSignalType.REDEEM] = 200000;
-        lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE] = 150000;
-        lzGasLookup[CrossChainSignalType.REFUND] = 250000;
-        lzGasLookup[CrossChainSignalType.REFUND_COMPLETE] = 200000;
+        lzGasLookup[CrossChainSignalType.MINT] = 300_000;
+        lzGasLookup[CrossChainSignalType.REDEEM] = 250_000;
+        lzGasLookup[CrossChainSignalType.REFUND] = 250_000;
+
+        lzGasLookup[CrossChainSignalType.MINT_COMPLETE] = 160_000;
+        lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE] = 160_000;
+        lzGasLookup[CrossChainSignalType.REFUND_COMPLETE] = 200_000;
     }
 
     /* =========================================================== */
@@ -123,7 +126,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
 
         for (uint256 i = 0; i < positions.length; i++) {
             uint256 _amountOut =
-                CrossChainData.calculateAmountOutMin(txInfo.quantity, positions[i].units, positions[i].decimals);
+                TokenAmountUtils.calculateAmountOutMin(txInfo.quantity, positions[i].units, positions[i].decimals);
             if (isPositionLocal(positions[i])) {
                 IERC20(positions[i].token).safeTransferFrom(txInfo.user, address(this), _amountOut);
                 ++transactionCompleteSignals[mintID].signalsOk;
@@ -142,8 +145,12 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
                     value: 0
                 });
 
-                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, i, ccs, positions[i], lzMsgInfo, fees);
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, positions[i], lzMsgInfo, fees);
             }
+        }
+
+        if (lzMsgInfo.currentCount != 0) {
+            _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, fees, txInfo.user);
         }
 
         if (checkPendingTransactionCompleteSignals(mintID)) {
@@ -178,7 +185,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
 
         for (uint256 i = 0; i < len; i++) {
             uint256 _amount =
-                CrossChainData.calculateAmountOutMin(txInfo.quantity, positions[i].units, positions[i].decimals);
+                TokenAmountUtils.calculateAmountOutMin(txInfo.quantity, positions[i].units, positions[i].decimals);
             if (isPositionLocal(positions[i])) {
                 IERC20(positions[i].token).safeTransfer(txInfo.user, _amount);
                 // increase ready signal after each local transfer
@@ -196,8 +203,12 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
                     value: 0
                 });
 
-                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, i, ccs, positions[i], lzMsgInfo, fees);
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, positions[i], lzMsgInfo, fees);
             }
+        }
+
+        if (lzMsgInfo.currentCount != 0) {
+            _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, fees, txInfo.user);
         }
 
         // if all signals are in call redeemComplete on token contract
@@ -207,6 +218,9 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         }
     }
 
+    /**
+     * @dev See ISliceCore - refund
+     */
     function refund(SliceTransactionInfo calldata txInfo, uint128[] calldata fees)
         external
         payable
@@ -257,9 +271,12 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         emit ChangedApprovedSliceTokenCreator(user, isApproved);
     }
 
-    function setLzGas(CrossChainSignalType ccsType, uint128 gas) external onlyOwner {
+    /**
+     * @dev See ISliceCore - setLzBaseGas
+     */
+    function setLzBaseGas(CrossChainSignalType ccsType, uint128 gas) public onlyOwner {
         lzGasLookup[ccsType] = gas;
-        emit SetLzGas(ccsType, gas);
+        emit SetLzBaseGas(ccsType, gas);
     }
 
     /**
@@ -335,10 +352,10 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         // array will always only contain msgs of one type
         CrossChainSignalType ccsType = ccs[0].ccsType;
 
-        if (ccsType == CrossChainSignalType.MINT_COMPLETE) {
-            handleMintCompleteSignal(ccs);
-        } else if (ccsType == CrossChainSignalType.MINT) {
+        if (ccsType == CrossChainSignalType.MINT) {
             handleMintSignal(ccs);
+        } else if (ccsType == CrossChainSignalType.MINT_COMPLETE) {
+            handleMintCompleteSignal(ccs);
         } else if (ccsType == CrossChainSignalType.REDEEM) {
             handleRedeemSignal(ccs);
         } else if (ccsType == CrossChainSignalType.REDEEM_COMPLETE) {
@@ -419,6 +436,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         CrossChainSignal[] memory ccsResponses = new CrossChainSignal[](ccsLength);
 
         for (uint256 i = 0; i < ccsLength; i++) {
+            // transfer the asset back to the user
             IERC20(ccs[i].underlying).safeTransfer(ccs[i].user, ccs[i].units);
 
             // send cross chain success msg
@@ -465,6 +483,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         CrossChainSignal[] memory ccsResponses = new CrossChainSignal[](ccsLength);
 
         for (uint256 i = 0; i < ccsLength; i++) {
+            // transfer the asset back to the user
             IERC20(ccs[i].underlying).safeTransfer(ccs[i].user, ccs[i].units);
             CrossChainSignal memory _ccsResponse = CrossChainSignal({
                 id: ccs[i].id,
@@ -508,73 +527,63 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
 
     function groupAndSendLzMsg(
         CrossChainSignal[] memory ccMsgs,
-        uint256 currentIdx,
         CrossChainSignal memory ccs,
         Position memory position,
         LzMsgGroupInfo memory lzMsgInfo,
         uint128[] memory fees
     ) internal returns (CrossChainSignal[] memory, LzMsgGroupInfo memory) {
+        // if it is the same chain id add the message to the list and icrease CCS count
         if (lzMsgInfo.currentChainId == position.chainId) {
             ccMsgs[lzMsgInfo.currentCount] = ccs;
             ++lzMsgInfo.currentCount;
         } else {
+            // if it is another chain id, send the previous messages in the list, then reset everything
             if (lzMsgInfo.currentChainId != 0) {
-                {
-                    uint256 currentCount = lzMsgInfo.currentCount;
-                    assembly {
-                        mstore(ccMsgs, currentCount)
-                    }
-                }
-                ccMsgs[0].value = fees[lzMsgInfo.totalMsgCount];
-                bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
-
-                Chain memory dstChain = chainInfo.getChainInfo(lzMsgInfo.currentChainId);
-
-                bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({
-                    _gas: lzGasLookup[ccs.ccsType],
-                    _value: fees[lzMsgInfo.totalMsgCount]
-                });
-
-                MessagingReceipt memory receipt = _lzSend(
-                    dstChain.lzEndpointId,
-                    ccsMsgsEncoded,
-                    _lzSendOpts,
-                    MessagingFee(lzMsgInfo.providedFee, 0),
-                    address(this)
-                );
+                (ccMsgs, lzMsgInfo) = _sendGroupedLzMsg(ccMsgs, ccs, lzMsgInfo, fees, address(this));
 
                 lzMsgInfo.currentCount = 0;
-                ++lzMsgInfo.totalMsgCount;
                 lzMsgInfo.currentChainId = position.chainId;
-                lzMsgInfo.providedFee -= receipt.fee.nativeFee;
                 ccMsgs = new CrossChainSignal[](lzMsgInfo.positionsLength);
             }
-
+            // add the next message to the now empty list
             ccMsgs[lzMsgInfo.currentCount] = ccs;
             lzMsgInfo.currentChainId = position.chainId;
             ++lzMsgInfo.currentCount;
         }
-        // if it is the last message and we have a chainId in the array we send the message
-        if (currentIdx == lzMsgInfo.positionsLength - 1 && lzMsgInfo.currentCount != 0) {
-            {
-                uint256 currentCount = lzMsgInfo.currentCount;
-                assembly {
-                    mstore(ccMsgs, currentCount)
-                }
+        return (ccMsgs, lzMsgInfo);
+    }
+
+    function _sendGroupedLzMsg(
+        CrossChainSignal[] memory ccMsgs,
+        CrossChainSignal memory ccs,
+        LzMsgGroupInfo memory lzMsgInfo,
+        uint128[] memory fees,
+        address refundAddress
+    ) private returns (CrossChainSignal[] memory, LzMsgGroupInfo memory) {
+        // reset the length of the array from positions.length to the actual length
+        {
+            uint256 currentCount = lzMsgInfo.currentCount;
+            assembly {
+                mstore(ccMsgs, currentCount)
             }
-            ccMsgs[0].value = fees[lzMsgInfo.totalMsgCount];
-            bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
-            Chain memory dstChain = chainInfo.getChainInfo(lzMsgInfo.currentChainId);
-
-            bytes memory _lzSendOpts =
-                CrossChainData.createLzSendOpts({_gas: lzGasLookup[ccs.ccsType], _value: fees[lzMsgInfo.totalMsgCount]});
-
-            MessagingReceipt memory receipt = _lzSend(
-                dstChain.lzEndpointId, ccsMsgsEncoded, _lzSendOpts, MessagingFee(lzMsgInfo.providedFee, 0), ccs.user
-            );
-            ++lzMsgInfo.totalMsgCount;
-            lzMsgInfo.providedFee -= receipt.fee.nativeFee;
         }
+        // set msg value to send cross chain, encode msgs, get the dst chain id
+        ccMsgs[0].value = fees[lzMsgInfo.totalMsgCount];
+        bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
+        Chain memory dstChain = chainInfo.getChainInfo(lzMsgInfo.currentChainId);
+
+        // create lz send opts
+        bytes memory _lzSendOpts = _createLzSendOpts({
+            _gas: requiredGas(ccs.ccsType, uint128(lzMsgInfo.currentCount)),
+            _value: fees[lzMsgInfo.totalMsgCount]
+        });
+
+        // send the message, increase the total sent msg count, deuct the sent fee from the total
+        MessagingReceipt memory receipt = _lzSend(
+            dstChain.lzEndpointId, ccsMsgsEncoded, _lzSendOpts, MessagingFee(lzMsgInfo.providedFee, 0), refundAddress
+        );
+        ++lzMsgInfo.totalMsgCount;
+        lzMsgInfo.providedFee -= receipt.fee.nativeFee;
 
         return (ccMsgs, lzMsgInfo);
     }
@@ -593,6 +602,28 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         return _transactionCompleteSignal.signalsOk == _numOfPositions;
     }
 
+    function requiredGas(CrossChainSignalType ccsType, uint128 msgsLength) internal view returns (uint128) {
+        uint128 _baseGas = lzGasLookup[ccsType];
+        uint128 _gasStep = gasStep(ccsType);
+
+        uint128 gasRequired = _baseGas + (_gasStep * msgsLength);
+
+        return gasRequired;
+    }
+
+    /* =========================================================== */
+    /*   =================   INTERNAL PURE   ==================    */
+    /* =========================================================== */
+    function gasStep(CrossChainSignalType ccsType) internal pure returns (uint128) {
+        if (
+            ccsType == CrossChainSignalType.MINT || ccsType == CrossChainSignalType.REDEEM
+                || ccsType == CrossChainSignalType.REFUND
+        ) {
+            return 55_000;
+        }
+        return 37_000;
+    }
+
     /* =========================================================== */
     /*   ===================    PRIVATE    ====================    */
     /* =========================================================== */
@@ -608,8 +639,8 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         // loop through all the positions that have already been transferred to the contract
         for (uint256 i = 0; i < _txCompleteSignal.positionsOkIdxs.length; i++) {
             uint256 _posIdx = _txCompleteSignal.positionsOkIdxs[i];
-            uint256 _amountOut = CrossChainData.calculateAmountOutMin(
-                _txInfo.quantity, _positions[_posIdx].units, _positions[i].decimals
+            uint256 _amountOut = TokenAmountUtils.calculateAmountOutMin(
+                _txInfo.quantity, _positions[_posIdx].units, _positions[_posIdx].decimals
             );
             // if it is local, refund back to user
             if (isPositionLocal(_positions[_posIdx])) {
@@ -622,19 +653,26 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
                     ccsType: CrossChainSignalType.REFUND,
                     success: false,
                     user: _txInfo.user,
-                    underlying: _positions[i].token,
+                    underlying: _positions[_posIdx].token,
                     units: _amountOut,
                     value: 0
                 });
-                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, i, ccs, _positions[i], lzMsgInfo, fees);
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, _positions[_posIdx], lzMsgInfo, fees);
             }
         }
+        if (lzMsgInfo.currentCount != 0) {
+            _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, fees, _txInfo.user);
+        }
+    }
+
+    function _createLzSendOpts(uint128 _gas, uint128 _value) private pure returns (bytes memory) {
+        return OptionsBuilder.newOptions().addExecutorLzReceiveOption(_gas, _value);
     }
 
     function _sendLzMsg(CrossChainSignalType ccsType, bytes memory ccsEncoded, uint32 srcChainId, address refundAddress)
         private
     {
-        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({_gas: lzGasLookup[ccsType], _value: 0});
+        bytes memory _lzSendOpts = _createLzSendOpts({_gas: lzGasLookup[ccsType], _value: 0});
 
         Chain memory srcChain = chainInfo.getChainInfo(srcChainId);
 

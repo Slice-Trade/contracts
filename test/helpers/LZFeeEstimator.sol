@@ -5,14 +5,19 @@ import "forge-std/src/console.sol";
 
 import {MessagingFee} from "@lz-oapp-v2/OApp.sol";
 import {ILayerZeroEndpointV2, MessagingParams} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
+import {OptionsBuilder} from "@lz-oapp-v2/libs/OptionsBuilder.sol";
 
 import {IChainInfo} from "../../src/interfaces/IChainInfo.sol";
-import {CrossChainData} from "../../src/libs/CrossChainData.sol";
 import {SliceCore} from "../../src/SliceCore.sol";
 import {ISliceToken} from "../../src/SliceToken.sol";
 import "../../src/Structs.sol";
 
+import {TokenAmountUtils} from "../../src/libs/TokenAmountUtils.sol";
+
+
 contract LZFeeEstimator {
+    using OptionsBuilder for bytes;
+
     IChainInfo public immutable chainInfo;
     SliceCore public immutable sliceCore;
     ILayerZeroEndpointV2 public immutable endpoint;
@@ -109,7 +114,7 @@ contract LZFeeEstimator {
 
         Chain memory dstChain = chainInfo.getChainInfo(chainId);
 
-        bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({_gas: sliceCore.lzGasLookup(ccsType), _value: 0});
+        bytes memory _lzSendOpts = _createLzSendOpts({_gas: sliceCore.lzGasLookup(ccsType), _value: 0});
 
         MessagingFee memory _fee = endpoint.quote(
             MessagingParams(
@@ -152,7 +157,7 @@ contract LZFeeEstimator {
 
                 Chain memory dstChain = chainInfo.getChainInfo(kt.currentChainId);
 
-                bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({
+                bytes memory _lzSendOpts = _createLzSendOpts({
                     _gas: sliceCore.lzGasLookup(ccsType),
                     _value: replyMsgVal[kt.totalMsgCount]
                 });
@@ -190,7 +195,7 @@ contract LZFeeEstimator {
             bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
             Chain memory dstChain = chainInfo.getChainInfo(kt.currentChainId);
 
-            bytes memory _lzSendOpts = CrossChainData.createLzSendOpts({
+            bytes memory _lzSendOpts = _createLzSendOpts({
                 _gas: sliceCore.lzGasLookup(ccsType),
                 _value: replyMsgVal[kt.totalMsgCount]
             });
@@ -210,5 +215,9 @@ contract LZFeeEstimator {
         }
 
         return (ccMsgs, kt, feeSum);
+    }
+
+    function _createLzSendOpts(uint128 _gas, uint128 _value) private pure returns (bytes memory) {
+        return OptionsBuilder.newOptions().addExecutorLzReceiveOption(_gas, _value);
     }
 }

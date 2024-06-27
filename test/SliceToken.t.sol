@@ -15,7 +15,7 @@ import "../src/SliceCore.sol";
 import "../src/SliceToken.sol";
 
 import "./mocks/SliceCoreMock.sol";
-import "../src/libs/SliceTokenDeployer.sol";
+import "../src/utils/SliceTokenDeployer.sol";
 
 contract SliceTokenTest is Helper {
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720

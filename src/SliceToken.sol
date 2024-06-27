@@ -7,7 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {ISliceCore} from "./interfaces/ISliceCore.sol";
 import {ISliceToken} from "./interfaces/ISliceToken.sol";
 
-import {CrossChainData} from "./libs/CrossChainData.sol";
+import {TokenAmountUtils} from "./libs/TokenAmountUtils.sol";
 
 import "./Structs.sol";
 
@@ -233,6 +233,9 @@ contract SliceToken is ISliceToken, ERC20, ReentrancyGuard {
         emit SliceRedeemed(_txInfo.user, _txInfo.quantity);
     }
 
+    /**
+     * @dev See ISliceToken - refund
+     */
     function refund(bytes32 mintID, uint128[] calldata fees) external payable nonReentrant {
         SliceTransactionInfo memory _txInfo = mints[mintID];
 
@@ -250,6 +253,9 @@ contract SliceToken is ISliceToken, ERC20, ReentrancyGuard {
         ISliceCore(sliceCore).refund{value: msg.value}(_txInfo, fees);
     }
 
+    /**
+     * @dev See ISliceToken - refundComplete
+     */
     function refundComplete(bytes32 mintID) external onlySliceCore {
         // get transaction info
         SliceTransactionInfo memory _txInfo = mints[mintID];
@@ -284,22 +290,37 @@ contract SliceToken is ISliceToken, ERC20, ReentrancyGuard {
         return positions;
     }
 
+    /**
+     * @dev See ISliceToken - getNumberOfPositions
+     */
     function getNumberOfPositions() external view returns (uint256) {
         return positions.length;
     }
 
+    /**
+     * @dev See ISliceToken - getMint
+     */
     function getMint(bytes32 id) external view returns (SliceTransactionInfo memory) {
         return mints[id];
     }
 
+    /**
+     * @dev See ISliceToken - getRedeem
+     */
     function getRedeem(bytes32 id) external view returns (SliceTransactionInfo memory) {
         return redeems[id];
     }
 
+    /**
+     * @dev See ISliceToken - getPosIdx
+     */
     function getPosIdx(address underlyingAsset) external view returns (uint256) {
         return posIdx[underlyingAsset];
     }
 
+    /**
+     * @dev See ISliceToken - getPosAtIdx
+     */
     function getPosAtIdx(uint256 idx) external view returns (Position memory) {
         if (idx >= positions.length) {
             revert();
@@ -310,6 +331,7 @@ contract SliceToken is ISliceToken, ERC20, ReentrancyGuard {
     /* =========================================================== */
     /*   =====================   PUBLIC   =====================    */
     /* =========================================================== */
+    // before ERC20 transfer, check that the amount is not locked because of a pending redeem
     function transfer(address to, uint256 amount) public virtual override(ERC20, IERC20) returns (bool) {
         if (!verifyTransfer(msg.sender, amount)) {
             revert AmountLocked();
@@ -322,17 +344,23 @@ contract SliceToken is ISliceToken, ERC20, ReentrancyGuard {
     /* =========================================================== */
     /*   ===================    INTERNAL   ====================    */
     /* =========================================================== */
+    // verify that the amount is not locked becuase of a pending redeem
     function verifyTransfer(address _sender, uint256 _amount) internal view returns (bool) {
         return balanceOf(_sender) - _amount >= locked[_sender];
     }
 
+    /* 
+     * verify that the quantity the user wants to mint/redeem:
+     *  - is not zero
+     *  - for all positions the resulting position units won't be zero (required because of different position decimals)
+     */
     function verifySliceTokenQuantity(uint256 _sliceTokenQuantity) internal view {
         if (_sliceTokenQuantity == 0) {
             revert ZeroTokenQuantity();
         }
 
         for (uint256 i = 0; i < positions.length; i++) {
-            uint256 minPositionUnits = CrossChainData.getMinimumAmountInSliceToken(positions[i].decimals);
+            uint256 minPositionUnits = TokenAmountUtils.getMinimumAmountInSliceToken(positions[i].decimals);
             if (_sliceTokenQuantity < minPositionUnits) {
                 revert InsufficientTokenQuantity();
             }

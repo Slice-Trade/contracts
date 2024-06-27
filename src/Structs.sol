@@ -114,6 +114,16 @@ struct CrossChainGas {
     uint256 gasForPayload;
 }
 
+/**
+ * @notice Used internally to store info about group layerzero messages when sending multiple messages to the same chain
+ * Used when we are looping through the positions array and grouping the sendable messages according to chain ID
+ *
+ * @param currentCount The current count of CrossChainSignals in the array
+ * @param currentChainId The current chain ID
+ * @param totalMsgCount The total count of layer zero messages sent so far
+ * @param positionsLength The length of the positions array
+ * @param providedFee The total value provided as layer zero fee
+ */
 struct LzMsgGroupInfo {
     uint256 currentCount;
     uint256 currentChainId;
