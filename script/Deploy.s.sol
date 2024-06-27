@@ -56,7 +56,7 @@ contract SliceCoreDeployer is Script, Constants {
         SliceCore(payable(sliceCoreAddress)).changeApprovedSliceTokenCreator(c.owner, true);
         SliceCore(payable(sliceCoreAddress)).changeApprovedSliceTokenCreator(address(this), true);
         
-        // TODO: get all chains and set peer to all of them
+        // TODO: Mainnet deployment script
         /// @dev WARNING: only on testnets for now
         if (block.chainid == 11155111) {
             SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));

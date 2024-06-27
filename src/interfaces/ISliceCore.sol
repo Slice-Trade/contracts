@@ -14,12 +14,13 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
     event UnderlyingAssetsRedeemed(address indexed token, uint256 indexed sliceTokenQuantity, address indexed owner);
     /* Emitted when the underlying assets that were transferred during a failed mint are refunded to the user */
     event UnderlyingAssetsRefunded(address indexed token, bytes32 indexed mintId, address indexed owner);
-
+    /* Emitted when the Slice token creation is enabled/disabled */
     event ChangedSliceTokenCreationEnabled(bool indexed isEnabled);
-
+    /* Emitted when an address is added/rmemoved from the list of allowed Slice token creators */
     event ChangedApprovedSliceTokenCreator(address indexed user, bool indexed isApproved);
-
+    /* Emitted when the base gas used to calculate the full gas sent cross chain in LayerZero calls is modified for a given cross chain message type */
     event SetLzBaseGas(CrossChainSignalType indexed ccsType, uint128 indexed gas);
+
     /**
      * @dev Deploys a new Slice token contract. Can only be called by verified addresses.
      *
@@ -30,7 +31,7 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
     function createSlice(string calldata name, string calldata symbol, Position[] calldata positions)
         external
         returns (address);
-    
+
     /**
      * @dev Transfers the underlying assets from the user to the contract
      *
@@ -51,7 +52,7 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
      * @param txInfo The transaction info struct for the failed mint
      */
     function refund(SliceTransactionInfo memory txInfo, uint128[] calldata fees) external payable;
-    
+
     /**
      * @dev Returns whether a given address is authorized to create a Slice token.
      *
@@ -75,6 +76,14 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
      * @param isApproved Whether to approve/disapprove
      */
     function changeApprovedSliceTokenCreator(address user, bool isApproved) external;
+
+    /**
+     * @dev Sets the base gas used to calculate the full gas sent cross chain in LayerZero calls for a cross chain message type
+     *
+     * @param ccsType The cross-chain message type
+     * @param gas The amount of base gas
+     */
+    function setLzBaseGas(CrossChainSignalType ccsType, uint128 gas) external;
 
     /**
      * @dev Returns the number of Slice tokens registered (created) in the contract.

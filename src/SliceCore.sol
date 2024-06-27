@@ -218,6 +218,9 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         }
     }
 
+    /**
+     * @dev See ISliceCore - refund
+     */
     function refund(SliceTransactionInfo calldata txInfo, uint128[] calldata fees)
         external
         payable
@@ -269,6 +272,14 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
     }
 
     /**
+     * @dev See ISliceCore - setLzBaseGas
+     */
+    function setLzBaseGas(CrossChainSignalType ccsType, uint128 gas) public onlyOwner {
+        lzGasLookup[ccsType] = gas;
+        emit SetLzBaseGas(ccsType, gas);
+    }
+
+    /**
      * @dev This is a work around to allow using SafeERC20.safeTransferFrom in a try/catch block
      * This is needed because internal functions can not be used in a try/catch block
      * More context here: https://ethereum.stackexchange.com/questions/148855/how-can-we-use-safetransferfrom-function-in-a-try-catch-block
@@ -300,14 +311,6 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
      */
     function getRegisteredSliceToken(uint256 idx) external view returns (address) {
         return registeredSliceTokensArray[idx];
-    }
-
-    /* =========================================================== */
-    /*    ====================   PUBLIC   =====================    */
-    /* =========================================================== */
-    function setLzBaseGas(CrossChainSignalType ccsType, uint128 gas) public onlyOwner {
-        lzGasLookup[ccsType] = gas;
-        emit SetLzBaseGas(ccsType, gas);
     }
 
     /* =========================================================== */
@@ -433,6 +436,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         CrossChainSignal[] memory ccsResponses = new CrossChainSignal[](ccsLength);
 
         for (uint256 i = 0; i < ccsLength; i++) {
+            // transfer the asset back to the user
             IERC20(ccs[i].underlying).safeTransfer(ccs[i].user, ccs[i].units);
 
             // send cross chain success msg
@@ -479,6 +483,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         CrossChainSignal[] memory ccsResponses = new CrossChainSignal[](ccsLength);
 
         for (uint256 i = 0; i < ccsLength; i++) {
+            // transfer the asset back to the user
             IERC20(ccs[i].underlying).safeTransfer(ccs[i].user, ccs[i].units);
             CrossChainSignal memory _ccsResponse = CrossChainSignal({
                 id: ccs[i].id,
@@ -527,10 +532,12 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         LzMsgGroupInfo memory lzMsgInfo,
         uint128[] memory fees
     ) internal returns (CrossChainSignal[] memory, LzMsgGroupInfo memory) {
+        // if it is the same chain id add the message to the list and icrease CCS count
         if (lzMsgInfo.currentChainId == position.chainId) {
             ccMsgs[lzMsgInfo.currentCount] = ccs;
             ++lzMsgInfo.currentCount;
         } else {
+            // if it is another chain id, send the previous messages in the list, then reset everything
             if (lzMsgInfo.currentChainId != 0) {
                 (ccMsgs, lzMsgInfo) = _sendGroupedLzMsg(ccMsgs, ccs, lzMsgInfo, fees, address(this));
 
@@ -538,7 +545,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
                 lzMsgInfo.currentChainId = position.chainId;
                 ccMsgs = new CrossChainSignal[](lzMsgInfo.positionsLength);
             }
-
+            // add the next message to the now empty list
             ccMsgs[lzMsgInfo.currentCount] = ccs;
             lzMsgInfo.currentChainId = position.chainId;
             ++lzMsgInfo.currentCount;
@@ -553,21 +560,25 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         uint128[] memory fees,
         address refundAddress
     ) private returns (CrossChainSignal[] memory, LzMsgGroupInfo memory) {
+        // reset the length of the array from positions.length to the actual length
         {
             uint256 currentCount = lzMsgInfo.currentCount;
             assembly {
                 mstore(ccMsgs, currentCount)
             }
         }
+        // set msg value to send cross chain, encode msgs, get the dst chain id
         ccMsgs[0].value = fees[lzMsgInfo.totalMsgCount];
         bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
         Chain memory dstChain = chainInfo.getChainInfo(lzMsgInfo.currentChainId);
 
+        // create lz send opts
         bytes memory _lzSendOpts = _createLzSendOpts({
             _gas: requiredGas(ccs.ccsType, uint128(lzMsgInfo.currentCount)),
             _value: fees[lzMsgInfo.totalMsgCount]
         });
 
+        // send the message, increase the total sent msg count, deuct the sent fee from the total
         MessagingReceipt memory receipt = _lzSend(
             dstChain.lzEndpointId, ccsMsgsEncoded, _lzSendOpts, MessagingFee(lzMsgInfo.providedFee, 0), refundAddress
         );
