@@ -22,6 +22,24 @@ fi
 RPC_URL=""
 
 case $1 in
+    "optimism")
+        if [ "$MODE" != "mainnet" ]; then
+            echo "Trying to deploy to Optimism mainnet but mode is not set to mainnet in .env file"
+            exit 1
+        fi
+
+        RPC_URL=$OPTIMISM_RPC_URL
+        echo "Deploying to Optimism Mainnet"
+        ;;
+    "arbitrum")
+        if [ "$MODE" != "mainnet" ]; then
+            echo "Trying to deploy to Arbitrum mainnet but mode is not set to mainnet in .env file"
+            exit 1
+        fi
+
+        RPC_URL=$ARBITRUM_RPC_URL
+        echo "Deploying to Arbitrum Mainnet"
+        ;;
     "eth-sepolia")
         RPC_URL=$ETH_SEPOLIA_RPC_URL
         echo "Deploying to Ethereum Sepolia Testnet"

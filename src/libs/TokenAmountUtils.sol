@@ -2,6 +2,8 @@
 pragma solidity 0.8.26;
 
 library TokenAmountUtils {
+    uint8 constant SLICE_TOKEN_DECIMALS = 18;
+
     function calculateAmountOutMin(uint256 quantity, uint256 units, uint8 decimals) internal pure returns (uint256) {
         quantity = convertDecimals(quantity, decimals);
 
@@ -11,24 +13,22 @@ library TokenAmountUtils {
     }
 
     function getMinimumAmountInSliceToken(uint8 tokenBDecimals) internal pure returns (uint256) {
-        uint8 tokenADecimals = 18;
-        if (tokenADecimals <= tokenBDecimals) {
+        if (SLICE_TOKEN_DECIMALS <= tokenBDecimals) {
             return 1;
         }
 
-        uint8 difference = tokenADecimals - tokenBDecimals;
+        uint8 difference = SLICE_TOKEN_DECIMALS - tokenBDecimals;
         return 10 ** difference;
     }
 
     function convertDecimals(uint256 amount, uint8 toDecimals) internal pure returns (uint256) {
-        uint8 fromDecimals = 18;
-        if (fromDecimals == toDecimals) {
+        if (SLICE_TOKEN_DECIMALS == toDecimals) {
             return amount;
-        } else if (fromDecimals > toDecimals) {
-            uint8 difference = fromDecimals - toDecimals;
+        } else if (SLICE_TOKEN_DECIMALS > toDecimals) {
+            uint8 difference = SLICE_TOKEN_DECIMALS - toDecimals;
             return amount / (10 ** difference);
         } else {
-            uint8 difference = toDecimals - fromDecimals;
+            uint8 difference = toDecimals - SLICE_TOKEN_DECIMALS;
             return amount * (10 ** difference);
         }
     }

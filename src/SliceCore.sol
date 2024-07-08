@@ -61,13 +61,13 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         chainInfo = IChainInfo(_chainInfo);
         sliceTokenDeployer = _sliceTokenDeployer;
 
-        lzGasLookup[CrossChainSignalType.MINT] = 300_000;
-        lzGasLookup[CrossChainSignalType.REDEEM] = 250_000;
-        lzGasLookup[CrossChainSignalType.REFUND] = 250_000;
+        lzGasLookup[CrossChainSignalType.MINT] = 3e5;
+        lzGasLookup[CrossChainSignalType.REDEEM] = 2.5e5;
+        lzGasLookup[CrossChainSignalType.REFUND] = 2.5e5;
 
-        lzGasLookup[CrossChainSignalType.MINT_COMPLETE] = 160_000;
-        lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE] = 160_000;
-        lzGasLookup[CrossChainSignalType.REFUND_COMPLETE] = 200_000;
+        lzGasLookup[CrossChainSignalType.MINT_COMPLETE] = 1.6e5;
+        lzGasLookup[CrossChainSignalType.REDEEM_COMPLETE] = 1.6e5;
+        lzGasLookup[CrossChainSignalType.REFUND_COMPLETE] = 2e5;
     }
 
     /* =========================================================== */
@@ -274,7 +274,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
     /**
      * @dev See ISliceCore - setLzBaseGas
      */
-    function setLzBaseGas(CrossChainSignalType ccsType, uint128 gas) public onlyOwner {
+    function setLzBaseGas(CrossChainSignalType ccsType, uint128 gas) external onlyOwner {
         lzGasLookup[ccsType] = gas;
         emit SetLzBaseGas(ccsType, gas);
     }
@@ -285,7 +285,7 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
      * More context here: https://ethereum.stackexchange.com/questions/148855/how-can-we-use-safetransferfrom-function-in-a-try-catch-block
      */
     function attemptTransfer(address token, address from, address to, uint256 amount) external {
-        if (msg.sender != address(this)) revert();
+        if (msg.sender != address(this)) revert("Only slice core can call");
         IERC20(token).safeTransferFrom(from, to, amount);
     }
 
@@ -313,21 +313,21 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
         return registeredSliceTokensArray[idx];
     }
 
+    /**
+     * @dev See ISliceCore - isSliceTokenRegistered
+     */
+    function isSliceTokenRegistered(address token) external view returns (bool) {
+        return registeredSliceTokens[token];
+    }
     /* =========================================================== */
     /*   ==================   PUBLIC VIEW   ===================    */
     /* =========================================================== */
+
     /**
      * @dev See ISliceCore - canCreateSlice
      */
     function canCreateSlice(address user) public view returns (bool) {
         return approvedSliceTokenCreators[user];
-    }
-
-    /**
-     * @dev See ISliceCore - isSliceTokenRegistered
-     */
-    function isSliceTokenRegistered(address token) public view returns (bool) {
-        return registeredSliceTokens[token];
     }
 
     /* =========================================================== */

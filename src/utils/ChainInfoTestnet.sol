@@ -29,7 +29,7 @@ contract ChainInfo is Ownable {
         chains[_chain.chainId] = _chain;
     }
 
-    function getChainInfo(uint256 _chainId) public view returns (Chain memory) {
+    function getChainInfo(uint256 _chainId) external view returns (Chain memory) {
         return chains[_chainId];
     }
 }

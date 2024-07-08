@@ -323,7 +323,7 @@ contract SliceToken is ISliceToken, ERC20, ReentrancyGuard {
      */
     function getPosAtIdx(uint256 idx) external view returns (Position memory) {
         if (idx >= positions.length) {
-            revert();
+            revert("Invalid index");
         }
         return positions[idx];
     }

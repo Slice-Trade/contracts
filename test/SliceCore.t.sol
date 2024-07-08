@@ -25,6 +25,8 @@ import {TokenMock} from "./mocks/TokenMock.sol";
 import {LZFeeEstimator} from "./helpers/LZFeeEstimator.sol";
 import {CrossChainPositionCreator} from "./helpers/CrossChainPositionCreator.sol";
 
+// TODO: write a test that makes sures mint / redeem / refund fails if the fees length is incorrect
+
 contract SliceCoreTest is Helper {
     using TokenAmountUtils for SliceCoreTest;
 
