@@ -25,8 +25,6 @@ import {TokenMock} from "./mocks/TokenMock.sol";
 import {LZFeeEstimator} from "./helpers/LZFeeEstimator.sol";
 import {CrossChainPositionCreator} from "./helpers/CrossChainPositionCreator.sol";
 
-// TODO: write a test that makes sures mint / redeem / refund fails if the fees length is incorrect
-
 contract SliceCoreTest is Helper {
     using TokenAmountUtils for SliceCoreTest;
 
@@ -217,6 +215,11 @@ contract SliceCoreTest is Helper {
 
         ccPosCreator = new CrossChainPositionCreator();
 
+        /*         ChainInfo chainInfo = new ChainInfo();
+        SliceTokenDeployer deployer = new SliceTokenDeployer();
+
+        SliceCore _core =
+            new SliceCore(getAddress("mainnet.layerZeroEndpoint"), address(chainInfo), address(deployer), dev); */
         vm.stopPrank();
     }
 
@@ -529,6 +532,31 @@ contract SliceCoreTest is Helper {
         address ccTokenAddr2 = core.createSlice("CC Slice", "CC", ccPositions);
         vm.expectRevert();
         SliceToken(ccTokenAddr2).mint(1 ether, fees);
+    }
+
+    function test_Cannot_CollectUnderlying_InvalidFeesLength() public {
+        vm.startPrank(dev);
+
+        Position memory ccPos2 = Position(56, address(wmaticPolygon), 18, wmaticUnits);
+        Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
+
+        ccPositions[0] = ccPos2;
+        ccPositions.push(ccPos2);
+
+        ccPositions.push(ccPos);
+        ccPositions.push(ccPos);
+
+        core.setPeer(30102, bytes32(uint256(uint160(address(core)))));
+
+        deal(dev, 100 ether);
+
+        address ccTokenAddr2 = core.createSlice("CC Slice", "CC", ccPositions);
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 100;
+
+        vm.expectRevert();
+        SliceToken(ccTokenAddr2).mint{value: 10 ether}(1 ether, fees);
     }
 
     function test_CrossChainMessaging() public {
@@ -892,6 +920,24 @@ contract SliceCoreTest is Helper {
         token.redeem(1 ether, fees);
     }
 
+    function test_Cannot_RedeemUnderlying_InvalidFeesLength() public {
+        uint256 sliceTokenAmount = 1 ether;
+        uint8 positionsLength = 5;
+
+        (bytes32 mintId, address polygonCore) = _mintCrossChainFuzz(sliceTokenAmount, positionsLength);
+        assertNotEq(bytes32(0), mintId);
+        vm.startPrank(dev);
+
+        (, uint256 feeTotal,,) =
+            _estimateFee(polygonCore, CrossChainSignalType.REDEEM, CrossChainSignalType.REDEEM_COMPLETE);
+
+        uint128[] memory emptyFees;
+        vm.expectRevert();
+        ccToken.redeem{value: feeTotal}(sliceTokenAmount, emptyFees);
+
+        vm.stopPrank();
+    }
+
     /* =========================================================== */
     /*   ====================    refund    ====================    */
     /* =========================================================== */
@@ -1199,6 +1245,49 @@ contract SliceCoreTest is Helper {
 
         vm.expectRevert();
         IOAppReceiver(core).lzReceive(originResponse, bytes32(0), ccsEncoded2, dev, bytes(""));
+
+        vm.prank(dev);
+        IOAppCore(core).setPeer(30109, bytes32(uint256(uint160(address(dev)))));
+        Origin memory originBad = Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(0)))), nonce: 1});
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+        vm.expectRevert();
+        IOAppReceiver(core).lzReceive(originBad, bytes32(0), ccsEncoded2, dev, bytes(""));
+    }
+
+    function test_transferOwnership() public {
+        ChainInfo chainInfo = new ChainInfo();
+        SliceTokenDeployer deployer = new SliceTokenDeployer();
+        vm.prank(dev);
+        SliceCore _core =
+            new SliceCore(getAddress("mainnet.layerZeroEndpoint"), address(chainInfo), address(deployer), dev);
+
+        vm.prank(dev);
+        _core.transferOwnership(users[1]);
+        vm.prank(users[1]);
+        _core.acceptOwnership();
+    }
+
+    function test_cannot_tansferOwnership_notOwner() public {
+        ChainInfo chainInfo = new ChainInfo();
+        SliceTokenDeployer deployer = new SliceTokenDeployer();
+        vm.prank(dev);
+        SliceCore _core =
+            new SliceCore(getAddress("mainnet.layerZeroEndpoint"), address(chainInfo), address(deployer), dev);
+        vm.expectRevert();
+        _core.transferOwnership(users[1]);
+    }
+
+    function test_cannot_acceptOwnership_notNewOwner() public {
+        ChainInfo chainInfo = new ChainInfo();
+        SliceTokenDeployer deployer = new SliceTokenDeployer();
+        vm.prank(dev);
+        SliceCore _core =
+            new SliceCore(getAddress("mainnet.layerZeroEndpoint"), address(chainInfo), address(deployer), dev);
+        vm.prank(dev);
+        _core.transferOwnership(users[1]);
+        vm.expectRevert();
+        vm.prank(users[2]);
+        _core.acceptOwnership();
     }
 
     /* =========================================================== */
@@ -1480,6 +1569,13 @@ contract SliceCoreTest is Helper {
         }
 
         bytes memory ccsEncoded = abi.encode(ccsMsgs2);
+
+        {
+            // make sure that it reverts if fees length is incorrect
+            vm.expectRevert();
+            uint128[] memory emptyFees;
+            ccToken.refund{value: feeTotal}(mintId, emptyFees);
+        }
 
         ccToken.refund{value: feeTotal}(mintId, toUint128Array(feesForMsgs));
 
