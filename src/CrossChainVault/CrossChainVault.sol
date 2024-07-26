@@ -39,7 +39,10 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
      */
     mapping(bytes32 strategyIdAddressHash => SliceTokenShare) public sliceTokenShares;
 
-    constructor() Ownable(msg.sender) {}
+    constructor(ISliceCore _sliceCore, IChainInfo _chainInfo) Ownable(msg.sender) {
+        sliceCore = _sliceCore;
+        chainInfo = _chainInfo;
+    }
 
     function createCommitmentStrategy(
         address token,
