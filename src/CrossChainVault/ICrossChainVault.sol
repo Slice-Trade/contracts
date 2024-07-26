@@ -4,6 +4,18 @@ pragma solidity 0.8.26;
 import "./CrossChainVaultStructs.sol";
 
 interface ICrossChainVault {
+    event CommitmentStrategyCreated(bytes32 indexed strategyId);
+    event CommitmentStrategyTargetModified(bytes32 indexed strategyId, uint256 indexed newTarget);
+    event CommitmentStrategyExecuted(bytes32 indexed strategyId);
+    event CommittedToStrategy(bytes32 indexed strategyId, bytes32 indexed commitmentId);
+    event RemovedCommitmentFromStrategy(bytes32 indexed commitmentId, uint256 indexed amount);
+    event PulledMintedTokenShares(bytes32 indexed strategyId, address indexed user, uint256 indexed sliceTokenAmount);
+    event UpdatedUnderlyingAssetPrices(bytes32 indexed strategyId);
+    event ChangedUserApprovalToCommitmentStrategy(bytes32 indexed strategyId, address indexed user, bool indexed isApproved);
+    event VaultPaused();
+    event VaultRestarted();
+
+
     /**
      * @dev This function allows users to create commitment strategies.
      * They must be able to specify either the mint amount target or the timestamp when the minting can occur.
