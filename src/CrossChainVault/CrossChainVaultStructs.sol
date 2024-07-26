@@ -21,7 +21,6 @@ struct CommitmentStrategy {
     bool isPrivate;
     bool isRecurring;
 }
-// in a separate mapping(bytes32 strategyId => address approved) store the approved addresses if it is a private strategy
 
 struct Commitment {
     bytes32 id;
@@ -33,7 +32,16 @@ struct Commitment {
 }
 
 struct OraclePriceUpdate {
+    bytes32 id;
     address token;
     uint256 price;
     uint256 updateTimestamp;
+}
+
+struct SliceTokenShare {
+    bytes32 strategyId;
+    bytes32 commitmentId;
+    bytes32 priceUpdateId;
+    address user;
+    uint256 sliceTokenShares;
 }
