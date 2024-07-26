@@ -6,13 +6,20 @@ enum CommitmentStrategyType {
     TIMESTAMP_TARGET
 }
 
+enum CommitmentStrategyState {
+    OPEN,
+    EXECUTED
+}
+
 struct CommitmentStrategy {
     bytes32 id;
     CommitmentStrategyType strategyType;
+    CommitmentStrategyState strategyState;
     address creator;
     address token;
     uint256 target;
     bool isPrivate;
+    bool isRecurring;
 }
 // in a separate mapping(bytes32 strategyId => address approved) store the approved addresses if it is a private strategy
 

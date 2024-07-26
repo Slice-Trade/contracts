@@ -85,4 +85,9 @@ interface ICrossChainVault {
      * @dev In case any problem is discovered, the owner of the vault can pause all functionalities except for withdrawals.
      */
     function pauseVault() external;
+
+    /**
+     * @dev Allows the vault owner to restart the vault after a pause
+     */
+    function restartVault() external;
 }
