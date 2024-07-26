@@ -569,7 +569,7 @@ contract SliceCoreTest is Helper {
         ccPositions.push(ccPos2);
 
         ccPositions.push(ccPos);
-        ccPositions.push(ccPos);
+        //ccPositions.push(ccPos);
 
         core.setPeer(30102, bytes32(uint256(uint160(address(core)))));
 

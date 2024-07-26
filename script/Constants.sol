@@ -45,6 +45,10 @@ contract Constants {
         setAddress("op.lzEndpoint", 0x1a44076050125825900e736c501f859c50fE728c);
         setAddress("op.chainInfo", 0xa049c6cBF3348e509fc3B086CA11dB908Bc7ca79);
         setAddress("op.tokenDeployer", 0x784D6CF65f4BCd516eC73780701CEC1E1Ffe4c3B );
+        
+        setAddress("base.lzEndpoint", 0x1a44076050125825900e736c501f859c50fE728c);
+        setAddress("base.chainInfo", 0x8004Ae017e65E2D0c45A9f8d1d352b3012C88e8e);
+        setAddress("base.tokenDeployer",  0xA36301510939cf30033303417c9B95f200Ef4EB6);
 
         setUint("ETH_SEPOLIA_CHAIN_ID", 11155111);
         setUint("OP_SEPOLIA_CHAIN_ID", 11155420);
@@ -54,9 +58,11 @@ contract Constants {
 
         setUint("ARB_CHAIN_ID", 42161);
         setUint("OP_CHAIN_ID", 10);
+        setUint("BASE_CHAIN_ID", 8453);
 
         setUint(42161, 30110); // layer zero endpoint ID for Arbitrum
         setUint(10, 30111); // layer zero endpoint ID for Optimism
+        setUint(8453, 30184); // layer zero endpoint ID for Base
 
         // TESTNET LZ EIDs
         setUint(11155111, 40161); // sepolia

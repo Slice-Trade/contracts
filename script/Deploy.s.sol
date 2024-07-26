@@ -35,6 +35,7 @@ contract SliceCoreDeployer is Script, Constants {
         if (compareStrings(mode, "mainnet")) {
             deploymentChainIds.push(getUint("ARB_CHAIN_ID"));
             deploymentChainIds.push(getUint("OP_CHAIN_ID"));
+            deploymentChainIds.push(getUint("BASE_CHAIN_ID"));
         } else {
             deploymentChainIds.push(getUint("ETH_SEPOLIA_CHAIN_ID"));
             deploymentChainIds.push(getUint("OP_SEPOLIA_CHAIN_ID"));
@@ -116,6 +117,13 @@ contract SliceCoreDeployer is Script, Constants {
                 getAddress("op.lzEndpoint"),
                 getAddress("op.chainInfo"),
                 getAddress("op.tokenDeployer"),
+                getAddress("owner.mainnet")
+            );
+        } else if (block.chainid == getUint("BASE_CHAIN_ID")) {
+            return ConstructorArgs(
+                getAddress("base.lzEndpoint"),
+                getAddress("base.chainInfo"),
+                getAddress("base.tokenDeployer"),
                 getAddress("owner.mainnet")
             );
         } else if (block.chainid == ETH_SEPOLIA_CHAIN_ID) {

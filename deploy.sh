@@ -40,6 +40,15 @@ case $1 in
         RPC_URL=$ARBITRUM_RPC_URL
         echo "Deploying to Arbitrum Mainnet"
         ;;
+    "base")
+        if [ "$MODE" != "mainnet" ]; then
+            echo "Trying to deploy to Base mainnet but mode is not set to mainnet in .env file"
+            exit 1
+        fi
+
+        RPC_URL=$BASE_RPC_URL
+        echo "Deploying to Base Mainnet"
+        ;;
     "eth-sepolia")
         RPC_URL=$ETH_SEPOLIA_RPC_URL
         echo "Deploying to Ethereum Sepolia Testnet"
