@@ -9,7 +9,9 @@ import {IWETH} from "../src/external/IWETH.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IOAppCore} from "@lz-oapp-v2/interfaces/IOAppCore.sol";
 
+import {ICrossChainVault} from "../src/CrossChainVault/ICrossChainVault.sol";
 import {CrossChainVault} from "../src/CrossChainVault/CrossChainVault.sol";
+import "../src/CrossChainVault/CrossChainVaultStructs.sol";
 import {SliceCore} from "../src/SliceCore.sol";
 import {SliceToken} from "../src/SliceToken.sol";
 import {ChainInfo} from "../src/utils/ChainInfo.sol";
@@ -31,6 +33,10 @@ contract CrossChainVaultTest is Helper {
     IERC20 public link;
     IERC20 public wbtc;
 
+    uint256 public wethUnits = 10000000000000000000; // 10 wETH
+    uint256 public linkUnits = 2000000000000000000000; // 2000 LINK
+    uint256 public wbtcUnits = 100000000;
+
     Position[] public positions;
 
     enum ChainSelect {
@@ -43,6 +49,7 @@ contract CrossChainVaultTest is Helper {
     /*   ======================    setup   ====================    */
     /* =========================================================== */
     function setUp() public {
+        vm.startPrank(dev);
         forkMainnet(MAINNET_BLOCK_NUMBER);
         forkPolygon(POLYGON_BLOCK_NUMBER);
         selectMainnet();
@@ -52,9 +59,14 @@ contract CrossChainVaultTest is Helper {
         weth = IWETH(getAddress("mainnet.weth"));
         wbtc = IERC20(getAddress("mainnet.wbtc"));
 
+        fillPositions();
+
         (address sCore, address sToken) = deployTestContracts(ChainSelect.MAINNET, "");
         core = SliceCore(payable(sCore));
         sliceToken = SliceToken(payable(sToken));
+
+        vault = new CrossChainVault(core, core.chainInfo());
+        vm.stopPrank();
     }
 
     function deployTestContracts(ChainSelect chainSelect, string memory salt)
@@ -113,11 +125,64 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     /*   ==============  createCommitmentStrategy  =============   */
     /* =========================================================== */
-    function test_createCommitmentStrategy() public {}
+    function test_createCommitmentStrategy() public {
+        vm.startPrank(dev);
+        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
 
-    function test_cannot_createCommitmentStrategy_notRegisteredSliceToken() public {}
+        vm.expectEmit(true, false, false, false);
+        emit ICrossChainVault.CommitmentStrategyCreated(_stratId);
+        vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, false);
 
-    function test_cannot_createCommitmentStrategy_invalidTarget() public {}
+        (
+            bytes32 id,
+            CommitmentStrategyType stratType,
+            CommitmentStrategyState stratState,
+            address creator,
+            address token,
+            uint256 target,
+            bool isPrivate
+        ) = vault.commitmentStrategies(_stratId);
+
+        assertEq(id, _stratId);
+        assertEq(creator, dev);
+        assertEq(token, address(sliceToken));
+        assertEq(target, 10);
+
+        assertEq(uint8(stratType), 0);
+        assertEq(uint8(stratState), 0);
+
+        assertFalse(isPrivate);
+
+        vm.stopPrank();
+    }
+
+    function test_cannot_createCommitmentStrategy_vaultIsPaused() public {
+        vm.prank(dev);
+        vault.pauseVault();
+        vm.expectRevert(bytes4(keccak256("VaultIsPaused()")));
+        vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, false);
+        vm.stopPrank();
+    }
+
+    function test_cannot_createCommitmentStrategy_notRegisteredSliceToken() public {
+        vm.expectRevert(bytes4(keccak256("UnregisteredSliceToken()")));
+        vault.createCommitmentStrategy(address(0), 10, CommitmentStrategyType.AMOUNT_TARGET, false);
+    }
+
+    function test_cannot_createCommitmentStrategy_invalidAmount() public {
+        vm.expectRevert(bytes4(keccak256("InvalidAmount()")));
+        vault.createCommitmentStrategy(address(sliceToken), 0, CommitmentStrategyType.AMOUNT_TARGET, false);
+    }
+
+    function test_cannot_createCommitmentStrategy_invalidTimestamp() public {
+        vm.expectRevert(bytes4(keccak256("InvalidTimestamp()")));
+        vault.createCommitmentStrategy(address(sliceToken), 0, CommitmentStrategyType.TIMESTAMP_TARGET, false);
+    }
+
+    function test_cannot_createCommitmentStrategy_invalidTimeInterval() public {
+        vm.expectRevert(bytes4(keccak256("InvalidTimeInterval()")));
+        vault.createCommitmentStrategy(address(sliceToken), 0, CommitmentStrategyType.TIME_INTERVAL_TARGET, false);
+    }
 
     /* =========================================================== */
     /*  ===========  modfifyCommitmentStrategyTarget  ===========  */
@@ -238,5 +303,28 @@ contract CrossChainVaultTest is Helper {
         assembly {
             result := mload(add(_string, 32))
         }
+    }
+
+    function fillPositions() internal {
+        // create positions
+        Position memory wethPosition = Position(
+            1, // mainnet
+            address(weth), // wrapped ETH
+            18,
+            wethUnits // 0.1 wETH
+        );
+
+        Position memory linkPosition = Position(
+            1, // mainnet
+            address(link), // chainlink
+            18,
+            linkUnits // 20 LINK
+        );
+
+        Position memory wbtcPosition = Position({chainId: 1, token: address(wbtc), decimals: 8, units: wbtcUnits});
+
+        positions.push(wethPosition);
+        positions.push(linkPosition);
+        positions.push(wbtcPosition);
     }
 }

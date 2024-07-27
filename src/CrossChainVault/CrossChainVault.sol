@@ -115,6 +115,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
 
         // store strategy
         commitmentStrategies[strategyId] = _strategy;
+
+        emit CommitmentStrategyCreated(strategyId);
     }
 
     function modifyCommitmentStrategyTarget(bytes32 strategyId, uint256 newTarget) external vaultNotPaused {
