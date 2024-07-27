@@ -14,6 +14,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
     ISliceCore immutable sliceCore;
     IChainInfo immutable chainInfo;
 
+    uint256 constant MIN_TIME_INTERVAL = 3600;
+
     /**
      * @dev Stores all commitment strategies created in this vault
      */
@@ -39,6 +41,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
      */
     mapping(bytes32 strategyIdAddressHash => SliceTokenShare) public sliceTokenShares;
 
+    mapping(address => uint256) public nonces;
+
     constructor(ISliceCore _sliceCore, IChainInfo _chainInfo) Ownable(msg.sender) {
         sliceCore = _sliceCore;
         chainInfo = _chainInfo;
@@ -50,7 +54,56 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         CommitmentStrategyType strategyType,
         bool isPrivate
     ) external {
-        // TODO
+        // check that slice token exists
+        bool isValidSlice = sliceCore.isSliceTokenRegistered(token);
+        if (!isValidSlice) {
+            revert UnregisteredSliceToken();
+        }
+
+        // if type is amount check that > 0
+        if (strategyType == CommitmentStrategyType.AMOUNT_TARGET && target == 0) {
+            revert InvalidAmount();
+        }
+
+        // if type is tstamp check that target is in the future
+        if (strategyType == CommitmentStrategyType.TIMESTAMP_TARGET && target <= block.timestamp) {
+            revert InvalidTimestamp();
+        }
+
+        // if type is time interval check that interval is >= of min
+        if (strategyType == CommitmentStrategyType.TIME_INTERVAL_TARGET && target < MIN_TIME_INTERVAL) {
+            revert InvalidTimeInterval();
+        }
+
+        // create strategy ID
+        uint256 nonce = nonces[msg.sender]++;
+
+        bytes32 strategyId = keccak256(
+            abi.encodePacked(
+                this.createCommitmentStrategy.selector,
+                block.chainid,
+                msg.sender,
+                address(this),
+                token,
+                target,
+                block.timestamp,
+                nonce
+            )
+        );
+
+        // create strategy
+        CommitmentStrategy memory _strategy = CommitmentStrategy({
+            id: strategyId,
+            strategyType: strategyType,
+            strategyState: CommitmentStrategyState.OPEN,
+            creator: msg.sender,
+            token: token,
+            target: target,
+            isPrivate: isPrivate
+        });
+
+        // store strategy
+        commitmentStrategies[strategyId] = _strategy;
     }
 
     function modifyCommitmentStrategyTarget(bytes32 strategyId, uint256 newTarget) external {

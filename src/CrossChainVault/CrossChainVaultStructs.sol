@@ -3,7 +3,8 @@ pragma solidity 0.8.26;
 
 enum CommitmentStrategyType {
     AMOUNT_TARGET,
-    TIMESTAMP_TARGET
+    TIMESTAMP_TARGET,
+    TIME_INTERVAL_TARGET
 }
 
 enum CommitmentStrategyState {
@@ -19,7 +20,6 @@ struct CommitmentStrategy {
     address token;
     uint256 target;
     bool isPrivate;
-    bool isRecurring;
 }
 
 struct Commitment {

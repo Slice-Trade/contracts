@@ -15,6 +15,11 @@ interface ICrossChainVault {
     event VaultPaused();
     event VaultRestarted();
 
+    error UnregisteredSliceToken();
+    error InvalidTimestamp();
+    error InvalidTimeInterval();
+    error InvalidAmount();
+
 
     /**
      * @dev This function allows users to create commitment strategies.
