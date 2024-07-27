@@ -25,6 +25,7 @@ interface ICrossChainVault {
     error InvalidStrategyId();
     error Unauthorized();
     error InvalidStrategyState();
+    error StrategyNotPrivate();
 
 
     /**

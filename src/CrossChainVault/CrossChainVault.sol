@@ -153,11 +153,34 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         // TODO
     }
 
+    /**
+     * @dev See ICrossChainVault - changeUserApprovalToCommitmentStrategy
+     */
     function changeUserApprovalToCommitmentStrategy(bytes32 strategyId, address user, bool isApproved)
         external
         vaultNotPaused
     {
-        // TODO
+        CommitmentStrategy memory _strategy = commitmentStrategies[strategyId];
+        if (strategyId == bytes32(0) || strategyId != _strategy.id) {
+            revert InvalidStrategyId();
+        }
+
+        if (msg.sender != _strategy.creator) {
+            revert Unauthorized();
+        }
+
+        if (_strategy.strategyState != CommitmentStrategyState.OPEN) {
+            revert InvalidStrategyState();
+        }
+
+        if (!_strategy.isPrivate) {
+            revert StrategyNotPrivate();
+        }
+
+        bytes32 strategyIdAddressHash = keccak256(abi.encode(strategyId, user));
+        approvedForPrivateStrategy[strategyIdAddressHash] = isApproved;
+
+        emit ChangedUserApprovalToCommitmentStrategy(strategyId, user, isApproved);
     }
 
     function pauseVault() external onlyOwner vaultNotPaused {
