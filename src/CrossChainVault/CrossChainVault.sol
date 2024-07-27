@@ -16,6 +16,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
 
     uint256 constant MIN_TIME_INTERVAL = 3600;
 
+    bool public isPaused;
+
     /**
      * @dev Stores all commitment strategies created in this vault
      */
@@ -37,11 +39,20 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
      */
     mapping(address token => OraclePriceUpdate priceUpdate) public oraclePriceUpdates;
     /**
-     * keccak256(abi.encodePacked(strategyId, userAddress)) to record a user's slice token share from a given strategy
+     * @dev keccak256(abi.encodePacked(strategyId, userAddress)) to record a user's slice token share from a given strategy
      */
     mapping(bytes32 strategyIdAddressHash => SliceTokenShare) public sliceTokenShares;
-
+    /**
+     * @dev Nonce for each user to guranatee unique hashes for IDs
+     */
     mapping(address => uint256) public nonces;
+
+    modifier vaultNotPaused() {
+        if (isPaused) {
+            revert VaultIsPaused();
+        }
+        _;
+    }
 
     constructor(ISliceCore _sliceCore, IChainInfo _chainInfo) Ownable(msg.sender) {
         sliceCore = _sliceCore;
@@ -53,7 +64,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         uint256 target,
         CommitmentStrategyType strategyType,
         bool isPrivate
-    ) external {
+    ) external vaultNotPaused {
         // check that slice token exists
         bool isValidSlice = sliceCore.isSliceTokenRegistered(token);
         if (!isValidSlice) {
@@ -106,39 +117,42 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         commitmentStrategies[strategyId] = _strategy;
     }
 
-    function modifyCommitmentStrategyTarget(bytes32 strategyId, uint256 newTarget) external {
+    function modifyCommitmentStrategyTarget(bytes32 strategyId, uint256 newTarget) external vaultNotPaused {
         // TODO
     }
 
-    function executeCommitmentStrategy(bytes32 strategyId) external {
+    function executeCommitmentStrategy(bytes32 strategyId) external nonReentrant vaultNotPaused {
         // TODO
     }
 
-    function commitToStrategy(bytes32 strategyId, address asset, uint256 amount) external {
+    function commitToStrategy(bytes32 strategyId, address asset, uint256 amount) external nonReentrant vaultNotPaused {
         // TODO
     }
 
-    function removeCommitmentFromStrategy(bytes32 commitmentId, uint256 amount) external {
+    function removeCommitmentFromStrategy(bytes32 commitmentId, uint256 amount) external nonReentrant {
         // TODO
     }
 
-    function pullMintedTokenShares(bytes32 strategyId) external {
+    function pullMintedTokenShares(bytes32 strategyId) external nonReentrant {
         // TODO
     }
 
-    function updateUnderlyingAssetPrices(bytes32 strategyId) external {
+    function updateUnderlyingAssetPrices(bytes32 strategyId) external nonReentrant vaultNotPaused {
         // TODO
     }
 
-    function changeUserApprovalToCommitmentStrategy(bytes32 strategyId, address user, bool isApproved) external {
+    function changeUserApprovalToCommitmentStrategy(bytes32 strategyId, address user, bool isApproved)
+        external
+        vaultNotPaused
+    {
         // TODO
     }
 
-    function pauseVault() external onlyOwner {
-        // TODO
+    function pauseVault() external onlyOwner vaultNotPaused {
+        isPaused = true;
     }
 
     function restartVault() external onlyOwner {
-        // TODO
+        isPaused = false;
     }
 }
