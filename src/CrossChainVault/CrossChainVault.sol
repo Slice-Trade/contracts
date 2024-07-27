@@ -59,6 +59,9 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         chainInfo = _chainInfo;
     }
 
+    /**
+     * @dev See ICrossChainVault - createCommitmentStrategy
+     */
     function createCommitmentStrategy(
         address token,
         uint256 target,
@@ -71,20 +74,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
             revert UnregisteredSliceToken();
         }
 
-        // if type is amount check that > 0
-        if (strategyType == CommitmentStrategyType.AMOUNT_TARGET && target == 0) {
-            revert InvalidAmount();
-        }
-
-        // if type is tstamp check that target is in the future
-        if (strategyType == CommitmentStrategyType.TIMESTAMP_TARGET && target <= block.timestamp) {
-            revert InvalidTimestamp();
-        }
-
-        // if type is time interval check that interval is >= of min
-        if (strategyType == CommitmentStrategyType.TIME_INTERVAL_TARGET && target < MIN_TIME_INTERVAL) {
-            revert InvalidTimeInterval();
-        }
+        _verifyTarget(strategyType, target);
 
         // create strategy ID
         uint256 nonce = nonces[msg.sender]++;
@@ -119,8 +109,28 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         emit CommitmentStrategyCreated(strategyId);
     }
 
+    /**
+     * @dev See ICrossChainVault - modifyCommitmentStrategyTarget
+     */
     function modifyCommitmentStrategyTarget(bytes32 strategyId, uint256 newTarget) external vaultNotPaused {
-        // TODO
+        CommitmentStrategy memory _strategy = commitmentStrategies[strategyId];
+        if (strategyId == bytes32(0) || strategyId != _strategy.id) {
+            revert InvalidStrategyId();
+        }
+
+        if (msg.sender != _strategy.creator) {
+            revert Unauthorized();
+        }
+
+        if (_strategy.strategyState != CommitmentStrategyState.OPEN) {
+            revert InvalidStrategyState();
+        }
+
+        _verifyTarget(_strategy.strategyType, newTarget);
+
+        commitmentStrategies[strategyId].target = newTarget;
+
+        emit CommitmentStrategyTargetModified(strategyId, newTarget);
     }
 
     function executeCommitmentStrategy(bytes32 strategyId) external nonReentrant vaultNotPaused {
@@ -156,5 +166,22 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
 
     function restartVault() external onlyOwner {
         isPaused = false;
+    }
+
+    function _verifyTarget(CommitmentStrategyType strategyType, uint256 target) private view {
+        // if type is amount check that > 0
+        if (strategyType == CommitmentStrategyType.AMOUNT_TARGET && target == 0) {
+            revert InvalidAmount();
+        }
+
+        // if type is tstamp check that target is in the future
+        if (strategyType == CommitmentStrategyType.TIMESTAMP_TARGET && target <= block.timestamp) {
+            revert InvalidTimestamp();
+        }
+
+        // if type is time interval check that interval is >= of min
+        if (strategyType == CommitmentStrategyType.TIME_INTERVAL_TARGET && target < MIN_TIME_INTERVAL) {
+            revert InvalidTimeInterval();
+        }
     }
 }

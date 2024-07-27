@@ -22,6 +22,10 @@ interface ICrossChainVault {
     error InvalidTimeInterval();
     error InvalidAmount();
 
+    error InvalidStrategyId();
+    error Unauthorized();
+    error InvalidStrategyState();
+
 
     /**
      * @dev This function allows users to create commitment strategies.
