@@ -28,6 +28,8 @@ interface ICrossChainVault {
     error InvalidStrategyState();
     error StrategyNotPrivate();
 
+    error StrategyOver();
+
 
     /**
      * @dev This function allows users to create commitment strategies.
@@ -69,10 +71,10 @@ interface ICrossChainVault {
      * @dev This is for users to deposit underlying assets to a commitment strategy
      *
      * @param strategyId The ID of the strategy to commit to
-     * @param asset The underyling asset to commit
-     * @param amount The amount of the underlying asset to commit
+     * @param assets The underyling assets to commit
+     * @param amounts The amounts of the underlying assets to commit
      */
-    function commitToStrategy(bytes32 strategyId, address asset, uint256 amount) external;
+    function commitToStrategy(bytes32 strategyId, address[] memory assets, uint256[] memory amounts) external;
 
     /**
      * @dev This is for the users to remove underlying assets they already committed to the strategy

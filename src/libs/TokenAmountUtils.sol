@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 library TokenAmountUtils {
     uint8 constant SLICE_TOKEN_DECIMALS = 18;
 
+    // calculates the amount of underlying asset to transfer for a given amount of slice tokens to mint
     function calculateAmountOutMin(uint256 quantity, uint256 units, uint8 decimals) internal pure returns (uint256) {
         quantity = convertDecimals(quantity, decimals);
 

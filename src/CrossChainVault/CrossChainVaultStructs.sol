@@ -12,6 +12,13 @@ enum CommitmentStrategyState {
     EXECUTED
 }
 
+enum CrossChainVaultSignalType {
+    COMMIT,
+    COMMIT_COMPLETE,
+    REMOVE,
+    REMOVE_COMPLETE
+}
+
 struct CommitmentStrategy {
     bytes32 id;
     CommitmentStrategyType strategyType;
@@ -44,4 +51,14 @@ struct SliceTokenShare {
     bytes32 priceUpdateId;
     address user;
     uint256 sliceTokenShares;
+}
+
+struct CrossChainVaultSignal {
+    bytes32 id;
+    uint32 srcChainId;
+    CrossChainVaultSignalType ccvsType;
+    bytes32 strategyId;
+    address user;
+    address underlying;
+    uint256 committed;
 }
