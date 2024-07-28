@@ -69,59 +69,6 @@ contract CrossChainVaultTest is Helper {
         vm.stopPrank();
     }
 
-    function deployTestContracts(ChainSelect chainSelect, string memory salt)
-        internal
-        returns (address sliceCore, address tokenAddr)
-    {
-        if (chainSelect == ChainSelect.MAINNET) {
-            selectMainnet();
-        } else if (chainSelect == ChainSelect.POLYGON) {
-            selectPolygon();
-        } else if (chainSelect == ChainSelect.OPTIMISM) {
-            selectOptimism();
-        }
-
-        ChainInfo chainInfo = new ChainInfo();
-
-        SliceTokenDeployer deployer = new SliceTokenDeployer();
-
-        address endpoint = getAddress(
-            chainSelect == ChainSelect.MAINNET
-                ? "mainnet.layerZeroEndpoint"
-                : (chainSelect == ChainSelect.POLYGON ? "polygon.layerZeroEndpoint" : "optimism.layerZeroEndpoint")
-        );
-
-        bytes memory byteCode = abi.encodePacked(
-            type(SliceCore).creationCode, abi.encode(endpoint, address(chainInfo), address(deployer), dev)
-        );
-
-        IDeployer create3Deployer = IDeployer(
-            getAddress(
-                chainSelect == ChainSelect.MAINNET
-                    ? "mainnet.deployer.create3"
-                    : (chainSelect == ChainSelect.POLYGON ? "polygon.deployer.create3" : "optimism.deployer.create3")
-            )
-        );
-
-        //address _deployedAddr = create3Deployer.deployedAddress(byteCode, dev, stringToBytes32("TEST"));
-        if (stringToBytes32(salt) == bytes32(0)) {
-            salt = "TEST";
-        }
-        sliceCore = create3Deployer.deploy(byteCode, stringToBytes32(salt));
-
-        // enable slice token creation
-        SliceCore(payable(sliceCore)).changeSliceTokenCreationEnabled(true);
-        // approve address as Slice token creator
-        SliceCore(payable(sliceCore)).changeApprovedSliceTokenCreator(dev, true);
-        // set peer address
-        IOAppCore(sliceCore).setPeer(
-            (chainSelect == ChainSelect.MAINNET ? 30109 : (chainSelect == ChainSelect.POLYGON ? 30101 : 30101)),
-            bytes32(uint256(uint160(sliceCore)))
-        );
-
-        tokenAddr = SliceCore(payable(sliceCore)).createSlice("Slice Token", "SC", positions);
-    }
-
     /* =========================================================== */
     /*   ==============  createCommitmentStrategy  =============   */
     /* =========================================================== */
@@ -187,15 +134,108 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     /*  ===========  modfifyCommitmentStrategyTarget  ===========  */
     /* =========================================================== */
-    function test_modifyCommitmentStrategyTarget() public {}
+    function test_modifyCommitmentStrategyTarget() public {
+        vm.startPrank(dev);
+        // TEST AMOUNT TARGET
+        vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, false);
+        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
 
-    function test_cannot_modifyCommitmentStrategyTarget_NotStrategyCreator() public {}
+        vm.expectEmit(true, true, false, false);
+        emit ICrossChainVault.CommitmentStrategyTargetModified(_stratId, 30);
+        vault.modifyCommitmentStrategyTarget(_stratId, 30);
 
-    function test_cannot_modifyCommitmentStrategyTarget_InvalidStrategyId() public {}
+        (,,,,, uint256 target,) = vault.commitmentStrategies(_stratId);
+        assertEq(target, 30);
 
-    function test_cannot_modifyCommitmentStrategyTarget_InvalidTarget() public {}
+        // TEST TIMESTAMP TARGET
+        bytes32 _stratIdTstamp = 0x24b95feeaea55019b9be6536afa3264a1da0c96c7e28f108923da5a4c711c487;
+        vault.createCommitmentStrategy(
+            address(sliceToken), block.timestamp + 86400, CommitmentStrategyType.TIMESTAMP_TARGET, false
+        );
 
-    function test_cannot_modifyCommitmentStrategyTarget_InvalidState() public {}
+        vm.expectEmit(true, true, false, false);
+        emit ICrossChainVault.CommitmentStrategyTargetModified(_stratIdTstamp, block.timestamp + 43200);
+        vault.modifyCommitmentStrategyTarget(_stratIdTstamp, block.timestamp + 43200);
+
+        (,,,,, uint256 target2,) = vault.commitmentStrategies(_stratIdTstamp);
+        assertEq(target2, block.timestamp + 43200);
+
+        // TEST TIME INTERVAL TARGET
+        bytes32 _stratIdTInterval = 0xda1405ce44946e57f1c1a6e086bfbc349fbce82985b79ba675a1cbd82754b76f;
+        vault.createCommitmentStrategy(address(sliceToken), 3600, CommitmentStrategyType.TIME_INTERVAL_TARGET, false);
+
+        vm.expectEmit(true, true, false, false);
+        emit ICrossChainVault.CommitmentStrategyTargetModified(_stratIdTInterval, 3601);
+        vault.modifyCommitmentStrategyTarget(_stratIdTInterval, 3601);
+
+        (,,,,, uint256 target3,) = vault.commitmentStrategies(_stratIdTInterval);
+        assertEq(target3, 3601);
+    }
+
+    function test_cannot_modifyCommitmentStrategyTarget_VaultIsPaused() public {
+        vm.startPrank(dev);
+        vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, false);
+        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+
+        vault.pauseVault();
+        vm.expectRevert(bytes4(keccak256("VaultIsPaused()")));
+        vault.modifyCommitmentStrategyTarget(_stratId, 20);
+        vm.stopPrank();
+    }
+
+    function test_cannot_modifyCommitmentStrategyTarget_InvalidStrategyId() public {
+        vm.expectRevert(bytes4(keccak256("InvalidStrategyId()")));
+        vault.modifyCommitmentStrategyTarget(bytes32(0), 10);
+    }
+
+    function test_cannot_modifyCommitmentStrategyTarget_NotStrategyCreator() public {
+        vm.prank(dev);
+        vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, false);
+        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+
+        vm.prank(users[1]);
+        vm.expectRevert(bytes4(keccak256("Unauthorized()")));
+        vault.modifyCommitmentStrategyTarget(_stratId, 30);
+    }
+
+    function test_cannot_modifyCommitmentStrategyTarget_InvalidState() public {
+        // TODO
+    }
+
+    function test_cannot_modifyCommitmentStrategyTarget_InvalidAmount() public {
+        vm.startPrank(dev);
+        vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, false);
+        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+
+        vm.expectRevert(bytes4(keccak256("InvalidAmount()")));
+        vault.modifyCommitmentStrategyTarget(_stratId, 0);
+        vm.stopPrank();
+    }
+
+    function test_cannot_modifyCommitmentStrategyTarget_InvalidTimestamp() public {
+        vm.startPrank(dev);
+        bytes32 _stratIdTstamp = 0x992238cb94270b44f2d5a83ddfdc62f202191ab4088e2b6001188eab0facbb0a;
+        vault.createCommitmentStrategy(
+            address(sliceToken), block.timestamp + 86400, CommitmentStrategyType.TIMESTAMP_TARGET, false
+        );
+
+        vm.expectRevert(bytes4(keccak256("InvalidTimestamp()")));
+        vault.modifyCommitmentStrategyTarget(_stratIdTstamp, block.timestamp - 1);
+        
+        vm.stopPrank();
+
+    }
+
+    function test_cannot_modifyCommitmentStrategyTarget_InvalidTimeInterval() public {
+        vm.startPrank(dev);
+        bytes32 _stratIdTInterval = 0x60ecb655391dc6f76b72bf58e82aa84db06164ff4308e42b56c7fdf3a13ba0fb;
+        vault.createCommitmentStrategy(address(sliceToken), 3600, CommitmentStrategyType.TIME_INTERVAL_TARGET, false);
+        
+        vm.expectRevert(bytes4(keccak256("InvalidTimeInterval()")));
+        vault.modifyCommitmentStrategyTarget(_stratIdTInterval, 3599);
+        
+        vm.stopPrank();
+    }
 
     /* =========================================================== */
     /*  ==============  executeCommitmentStrategy  =============   */
@@ -296,6 +336,62 @@ contract CrossChainVaultTest is Helper {
     function test_cannot_restartVault_NotAdmin() public {}
 
     function test_cannot_restartVault_NotPaused() public {}
+
+    /* =========================================================== */
+    /*  ======================  helpers  ========================  */
+    /* =========================================================== */
+    function deployTestContracts(ChainSelect chainSelect, string memory salt)
+        internal
+        returns (address sliceCore, address tokenAddr)
+    {
+        if (chainSelect == ChainSelect.MAINNET) {
+            selectMainnet();
+        } else if (chainSelect == ChainSelect.POLYGON) {
+            selectPolygon();
+        } else if (chainSelect == ChainSelect.OPTIMISM) {
+            selectOptimism();
+        }
+
+        ChainInfo chainInfo = new ChainInfo();
+
+        SliceTokenDeployer deployer = new SliceTokenDeployer();
+
+        address endpoint = getAddress(
+            chainSelect == ChainSelect.MAINNET
+                ? "mainnet.layerZeroEndpoint"
+                : (chainSelect == ChainSelect.POLYGON ? "polygon.layerZeroEndpoint" : "optimism.layerZeroEndpoint")
+        );
+
+        bytes memory byteCode = abi.encodePacked(
+            type(SliceCore).creationCode, abi.encode(endpoint, address(chainInfo), address(deployer), dev)
+        );
+
+        IDeployer create3Deployer = IDeployer(
+            getAddress(
+                chainSelect == ChainSelect.MAINNET
+                    ? "mainnet.deployer.create3"
+                    : (chainSelect == ChainSelect.POLYGON ? "polygon.deployer.create3" : "optimism.deployer.create3")
+            )
+        );
+
+        //address _deployedAddr = create3Deployer.deployedAddress(byteCode, dev, stringToBytes32("TEST"));
+        if (stringToBytes32(salt) == bytes32(0)) {
+            salt = "TEST";
+        }
+        sliceCore = create3Deployer.deploy(byteCode, stringToBytes32(salt));
+
+        // enable slice token creation
+        SliceCore(payable(sliceCore)).changeSliceTokenCreationEnabled(true);
+        // approve address as Slice token creator
+        SliceCore(payable(sliceCore)).changeApprovedSliceTokenCreator(dev, true);
+        // set peer address
+        IOAppCore(sliceCore).setPeer(
+            (chainSelect == ChainSelect.MAINNET ? 30109 : (chainSelect == ChainSelect.POLYGON ? 30101 : 30101)),
+            bytes32(uint256(uint160(sliceCore)))
+        );
+
+        tokenAddr = SliceCore(payable(sliceCore)).createSlice("Slice Token", "SC", positions);
+    }
 
     function stringToBytes32(string memory _string) internal pure returns (bytes32 result) {
         require(bytes(_string).length <= 32, "String too long"); // Ensure string length is not greater than 32 bytes
