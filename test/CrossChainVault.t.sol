@@ -223,7 +223,6 @@ contract CrossChainVaultTest is Helper {
         vault.modifyCommitmentStrategyTarget(_stratIdTstamp, block.timestamp - 1);
         
         vm.stopPrank();
-
     }
 
     function test_cannot_modifyCommitmentStrategyTarget_InvalidTimeInterval() public {
@@ -322,20 +321,55 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     /*  ======================  pauseVault  =====================  */
     /* =========================================================== */
-    function test_pauseVault() public {}
+    function test_pauseVault() public {
+        vm.prank(dev);
+        vault.pauseVault();
+        bool isPaused = vault.isPaused();
+        assertTrue(isPaused);
+    }
 
-    function test_cannot_pauseVault_NotAdmin() public {}
+    function test_cannot_pauseVault_NotOwner() public {
+        vm.prank(users[1]);
+        vm.expectRevert();
+        vault.pauseVault();
+    }
 
-    function test_cannot_pauseVault_AlreadyPaused() public {}
+    function test_cannot_pauseVault_AlreadyPaused() public {
+        vm.startPrank(dev);
+        vault.pauseVault();
+
+        vm.expectRevert(bytes4(keccak256("VaultIsPaused()")));
+        vault.pauseVault();
+        vm.stopPrank();
+    }
 
     /* =========================================================== */
     /*  ====================  restartVault  =====================  */
     /* =========================================================== */
-    function test_restartVault() public {}
+    function test_restartVault() public {
+        vm.startPrank(dev);
+        vault.pauseVault();
 
-    function test_cannot_restartVault_NotAdmin() public {}
+        vault.restartVault();
+        bool isPaused = vault.isPaused();
+        assertFalse(isPaused);
+        vm.stopPrank();
+    }
 
-    function test_cannot_restartVault_NotPaused() public {}
+    function test_cannot_restartVault_NotOwner() public {
+        vm.prank(dev);
+        vault.pauseVault();
+
+        vm.prank(users[1]);
+        vm.expectRevert();
+        vault.restartVault();
+    }
+
+    function test_cannot_restartVault_NotPaused() public {
+        vm.prank(dev);
+        vm.expectRevert(bytes4(keccak256("VaultNotPaused()")));
+        vault.restartVault();
+    }
 
     /* =========================================================== */
     /*  ======================  helpers  ========================  */

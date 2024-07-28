@@ -16,6 +16,7 @@ interface ICrossChainVault {
     event VaultRestarted();
 
     error VaultIsPaused();
+    error VaultNotPaused();
 
     error UnregisteredSliceToken();
     error InvalidTimestamp();

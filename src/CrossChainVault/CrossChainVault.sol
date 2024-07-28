@@ -188,6 +188,9 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
     }
 
     function restartVault() external onlyOwner {
+        if (!isPaused) {
+            revert VaultNotPaused();
+        }
         isPaused = false;
     }
 
