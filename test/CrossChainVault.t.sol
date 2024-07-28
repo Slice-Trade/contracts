@@ -308,15 +308,60 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     /* ========== changeUserApprovalToCommitmentStrategy ========= */
     /* =========================================================== */
-    function test_changeUserApprovalToCommitmentStrategy() public {}
+    function test_changeUserApprovalToCommitmentStrategy() public {
+        vm.startPrank(dev);
+        // TEST AMOUNT TARGET
+        vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, true);
+        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
 
-    function test_cannot_changeUserApprovalToCommitmentStrategy_NotStrategyCreator() public {}
+        vm.expectEmit(true, true, true, false);
+        emit ICrossChainVault.ChangedUserApprovalToCommitmentStrategy(_stratId, users[1], true);
+        vault.changeUserApprovalToCommitmentStrategy(_stratId, users[1], true);
 
-    function test_cannot_changeUserApprovalToCommitmentStrategy_InvalidStrategyId() public {}
+        bytes32 strategyIdAddressHash = keccak256(abi.encode(_stratId, users[1]));
+        bool isUserApproved = vault.approvedForPrivateStrategy(strategyIdAddressHash);
 
-    function test_cannot_changeUserApprovalToCommitmentStrategy_NotPrivateStrategy() public {}
+        assertTrue(isUserApproved);
+    }
+    function test_cannot_changeUserApprovalToCommitmentStrategy_VaultIsPaused() public {
+        vm.startPrank(dev);
+        vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, true);
+        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+        
+        vault.pauseVault();
 
-    function test_cannot_changeUserApprovalToCommitmentStrategy_InvalidStrategyState() public {}
+        vm.expectRevert(bytes4(keccak256("VaultIsPaused()")));
+        vault.changeUserApprovalToCommitmentStrategy(_stratId, users[1], true);
+    }
+    function test_cannot_changeUserApprovalToCommitmentStrategy_InvalidStrategyId() public {
+        vm.expectRevert(bytes4(keccak256("InvalidStrategyId()")));
+        vault.changeUserApprovalToCommitmentStrategy(bytes32(0), users[1], true);
+    }
+
+    function test_cannot_changeUserApprovalToCommitmentStrategy_NotStrategyCreator() public {
+        vm.prank(dev);
+        vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, true);
+        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+
+        vm.prank(users[1]);
+        vm.expectRevert(bytes4(keccak256("Unauthorized()")));
+        vault.changeUserApprovalToCommitmentStrategy(_stratId, users[1], true);
+    }
+
+
+    function test_cannot_changeUserApprovalToCommitmentStrategy_NotPrivateStrategy() public {
+        vm.startPrank(dev);
+        vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, false);
+        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+
+        vm.expectRevert(bytes4(keccak256("StrategyNotPrivate()")));
+        vault.changeUserApprovalToCommitmentStrategy(_stratId, users[1], true);
+        vm.stopPrank();
+    }
+
+    function test_cannot_changeUserApprovalToCommitmentStrategy_InvalidStrategyState() public {
+        // TODO
+    }
 
     /* =========================================================== */
     /*  ======================  pauseVault  =====================  */
