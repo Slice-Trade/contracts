@@ -13,7 +13,7 @@ import {ISliceCore} from "../interfaces/ISliceCore.sol";
 import {ISliceToken} from "../interfaces/ISliceToken.sol";
 import {IChainInfo} from "../interfaces/IChainInfo.sol";
 
-import {Position} from "../Structs.sol";
+import {Position, LzMsgGroupInfo} from "../Structs.sol";
 import {TokenAmountUtils} from "../libs/TokenAmountUtils.sol";
 
 contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
@@ -145,111 +145,60 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         // TODO
     }
 
-    function commitToStrategy(bytes32 strategyId, address[] memory assets, uint256[] memory amounts)
-        external
-        nonReentrant
-        vaultNotPaused
-    {
+    function commitToStrategy(
+        bytes32 strategyId,
+        address[] calldata assets,
+        uint256[] calldata amounts,
+        uint128[] calldata fees
+    ) external payable nonReentrant vaultNotPaused {
         CommitmentStrategy memory _strategy = commitmentStrategies[strategyId];
-        // check that strategy exists
-        _verifyStrategyId(strategyId, _strategy);
 
-        // check that strategy state is open
-        if (_strategy.strategyState != CommitmentStrategyState.OPEN) {
-            revert InvalidStrategyState();
-        }
-
-        // if private check that user is allowed to commit
-        if (_strategy.isPrivate) {
-            bytes32 strategyIdAddressHash = keccak256(abi.encode(strategyId, msg.sender));
-            if (!approvedForPrivateStrategy[strategyIdAddressHash]) {
-                revert Unauthorized();
-            }
-        }
-
-        // if timestamp target we simply check that timestamp is bigger than current timestamp
-        if (_strategy.strategyType == CommitmentStrategyType.TIMESTAMP_TARGET && block.timestamp >= _strategy.target) {
-            revert StrategyOver();
-        }
-        // if it is a recurring time interval users can commit anytime so we don't check
+        _verifyStrategy(strategyId, _strategy);
 
         // for amount we have to check:
         // - get positions for the slice token
         Position[] memory _positions = ISliceToken(_strategy.token).getPositions();
-        uint256 len = _positions.length;
 
-        // - loop through the slice token positions and:
-        for (uint256 i = 0; i < len; i++) {
+        // Create cross chain vault signals array to store grouped lz msgs
+        CrossChainVaultSignal[] memory ccMsgs = new CrossChainVaultSignal[](assets.length);
+        // create LzMsgGroupInfo to store grouping data
+        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, assets.length, msg.value);
+
+        // - loop through the slice token positions:
+        // duplicates in the assets[] array will be ignored since we use the slice tokens positions for the loop
+        for (uint256 i = 0; i < _positions.length; i++) {
             //      - check if assets array contains the position
-            int256 assetIdx = _isAssetCommitted(_positions[i].token, assets);
-            if (assetIdx == -1) {
-                continue;
-            }
-
-            uint256 amountToTransfer = amounts[uint256(assetIdx)];
+            uint256 amountToTransfer = _getAmountToTransfer(assets, amounts, _positions[i]);
 
             if (_strategy.strategyType == CommitmentStrategyType.AMOUNT_TARGET) {
-                //      - if yes check how much has been committed
-                uint256 alreadyCommitted = committedAmountsPerStrategy[strategyId][_positions[i].token];
-
-                //      - calculate total target amount required for asset: target * position units
-                uint256 targetAmountForAsset = TokenAmountUtils.calculateAmountOutMin(
-                    _strategy.target, _positions[i].units, _positions[i].decimals
-                );
-
-                //      - use these to get how much is still missing
-                uint256 amountStillNeeded = targetAmountForAsset - alreadyCommitted;
-
-                if (amountStillNeeded == 0) {
-                    continue;
-                } else if (amountToTransfer > amountStillNeeded) {
-                    //      - if the user is commiting more then missing, change the amount to the total missing
-                    amountToTransfer = amountStillNeeded;
-                }
+                amountToTransfer = _verifyAmountToTransferForAsset(amountToTransfer, _strategy, _positions[i]);
+            }
+            if (amountToTransfer == 0) {
+                continue;
             }
             //      - if it is local, transfer funds from user to vault, create commitment struct, save it, modify storage to store other details
             if (_isPositionLocal(_positions[i])) {
                 IERC20(_positions[i].token).safeTransferFrom(msg.sender, address(this), amountToTransfer);
-                
-                uint256 nonce = nonces[msg.sender]++;
-                bytes32 commitmentId = keccak256(
-                    abi.encodePacked(
-                        this.commitToStrategy.selector,
-                        block.chainid,
-                        msg.sender,
-                        address(this),
-                        strategyId,
-                        _positions[i].token,
-                        block.timestamp,
-                        nonce
-                    )
-                );
-
-                // update commitments
-                Commitment memory _commitment = Commitment({
-                    id: commitmentId,
+                _updateCommitment(strategyId, amountToTransfer, _positions[i]);
+            } else {
+                // create cross-chain vault signal to send to vault on other chain
+                CrossChainVaultSignal memory ccs = CrossChainVaultSignal({
                     strategyId: strategyId,
-                    chainId: block.chainid,
-                    asset: _positions[i].token,
-                    committed: amountToTransfer,
-                    consumed: 0
+                    srcChainId: uint32(block.chainid),
+                    ccvsType: CrossChainVaultSignalType.COMMIT,
+                    user: msg.sender,
+                    underlying: _positions[i].token,
+                    committed: amountToTransfer
                 });
-                commitments[commitmentId] = _commitment;
-
-                // update commitmentsForStrategy
-                commitmentsForStrategy[strategyId].push(commitmentId);
-
-                // update committedAmountsPerStrategy
-                committedAmountsPerStrategy[strategyId][_positions[i].token] += amountToTransfer;
+                //      - if it is non-local use the same group LZ message logic as for the SliceCore
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, _positions[i], lzMsgInfo, fees);
             }
         }
 
-        // TODO
-        //      - if it is non-local use the same group LZ message logic as for the SliceCore
         //      - send cross chain messages as needed
-
-        // TODO: Also verify behavior when assets[] array contains duplicates
-        // we either have to check for dupes before transferring, or just ignore duplicates becuase they will fail if too much
+        if (lzMsgInfo.currentCount != 0) {
+            _sendGroupedLzMsgs(ccMsgs, ccMsgs[0], lzMsgInfo, fees, msg.sender);
+        }
     }
 
     function removeCommitmentFromStrategy(bytes32 commitmentId, uint256 amount) external nonReentrant {
@@ -303,6 +252,97 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         isPaused = false;
     }
 
+    function groupAndSendLzMsg(
+        CrossChainVaultSignal[] memory ccMsgs,
+        CrossChainVaultSignal memory ccs,
+        Position memory position,
+        LzMsgGroupInfo memory lzMsgInfo,
+        uint128[] memory fees
+    ) internal returns (CrossChainVaultSignal[] memory, LzMsgGroupInfo memory) {
+        // TODO
+    }
+
+    function _sendGroupedLzMsgs(
+        CrossChainVaultSignal[] memory ccMsgs,
+        CrossChainVaultSignal memory ccs,
+        LzMsgGroupInfo memory lzMsgInfo,
+        uint128[] memory fees,
+        address refundAddress
+    ) private returns (CrossChainVaultSignal[] memory, LzMsgGroupInfo memory) {
+        // TODO
+    }
+
+    function _getAmountToTransfer(address[] calldata assets, uint256[] calldata amounts, Position memory position)
+        private
+        pure
+        returns (uint256)
+    {
+        //      - check if assets array contains the position
+        int256 assetIdx = _isAssetCommitted(position.token, assets);
+        if (assetIdx == -1) {
+            return 0;
+        }
+
+        return amounts[uint256(assetIdx)];
+    }
+
+    function _updateCommitment(bytes32 strategyId, uint256 amountToTransfer, Position memory position) private {
+        uint256 nonce = nonces[msg.sender]++;
+        bytes32 commitmentId = keccak256(
+            abi.encodePacked(
+                this.commitToStrategy.selector,
+                block.chainid,
+                msg.sender,
+                address(this),
+                strategyId,
+                position.token,
+                block.timestamp,
+                nonce
+            )
+        );
+
+        // update commitments
+        Commitment memory _commitment = Commitment({
+            id: commitmentId,
+            strategyId: strategyId,
+            chainId: block.chainid,
+            asset: position.token,
+            committed: amountToTransfer,
+            consumed: 0
+        });
+        commitments[commitmentId] = _commitment;
+
+        // update commitmentsForStrategy
+        commitmentsForStrategy[strategyId].push(commitmentId);
+
+        // update committedAmountsPerStrategy
+        committedAmountsPerStrategy[strategyId][position.token] += amountToTransfer;
+    }
+
+    function _verifyStrategy(bytes32 strategyId, CommitmentStrategy memory _strategy) private view {
+        // check that strategy exists
+        _verifyStrategyId(strategyId, _strategy);
+
+        // check that strategy state is open
+        if (_strategy.strategyState != CommitmentStrategyState.OPEN) {
+            revert InvalidStrategyState();
+        }
+
+        // if private check that user is allowed to commit
+        if (_strategy.isPrivate) {
+            bytes32 strategyIdAddressHash = keccak256(abi.encode(strategyId, msg.sender));
+            if (!approvedForPrivateStrategy[strategyIdAddressHash]) {
+                revert Unauthorized();
+            }
+        }
+
+        // if timestamp target we simply check that timestamp is bigger than current timestamp
+        if (_strategy.strategyType == CommitmentStrategyType.TIMESTAMP_TARGET && block.timestamp >= _strategy.target) {
+            revert StrategyOver();
+        }
+        // if it is a recurring time interval users can commit anytime so we don't check
+    }
+
     function _verifyStrategyId(bytes32 strategyId, CommitmentStrategy memory _strategy) private pure {
         if (strategyId == bytes32(0) || strategyId != _strategy.id) {
             revert InvalidStrategyId();
@@ -324,6 +364,30 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         if (strategyType == CommitmentStrategyType.TIME_INTERVAL_TARGET && target < MIN_TIME_INTERVAL) {
             revert InvalidTimeInterval();
         }
+    }
+
+    function _verifyAmountToTransferForAsset(
+        uint256 amountToTransfer,
+        CommitmentStrategy memory _strategy,
+        Position memory _position
+    ) private view returns (uint256) {
+        //      - if yes check how much has been committed
+        uint256 alreadyCommitted = committedAmountsPerStrategy[_strategy.id][_position.token];
+
+        //      - calculate total target amount required for asset: target * position units
+        uint256 targetAmountForAsset =
+            TokenAmountUtils.calculateAmountOutMin(_strategy.target, _position.units, _position.decimals);
+
+        //      - use these to get how much is still missing
+        uint256 amountStillNeeded = targetAmountForAsset - alreadyCommitted;
+
+        if (amountStillNeeded == 0) {
+            return 0;
+        } else if (amountToTransfer > amountStillNeeded) {
+            //      - if the user is commiting more then missing, change the amount to the total missing
+            amountToTransfer = amountStillNeeded;
+        }
+        return amountToTransfer;
     }
 
     function _isAssetCommitted(address asset, address[] memory assets) private pure returns (int256) {

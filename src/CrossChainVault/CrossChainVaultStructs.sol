@@ -54,10 +54,9 @@ struct SliceTokenShare {
 }
 
 struct CrossChainVaultSignal {
-    bytes32 id;
+    bytes32 strategyId;
     uint32 srcChainId;
     CrossChainVaultSignalType ccvsType;
-    bytes32 strategyId;
     address user;
     address underlying;
     uint256 committed;

@@ -74,7 +74,7 @@ interface ICrossChainVault {
      * @param assets The underyling assets to commit
      * @param amounts The amounts of the underlying assets to commit
      */
-    function commitToStrategy(bytes32 strategyId, address[] memory assets, uint256[] memory amounts) external;
+    function commitToStrategy(bytes32 strategyId, address[] calldata assets, uint256[] calldata amounts, uint128[] calldata fees) external payable;
 
     /**
      * @dev This is for the users to remove underlying assets they already committed to the strategy
