@@ -32,6 +32,7 @@ struct CommitmentStrategy {
 struct Commitment {
     bytes32 id;
     bytes32 strategyId;
+    address creator;
     uint256 chainId;
     address asset;
     uint256 committed;
@@ -54,11 +55,11 @@ struct SliceTokenShare {
 }
 
 struct CrossChainVaultSignal {
-    bytes32 strategyId;
+    bytes32 id;
     uint32 srcChainId;
     CrossChainVaultSignalType ccvsType;
     address user;
     address underlying;
-    uint256 committed;
+    uint256 amount;
     uint256 value;
 }

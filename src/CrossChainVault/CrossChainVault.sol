@@ -55,12 +55,18 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
      */
     mapping(bytes32 strategyIdAddressHash => SliceTokenShare) public sliceTokenShares;
 
+    /**
+     * @dev Stores the amounts committed for each asset for each strategy
+     */
     mapping(bytes32 strategyId => mapping(address => uint256) commitedAmounts) public committedAmountsPerStrategy;
     /**
      * @dev Nonce for each user to guranatee unique hashes for IDs
      */
     mapping(address => uint256) public nonces;
 
+    /**
+     * @dev Stores cross chain gas information for layer zero messages
+     */
     mapping(CrossChainVaultSignalType ccsType => uint128 gas) public lzGasLookup;
 
     modifier vaultNotPaused() {
@@ -80,6 +86,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         // TODO: gas estimations
         lzGasLookup[CrossChainVaultSignalType.COMMIT] = 2e5;
         lzGasLookup[CrossChainVaultSignalType.COMMIT_COMPLETE] = 2e5;
+        lzGasLookup[CrossChainVaultSignalType.REMOVE] = 2e5;
+        lzGasLookup[CrossChainVaultSignalType.REMOVE_COMPLETE] = 2e5;
     }
 
     /**
@@ -192,17 +200,20 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             //      - if it is local, transfer funds from user to vault, create commitment struct, save it, modify storage to store other details
             if (_isPositionLocal(_positions[i])) {
                 IERC20(_positions[i].token).safeTransferFrom(msg.sender, address(this), amountToTransfer);
+                // approve SliceCore to spend these tokens (for minting later in executeStrategy)
+                IERC20(_positions[i].token).approve(address(sliceCore), amountToTransfer);
+                // record the commitment
                 bytes32 commitmentId = _updateCommitment(strategyId, msg.sender, amountToTransfer, _positions[i].token);
                 emit CommittedToStrategy(strategyId, commitmentId);
             } else {
                 // create cross-chain vault signal to send to vault on other chain
                 CrossChainVaultSignal memory ccs = CrossChainVaultSignal({
-                    strategyId: strategyId,
+                    id: strategyId,
                     srcChainId: uint32(block.chainid),
                     ccvsType: CrossChainVaultSignalType.COMMIT,
                     user: msg.sender,
                     underlying: _positions[i].token,
-                    committed: amountToTransfer,
+                    amount: amountToTransfer,
                     value: 0
                 });
                 //      - if it is non-local use the same group LZ message logic as for the SliceCore
@@ -216,8 +227,59 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         }
     }
 
-    function removeCommitmentFromStrategy(bytes32 commitmentId, uint256 amount) external nonReentrant {
-        // TODO
+    function removeCommitmentFromStrategy(bytes32 commitmentId, uint256 amount, uint128 fee) external nonReentrant {
+        Commitment memory _commitment = commitments[commitmentId];
+
+        // check that commitment ID exists
+        if (commitmentId == bytes32(0) || commitmentId != _commitment.id) {
+            revert InvalidCommitmentId();
+        }
+
+        // check that msg sender is commitment creator
+        if (_commitment.creator != msg.sender) {
+            revert Unauthorized();
+        }
+
+        // check that amount has not been consumed yet
+        uint256 availableToRemove = _commitment.committed - _commitment.consumed;
+        if (availableToRemove < amount) {
+            revert InvalidAmount();
+        }
+
+        // check that strategy state is open
+        if (commitmentStrategies[_commitment.strategyId].strategyState != CommitmentStrategyState.OPEN) {
+            revert StrategyOver();
+        }
+
+        bool _isCommitmentLocal = _commitment.chainId == block.chainid;
+
+        // send the asset to the user if local
+        if (_isCommitmentLocal) {
+            IERC20(_commitment.asset).safeTransfer(_commitment.creator, amount);
+            // update the committed amount to the new amount
+            commitments[commitmentId].committed = _commitment.committed - amount;
+            committedAmountsPerStrategy[_commitment.strategyId][_commitment.asset] -= amount;
+
+            emit RemovedCommitmentFromStrategy(_commitment.id, amount);
+        } else {
+            CrossChainVaultSignal memory ccs = CrossChainVaultSignal({
+                id: _commitment.id,
+                srcChainId: uint32(block.chainid),
+                ccvsType: CrossChainVaultSignalType.REMOVE,
+                user: _commitment.creator,
+                underlying: _commitment.asset,
+                amount: amount,
+                value: fee
+            });
+            // send cross chain msg if not local
+            CrossChainVaultSignal[] memory ccsMsgs = new CrossChainVaultSignal[](1);
+            ccsMsgs[0] = ccs;
+            bytes memory ccsEncoded = abi.encode(ccsMsgs);
+            _sendLzMsg(CrossChainVaultSignalType.REMOVE, ccsEncoded, uint32(block.chainid), msg.sender);
+        }
+
+        // q - do we allow users to remove their commitments if the target has been reached, but strategy has not yet been executed??
+        // we should allow it, because in the execute transaction we will check anyway
     }
 
     function pullMintedTokenShares(bytes32 strategyId) external nonReentrant {
@@ -316,18 +378,21 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         uint256 respMsgCount;
 
         for (uint256 i = 0; i < ccsLength; i++) {
-            try this.attemptTransfer(ccs[i].underlying, ccs[i].user, address(this), ccs[i].committed) {}
+            try this.attemptTransfer(ccs[i].underlying, ccs[i].user, address(this), ccs[i].amount) {}
             catch {
                 continue;
             }
 
+            // approve SliceCore to spend these tokens (for minting later in executeStrategy)
+            IERC20(ccs[i].underlying).approve(address(sliceCore), ccs[i].amount);
+
             CrossChainVaultSignal memory _ccsResponse = CrossChainVaultSignal({
-                strategyId: ccs[i].strategyId,
+                id: ccs[i].id,
                 srcChainId: uint32(block.chainid),
                 ccvsType: CrossChainVaultSignalType.COMMIT_COMPLETE,
                 user: ccs[i].user,
                 underlying: ccs[i].underlying,
-                committed: ccs[i].committed,
+                amount: ccs[i].amount,
                 value: 0
             });
 
@@ -346,18 +411,41 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         // go through each signal
         uint256 ccsLength = ccs.length;
         for (uint256 i = 0; i < ccsLength; i++) {
-        // update commitment for user
-            bytes32 commitmentId = _updateCommitment(ccs[i].strategyId, ccs[i].user, ccs[i].committed, ccs[i].underlying);
-            emit CommittedToStrategy(ccs[i].strategyId, commitmentId);
+            // update commitment for user
+            bytes32 commitmentId = _updateCommitment(ccs[i].id, ccs[i].user, ccs[i].amount, ccs[i].underlying);
+            emit CommittedToStrategy(ccs[i].id, commitmentId);
         }
     }
 
     function handleRemoveSignal(CrossChainVaultSignal[] memory ccs) internal {
-        // TODO
+        CrossChainVaultSignal[] memory ccsResponses = new CrossChainVaultSignal[](1);
+
+        IERC20(ccs[0].underlying).safeTransfer(ccs[0].user, ccs[0].amount);
+
+        CrossChainVaultSignal memory _ccsResponse = CrossChainVaultSignal({
+            id: ccs[0].id,
+            srcChainId: uint32(block.chainid),
+            ccvsType: CrossChainVaultSignalType.REMOVE_COMPLETE,
+            user: ccs[0].user,
+            underlying: ccs[0].underlying,
+            amount: ccs[0].amount,
+            value: 0
+        });
+        ccsResponses[0] = _ccsResponse;
+        bytes memory ccsEncoded = abi.encode(ccsResponses);
+        _sendLzMsg(CrossChainVaultSignalType.REMOVE_COMPLETE, ccsEncoded, ccs[0].srcChainId, ccs[0].user);
     }
 
     function handleRemoveCompleteSignal(CrossChainVaultSignal[] memory ccs) internal {
-        // TODO
+        CrossChainVaultSignal memory _ccs = ccs[0];
+
+        Commitment memory _commitment = commitments[_ccs.id];
+
+        commitments[_ccs.id].committed = _commitment.committed - _ccs.amount;
+
+        committedAmountsPerStrategy[_commitment.strategyId][_commitment.asset] -= _ccs.amount;
+
+        emit RemovedCommitmentFromStrategy(_commitment.id, _ccs.amount);
     }
 
     function groupAndSendLzMsg(
@@ -416,9 +504,12 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         return (ccMsgs, lzMsgInfo);
     }
 
-    function _sendLzMsg(CrossChainVaultSignalType ccsType, bytes memory ccsEncoded, uint32 srcChainId, address refundAddress)
-        private
-    {
+    function _sendLzMsg(
+        CrossChainVaultSignalType ccsType,
+        bytes memory ccsEncoded,
+        uint32 srcChainId,
+        address refundAddress
+    ) private {
         bytes memory _lzSendOpts = LayerZeroUtils.createLzSendOpts({_gas: lzGasLookup[ccsType], _value: 0});
 
         Chain memory srcChain = chainInfo.getChainInfo(srcChainId);
@@ -440,7 +531,10 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         return amounts[uint256(assetIdx)];
     }
 
-    function _updateCommitment(bytes32 strategyId, address user, uint256 amountToTransfer, address underlyingAsset) private returns (bytes32 commitmentId) {
+    function _updateCommitment(bytes32 strategyId, address user, uint256 amountToTransfer, address underlyingAsset)
+        private
+        returns (bytes32 commitmentId)
+    {
         uint256 nonce = nonces[user]++;
         commitmentId = keccak256(
             abi.encodePacked(
@@ -459,6 +553,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         Commitment memory _commitment = Commitment({
             id: commitmentId,
             strategyId: strategyId,
+            creator: user,
             chainId: block.chainid,
             asset: underlyingAsset,
             committed: amountToTransfer,
@@ -484,9 +579,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
 
     function gasStep(CrossChainVaultSignalType ccsType) internal pure returns (uint128) {
         // TODO: Gas estimations
-        if (
-            ccsType == CrossChainVaultSignalType.COMMIT || ccsType == CrossChainVaultSignalType.COMMIT_COMPLETE
-        ) {
+        if (ccsType == CrossChainVaultSignalType.COMMIT || ccsType == CrossChainVaultSignalType.COMMIT_COMPLETE) {
             return 55_000;
         }
         return 37_000;
