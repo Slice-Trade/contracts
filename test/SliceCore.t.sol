@@ -501,16 +501,21 @@ contract SliceCoreTest is Helper {
     }
 
     function test_Cannot_CollectUnderlying_LocalAssetTransferFailed_NotApproved() public {
+        vm.startPrank(dev);
         deal(address(weth), address(dev), wethUnits);
-        deal(address(weth), address(dev), linkUnits);
+        deal(address(link), address(dev), linkUnits);
         deal(address(wbtc), address(dev), wbtcUnits);
 
-        vm.startPrank(dev);
+        weth.approve(address(core), 0);
+        link.approve(address(core), 0);
+        wbtc.approve(address(core), 0);
+        
         uint128[] memory fees;
 
         vm.expectRevert();
 
         token.mint(1 ether, fees);
+        vm.stopPrank();
     }
 
     function test_Cannot_CollectUnderlying_NoLzPeer() public {
