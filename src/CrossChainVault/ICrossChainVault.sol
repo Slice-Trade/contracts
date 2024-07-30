@@ -14,6 +14,8 @@ interface ICrossChainVault {
     event ChangedUserApprovalToCommitmentStrategy(bytes32 indexed strategyId, address indexed user, bool indexed isApproved);
     event VaultPaused();
     event VaultRestarted();
+    /* Emitted when the base gas used to calculate the full gas sent cross chain in LayerZero calls is modified for a given cross chain message type */
+    event SetLzBaseGas(CrossChainVaultSignalType indexed ccsType, uint128 indexed gas);
 
     error VaultIsPaused();
     error VaultNotPaused();
@@ -30,7 +32,7 @@ interface ICrossChainVault {
 
     error StrategyOver();
 
-
+    error OriginNotVault();
     /**
      * @dev This function allows users to create commitment strategies.
      * They must be able to specify either the mint amount target or the timestamp when the minting can occur.

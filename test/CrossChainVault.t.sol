@@ -65,7 +65,7 @@ contract CrossChainVaultTest is Helper {
         core = SliceCore(payable(sCore));
         sliceToken = SliceToken(payable(sToken));
 
-        vault = new CrossChainVault(core, core.chainInfo());
+        vault = new CrossChainVault(core, core.chainInfo(), getAddress("mainnet.layerZeroEndpoint"), dev);
         vm.stopPrank();
     }
 
@@ -221,7 +221,7 @@ contract CrossChainVaultTest is Helper {
 
         vm.expectRevert(bytes4(keccak256("InvalidTimestamp()")));
         vault.modifyCommitmentStrategyTarget(_stratIdTstamp, block.timestamp - 1);
-        
+
         vm.stopPrank();
     }
 
@@ -229,10 +229,10 @@ contract CrossChainVaultTest is Helper {
         vm.startPrank(dev);
         bytes32 _stratIdTInterval = 0x60ecb655391dc6f76b72bf58e82aa84db06164ff4308e42b56c7fdf3a13ba0fb;
         vault.createCommitmentStrategy(address(sliceToken), 3600, CommitmentStrategyType.TIME_INTERVAL_TARGET, false);
-        
+
         vm.expectRevert(bytes4(keccak256("InvalidTimeInterval()")));
         vault.modifyCommitmentStrategyTarget(_stratIdTInterval, 3599);
-        
+
         vm.stopPrank();
     }
 
@@ -253,6 +253,10 @@ contract CrossChainVaultTest is Helper {
     /*  ===================  commitToStrategy  =================   */
     /* =========================================================== */
     function test_commitToStrategy() public {}
+
+    function test_commitToStrategy_crossChain() public {}
+
+    function test_commitToStrategy_crossChain_Fuzz() public {}
 
     function test_commitToStrategy_TooMuchInCappedAtMax() public {}
 
@@ -323,16 +327,18 @@ contract CrossChainVaultTest is Helper {
 
         assertTrue(isUserApproved);
     }
+
     function test_cannot_changeUserApprovalToCommitmentStrategy_VaultIsPaused() public {
         vm.startPrank(dev);
         vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, true);
         bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
-        
+
         vault.pauseVault();
 
         vm.expectRevert(bytes4(keccak256("VaultIsPaused()")));
         vault.changeUserApprovalToCommitmentStrategy(_stratId, users[1], true);
     }
+
     function test_cannot_changeUserApprovalToCommitmentStrategy_InvalidStrategyId() public {
         vm.expectRevert(bytes4(keccak256("InvalidStrategyId()")));
         vault.changeUserApprovalToCommitmentStrategy(bytes32(0), users[1], true);
@@ -347,7 +353,6 @@ contract CrossChainVaultTest is Helper {
         vm.expectRevert(bytes4(keccak256("Unauthorized()")));
         vault.changeUserApprovalToCommitmentStrategy(_stratId, users[1], true);
     }
-
 
     function test_cannot_changeUserApprovalToCommitmentStrategy_NotPrivateStrategy() public {
         vm.startPrank(dev);

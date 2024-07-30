@@ -7,16 +7,20 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
+import {MessagingParams, MessagingReceipt} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
+
 import "./CrossChainVaultStructs.sol";
 import {ICrossChainVault} from "./ICrossChainVault.sol";
 import {ISliceCore} from "../interfaces/ISliceCore.sol";
 import {ISliceToken} from "../interfaces/ISliceToken.sol";
 import {IChainInfo} from "../interfaces/IChainInfo.sol";
 
-import {Position, LzMsgGroupInfo} from "../Structs.sol";
+import {Position, LzMsgGroupInfo, Chain} from "../Structs.sol";
 import {TokenAmountUtils} from "../libs/TokenAmountUtils.sol";
+import {LayerZeroUtils} from "../libs/LayerZeroUtils.sol";
 
-contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
+contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OApp {
     using SafeERC20 for IERC20;
 
     ISliceCore immutable sliceCore;
@@ -57,6 +61,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
      */
     mapping(address => uint256) public nonces;
 
+    mapping(CrossChainVaultSignalType ccsType => uint128 gas) public lzGasLookup;
+
     modifier vaultNotPaused() {
         if (isPaused) {
             revert VaultIsPaused();
@@ -64,9 +70,16 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         _;
     }
 
-    constructor(ISliceCore _sliceCore, IChainInfo _chainInfo) Ownable(msg.sender) {
+    constructor(ISliceCore _sliceCore, IChainInfo _chainInfo, address _lzEndpoint, address _owner)
+        Ownable(_owner)
+        OApp(_lzEndpoint, _owner)
+    {
         sliceCore = _sliceCore;
         chainInfo = _chainInfo;
+
+        // TODO: gas estimations
+        lzGasLookup[CrossChainVaultSignalType.COMMIT] = 2e5;
+        lzGasLookup[CrossChainVaultSignalType.COMMIT_COMPLETE] = 2e5;
     }
 
     /**
@@ -179,7 +192,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
             //      - if it is local, transfer funds from user to vault, create commitment struct, save it, modify storage to store other details
             if (_isPositionLocal(_positions[i])) {
                 IERC20(_positions[i].token).safeTransferFrom(msg.sender, address(this), amountToTransfer);
-                _updateCommitment(strategyId, amountToTransfer, _positions[i]);
+                bytes32 commitmentId = _updateCommitment(strategyId, msg.sender, amountToTransfer, _positions[i].token);
+                emit CommittedToStrategy(strategyId, commitmentId);
             } else {
                 // create cross-chain vault signal to send to vault on other chain
                 CrossChainVaultSignal memory ccs = CrossChainVaultSignal({
@@ -188,7 +202,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
                     ccvsType: CrossChainVaultSignalType.COMMIT,
                     user: msg.sender,
                     underlying: _positions[i].token,
-                    committed: amountToTransfer
+                    committed: amountToTransfer,
+                    value: 0
                 });
                 //      - if it is non-local use the same group LZ message logic as for the SliceCore
                 (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, _positions[i], lzMsgInfo, fees);
@@ -197,7 +212,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
 
         //      - send cross chain messages as needed
         if (lzMsgInfo.currentCount != 0) {
-            _sendGroupedLzMsgs(ccMsgs, ccMsgs[0], lzMsgInfo, fees, msg.sender);
+            _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, fees, msg.sender);
         }
     }
 
@@ -252,6 +267,99 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         isPaused = false;
     }
 
+    function setLzBaseGas(CrossChainVaultSignalType ccsType, uint128 gas) external onlyOwner {
+        lzGasLookup[ccsType] = gas;
+        emit SetLzBaseGas(ccsType, gas);
+    }
+
+    /**
+     * @dev This is a work around to allow using SafeERC20.safeTransferFrom in a try/catch block
+     * This is needed because internal functions can not be used in a try/catch block
+     * More context here: https://ethereum.stackexchange.com/questions/148855/how-can-we-use-safetransferfrom-function-in-a-try-catch-block
+     */
+    function attemptTransfer(address token, address from, address to, uint256 amount) external {
+        if (msg.sender != address(this)) revert("Only slice core can call");
+        IERC20(token).safeTransferFrom(from, to, amount);
+    }
+
+    function _lzReceive(
+        Origin calldata _origin, // struct containing info about the message sender
+        bytes32, /* _guid */ // global packet identifier
+        bytes calldata payload, // encoded message payload being received
+        address, /* _executor */ // the Executor address.
+        bytes calldata /* _extraData */ // arbitrary data appended by the Executor
+    ) internal override {
+        if (address(uint160(uint256(_origin.sender))) != address(this)) {
+            revert OriginNotVault();
+        }
+
+        CrossChainVaultSignal[] memory ccs = abi.decode(payload, (CrossChainVaultSignal[]));
+
+        require(msg.value >= ccs[0].value, "Not enough msg value provided");
+
+        CrossChainVaultSignalType ccsType = ccs[0].ccvsType;
+
+        if (ccsType == CrossChainVaultSignalType.COMMIT) {
+            handleCommitSignal(ccs);
+        } else if (ccsType == CrossChainVaultSignalType.COMMIT_COMPLETE) {
+            handleCommitCompleteSignal(ccs);
+        } else if (ccsType == CrossChainVaultSignalType.REMOVE) {
+            handleRemoveSignal(ccs);
+        } else if (ccsType == CrossChainVaultSignalType.REMOVE_COMPLETE) {
+            handleRemoveCompleteSignal(ccs);
+        }
+    }
+
+    function handleCommitSignal(CrossChainVaultSignal[] memory ccs) internal {
+        uint256 ccsLength = ccs.length;
+        CrossChainVaultSignal[] memory ccsResponses = new CrossChainVaultSignal[](ccsLength);
+        uint256 respMsgCount;
+
+        for (uint256 i = 0; i < ccsLength; i++) {
+            try this.attemptTransfer(ccs[i].underlying, ccs[i].user, address(this), ccs[i].committed) {}
+            catch {
+                continue;
+            }
+
+            CrossChainVaultSignal memory _ccsResponse = CrossChainVaultSignal({
+                strategyId: ccs[i].strategyId,
+                srcChainId: uint32(block.chainid),
+                ccvsType: CrossChainVaultSignalType.COMMIT_COMPLETE,
+                user: ccs[i].user,
+                underlying: ccs[i].underlying,
+                committed: ccs[i].committed,
+                value: 0
+            });
+
+            ccsResponses[i] = _ccsResponse;
+            ++respMsgCount;
+        }
+        // Reset the resp array length to the actual length
+        assembly {
+            mstore(ccsResponses, respMsgCount)
+        }
+        bytes memory ccsEncoded = abi.encode(ccsResponses);
+        _sendLzMsg(CrossChainVaultSignalType.COMMIT_COMPLETE, ccsEncoded, ccs[0].srcChainId, ccs[0].user);
+    }
+
+    function handleCommitCompleteSignal(CrossChainVaultSignal[] memory ccs) internal {
+        // go through each signal
+        uint256 ccsLength = ccs.length;
+        for (uint256 i = 0; i < ccsLength; i++) {
+        // update commitment for user
+            bytes32 commitmentId = _updateCommitment(ccs[i].strategyId, ccs[i].user, ccs[i].committed, ccs[i].underlying);
+            emit CommittedToStrategy(ccs[i].strategyId, commitmentId);
+        }
+    }
+
+    function handleRemoveSignal(CrossChainVaultSignal[] memory ccs) internal {
+        // TODO
+    }
+
+    function handleRemoveCompleteSignal(CrossChainVaultSignal[] memory ccs) internal {
+        // TODO
+    }
+
     function groupAndSendLzMsg(
         CrossChainVaultSignal[] memory ccMsgs,
         CrossChainVaultSignal memory ccs,
@@ -259,17 +367,63 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         LzMsgGroupInfo memory lzMsgInfo,
         uint128[] memory fees
     ) internal returns (CrossChainVaultSignal[] memory, LzMsgGroupInfo memory) {
-        // TODO
+        if (lzMsgInfo.currentChainId == position.chainId) {
+            ccMsgs[lzMsgInfo.currentCount] = ccs;
+            ++lzMsgInfo.currentCount;
+        } else {
+            if (lzMsgInfo.currentChainId != 0) {
+                (ccMsgs, lzMsgInfo) = _sendGroupedLzMsg(ccMsgs, ccs, lzMsgInfo, fees, address(this));
+
+                lzMsgInfo.currentCount = 0;
+                lzMsgInfo.currentChainId = position.chainId;
+                ccMsgs = new CrossChainVaultSignal[](lzMsgInfo.positionsLength);
+            }
+            ccMsgs[lzMsgInfo.currentCount] = ccs;
+            lzMsgInfo.currentChainId = position.chainId;
+            ++lzMsgInfo.currentCount;
+        }
+        return (ccMsgs, lzMsgInfo);
     }
 
-    function _sendGroupedLzMsgs(
+    function _sendGroupedLzMsg(
         CrossChainVaultSignal[] memory ccMsgs,
         CrossChainVaultSignal memory ccs,
         LzMsgGroupInfo memory lzMsgInfo,
         uint128[] memory fees,
         address refundAddress
     ) private returns (CrossChainVaultSignal[] memory, LzMsgGroupInfo memory) {
-        // TODO
+        {
+            uint256 currentCount = lzMsgInfo.currentCount;
+            assembly {
+                mstore(ccMsgs, currentCount)
+            }
+        }
+        ccMsgs[0].value = fees[lzMsgInfo.totalMsgCount];
+        bytes memory ccsMsgsEncoded = abi.encode(ccMsgs);
+        Chain memory dstChain = chainInfo.getChainInfo(lzMsgInfo.currentChainId);
+
+        bytes memory _lzSendOpts = LayerZeroUtils.createLzSendOpts({
+            _gas: requiredGas(ccs.ccvsType, uint128(lzMsgInfo.currentCount)),
+            _value: fees[lzMsgInfo.totalMsgCount]
+        });
+
+        MessagingReceipt memory receipt = _lzSend(
+            dstChain.lzEndpointId, ccsMsgsEncoded, _lzSendOpts, MessagingFee(lzMsgInfo.providedFee, 0), refundAddress
+        );
+        ++lzMsgInfo.totalMsgCount;
+        lzMsgInfo.providedFee -= receipt.fee.nativeFee;
+
+        return (ccMsgs, lzMsgInfo);
+    }
+
+    function _sendLzMsg(CrossChainVaultSignalType ccsType, bytes memory ccsEncoded, uint32 srcChainId, address refundAddress)
+        private
+    {
+        bytes memory _lzSendOpts = LayerZeroUtils.createLzSendOpts({_gas: lzGasLookup[ccsType], _value: 0});
+
+        Chain memory srcChain = chainInfo.getChainInfo(srcChainId);
+
+        _lzSend(srcChain.lzEndpointId, ccsEncoded, _lzSendOpts, MessagingFee(msg.value, 0), refundAddress);
     }
 
     function _getAmountToTransfer(address[] calldata assets, uint256[] calldata amounts, Position memory position)
@@ -286,16 +440,16 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         return amounts[uint256(assetIdx)];
     }
 
-    function _updateCommitment(bytes32 strategyId, uint256 amountToTransfer, Position memory position) private {
-        uint256 nonce = nonces[msg.sender]++;
-        bytes32 commitmentId = keccak256(
+    function _updateCommitment(bytes32 strategyId, address user, uint256 amountToTransfer, address underlyingAsset) private returns (bytes32 commitmentId) {
+        uint256 nonce = nonces[user]++;
+        commitmentId = keccak256(
             abi.encodePacked(
                 this.commitToStrategy.selector,
                 block.chainid,
-                msg.sender,
+                user,
                 address(this),
                 strategyId,
-                position.token,
+                underlyingAsset,
                 block.timestamp,
                 nonce
             )
@@ -306,7 +460,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
             id: commitmentId,
             strategyId: strategyId,
             chainId: block.chainid,
-            asset: position.token,
+            asset: underlyingAsset,
             committed: amountToTransfer,
             consumed: 0
         });
@@ -316,7 +470,26 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
         commitmentsForStrategy[strategyId].push(commitmentId);
 
         // update committedAmountsPerStrategy
-        committedAmountsPerStrategy[strategyId][position.token] += amountToTransfer;
+        committedAmountsPerStrategy[strategyId][underlyingAsset] += amountToTransfer;
+    }
+
+    function requiredGas(CrossChainVaultSignalType ccsType, uint128 msgsLength) internal view returns (uint128) {
+        uint128 _baseGas = lzGasLookup[ccsType];
+        uint128 _gasStep = gasStep(ccsType);
+
+        uint128 gasRequired = _baseGas + (_gasStep * msgsLength);
+
+        return gasRequired;
+    }
+
+    function gasStep(CrossChainVaultSignalType ccsType) internal pure returns (uint128) {
+        // TODO: Gas estimations
+        if (
+            ccsType == CrossChainVaultSignalType.COMMIT || ccsType == CrossChainVaultSignalType.COMMIT_COMPLETE
+        ) {
+            return 55_000;
+        }
+        return 37_000;
     }
 
     function _verifyStrategy(bytes32 strategyId, CommitmentStrategy memory _strategy) private view {
@@ -403,4 +576,33 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard {
     function _isPositionLocal(Position memory position) private view returns (bool) {
         return position.chainId == block.chainid;
     }
+
+    /* =========================================================== */
+    /*    ================    OWNABLE2STEP    ==================   */
+    /* =========================================================== */
+    /**
+     * @dev This must be overriden because OApp uses Ownable without 2 step. SliceCore uses Ownable2Step everywhere.
+     */
+    function transferOwnership(address newOwner) public override(Ownable, Ownable2Step) onlyOwner {
+        Ownable2Step.transferOwnership(newOwner);
+    }
+
+    /**
+     * @dev This must be overriden because OApp uses Ownable without 2 step. SliceCore uses Ownable2Step everywhere.
+     */
+    function _transferOwnership(address newOwner) internal override(Ownable, Ownable2Step) {
+        Ownable2Step._transferOwnership(newOwner);
+    }
+
+    /* =========================================================== */
+    /*    =================    OAPP LZSEND    ==================   */
+    /* =========================================================== */
+    /// @dev Batch send requires overriding this function from OAppSender because the msg.value contains multiple fees
+    function _payNative(uint256 _nativeFee) internal virtual override returns (uint256 nativeFee) {
+        if (msg.value < _nativeFee) revert NotEnoughNative(msg.value);
+        return _nativeFee;
+    }
+
+    /// @dev Receive is required for LayerZero to refund the fee when the contract is batch sending messages
+    receive() external payable {}
 }

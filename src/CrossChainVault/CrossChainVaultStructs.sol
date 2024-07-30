@@ -60,4 +60,5 @@ struct CrossChainVaultSignal {
     address user;
     address underlying;
     uint256 committed;
+    uint256 value;
 }
