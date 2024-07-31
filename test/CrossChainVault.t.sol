@@ -311,6 +311,7 @@ contract CrossChainVaultTest is Helper {
             bytes32 comm = vault.commitmentsForStrategy(_stratId, i);
             assertEq(commitmentIds[i], comm);
         }
+        vm.stopPrank();
     }
 
     function test_commitToStrategy_crossChain() public {
@@ -321,15 +322,99 @@ contract CrossChainVaultTest is Helper {
         // TODO
     }
 
-    function test_commitToStrategy_TooMuchInCappedAtMax() public {}
+    function test_commitToStrategy_TooMuchInCappedAtMax() public {
+        // create a strategy
+        vm.startPrank(dev);
+        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
 
-    function test_cannot_commitToStrategy_InvalidStrategyId() public {}
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
 
-    function test_cannot_commitToStrategy_InvalidStrategyState() public {}
+        // verify that even if user commits more than the target, only the max target amount will be charged
+        deal(address(weth), address(dev), wethUnits * 10);
+        weth.approve(address(vault), wethUnits * 10);
 
-    function test_cannot_commitToStrategy_UnapprovedUser() public {}
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
 
-    function test_cannot_commitToStrategy_InvalidAsset() public {}
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits * 10;
+
+        uint128[] memory fees;
+
+        bytes32 _commitmentId = 0x9db504b84af6d344a44d564e194ceaec5b76318bce7437101cbd03bc5c50bc9d;
+
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        (, , , , , uint256 committed, )
+        = vault.commitments(_commitmentId);
+        assertEq(committed, wethUnits);
+
+        uint256 committedPerStrat = vault.committedAmountsPerStrategy(_stratId, assets[0]);
+        assertEq(committedPerStrat, wethUnits);
+
+        bytes32 comm = vault.commitmentsForStrategy(_stratId, 0);
+        assertEq(_commitmentId, comm);
+        vm.stopPrank();
+    }
+
+    function test_cannot_commitToStrategy_InvalidStrategyId() public {
+        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits;
+
+        uint128[] memory fees;
+
+        vm.expectRevert(bytes4(keccak256("InvalidStrategyId()")));
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+    }
+
+    function test_cannot_commitToStrategy_InvalidStrategyState() public {
+        // TODO
+    }
+
+    function test_cannot_commitToStrategy_UnapprovedUser() public {
+        // create a strategy
+        vm.startPrank(dev);
+        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, true);
+
+        deal(address(weth), address(dev), wethUnits);
+        weth.approve(address(vault), wethUnits);
+
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits * 10;
+
+        uint128[] memory fees;
+
+        vm.expectRevert(bytes4(keccak256("Unauthorized()")));
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+        vm.stopPrank();
+    }
+
+    function test_cannot_commitToStrategy_InvalidAsset() public {
+        // create a strategy
+        vm.startPrank(dev);
+        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
+
+        address[] memory assets = new address[](1);
+        assets[0] = address(makeAddr("random"));
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits;
+
+        uint128[] memory fees;
+
+        vm.expectRevert(bytes4(keccak256("InvalidAsset()")));
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+        vm.stopPrank();
+    }
 
     function test_cannot_commitToStrategy_InsufficientAmountBalance() public {}
 
