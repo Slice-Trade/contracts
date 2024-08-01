@@ -50,8 +50,6 @@ contract SliceCoreTest is Helper {
 
     uint256 constant MAX_ESTIMATED_PRICE = 160000000000; // 160000 USDC
 
-    uint256[] public maxEstimatedPrices;
-
     uint256 public wethUnits = 10000000000000000000; // 10 wETH
     uint256 public linkUnits = 2000000000000000000000; // 2000 LINK
     uint256 public wbtcUnits = 100000000;
@@ -61,8 +59,7 @@ contract SliceCoreTest is Helper {
     /* CROSS_CHAIN */
     uint256 maxWMaticPrice = 100000000; //100usdc
     uint256 wmaticUnits = 95000000000000000000; // 95matic
-
-    uint256[] public maxEstCCPrices;
+    
     Position[] public ccPositions;
 
     CrossChainPositionCreator public ccPosCreator;
@@ -163,9 +160,6 @@ contract SliceCoreTest is Helper {
 
         wmaticPolygon = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
-        maxEstimatedPrices.push(maxEstWethPrice);
-        maxEstimatedPrices.push(maxEstLinkPrice);
-
         // mint user some USDC
         deal(address(usdc), address(dev), 1 ether);
         vm.startPrank(dev);
@@ -201,8 +195,6 @@ contract SliceCoreTest is Helper {
         Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
 
         ccPositions.push(ccPos);
-
-        maxEstCCPrices.push(maxWMaticPrice);
 
         address ccTokenAddr = core.createSlice("CC Slice", "CC", ccPositions);
 

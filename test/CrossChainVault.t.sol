@@ -19,6 +19,7 @@ import {SliceTokenDeployer} from "../src/utils/SliceTokenDeployer.sol";
 import {Chain as SliceChain, Position} from "../src/Structs.sol";
 
 import {IDeployer} from "../script/IDeployer.sol";
+import {CrossChainPositionCreator} from "./helpers/CrossChainPositionCreator.sol";
 
 contract CrossChainVaultTest is Helper {
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
@@ -27,17 +28,28 @@ contract CrossChainVaultTest is Helper {
     CrossChainVault vault;
     SliceCore core;
     SliceToken sliceToken;
+    SliceToken ccToken;
 
     IWETH public weth;
     IERC20 public usdc;
     IERC20 public link;
     IERC20 public wbtc;
 
+    IERC20 public wmaticPolygon;
+
     uint256 public wethUnits = 10000000000000000000; // 10 wETH
     uint256 public linkUnits = 2000000000000000000000; // 2000 LINK
     uint256 public wbtcUnits = 100000000;
 
+    uint256 wmaticUnits = 95000000000000000000;
+
     Position[] public positions;
+
+    Position[] public ccPositions;
+
+    CrossChainPositionCreator public ccPosCreator;
+
+    address polygonLink = 0xb0897686c545045aFc77CF20eC7A532E3120E0F1;
 
     enum ChainSelect {
         MAINNET,
@@ -64,6 +76,13 @@ contract CrossChainVaultTest is Helper {
         (address sCore, address sToken) = deployTestContracts(ChainSelect.MAINNET, "");
         core = SliceCore(payable(sCore));
         sliceToken = SliceToken(payable(sToken));
+
+        Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
+        ccPositions.push(ccPos);
+        address ccTokenAddr = core.createSlice("CC Slice", "CC", ccPositions);
+        ccToken = SliceToken(ccTokenAddr);
+
+        ccPosCreator = new CrossChainPositionCreator();
 
         vault = new CrossChainVault(core, core.chainInfo(), getAddress("mainnet.layerZeroEndpoint"), dev);
         vm.stopPrank();
