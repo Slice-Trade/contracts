@@ -121,4 +121,6 @@ interface ICrossChainVault {
      * @dev Allows the vault owner to restart the vault after a pause
      */
     function restartVault() external;
+
+    function numberOfCommitmentsForStrategy(bytes32 strategyId) external view returns (uint256);
 }

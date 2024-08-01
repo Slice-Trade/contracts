@@ -334,6 +334,10 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         emit SetLzBaseGas(ccsType, gas);
     }
 
+    function numberOfCommitmentsForStrategy(bytes32 strategyId) external view returns (uint256) {
+        return commitmentsForStrategy[strategyId].length;
+    }
+
     /**
      * @dev This is a work around to allow using SafeERC20.safeTransferFrom in a try/catch block
      * This is needed because internal functions can not be used in a try/catch block

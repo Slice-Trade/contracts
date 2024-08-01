@@ -345,8 +345,7 @@ contract CrossChainVaultTest is Helper {
 
         vault.commitToStrategy(_stratId, assets, amounts, fees);
 
-        (, , , , , uint256 committed, )
-        = vault.commitments(_commitmentId);
+        (,,,,, uint256 committed,) = vault.commitments(_commitmentId);
         assertEq(committed, wethUnits);
 
         uint256 committedPerStrat = vault.committedAmountsPerStrategy(_stratId, assets[0]);
@@ -411,16 +410,63 @@ contract CrossChainVaultTest is Helper {
 
         uint128[] memory fees;
 
-        vm.expectRevert(bytes4(keccak256("InvalidAsset()")));
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        // make sure that no commitment were created
+        uint256 numCommsForStrat = vault.numberOfCommitmentsForStrategy(_stratId);
+        assertEq(numCommsForStrat, 0);
+
+        vm.expectRevert();
+        vault.commitmentsForStrategy(_stratId, 0);
+
+        vm.stopPrank();
+    }
+
+    function test_cannot_commitToStrategy_InsufficientAmountBalance() public {
+        vm.startPrank(dev);
+        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
+
+        deal(address(weth), address(dev), wethUnits - 1);
+        weth.approve(address(vault), wethUnits - 1);
+
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits;
+
+        uint128[] memory fees;
+
+        vm.expectRevert();
         vault.commitToStrategy(_stratId, assets, amounts, fees);
         vm.stopPrank();
     }
 
-    function test_cannot_commitToStrategy_InsufficientAmountBalance() public {}
+    function test_cannot_commitToStrategy_MissingApproval() public {
+        vm.startPrank(dev);
+        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
 
-    function test_cannot_commitToStrategy_MissingApproval() public {}
+        deal(address(weth), address(dev), wethUnits);
+        //weth.approve(address(vault), wethUnits);
 
-    function test_cannot_commitToStrategy_InsufficientFeeForCrossChainCommit() public {}
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits;
+
+        uint128[] memory fees;
+
+        vm.expectRevert();
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+        vm.stopPrank();
+    }
+
+    function test_cannot_commitToStrategy_InsufficientFeeForCrossChainCommit() public {
+        // TODO
+    }
 
     /* =========================================================== */
     /*  ============  removeCommitmentFromStrategy  =============  */
