@@ -471,17 +471,124 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     /*  ============  removeCommitmentFromStrategy  =============  */
     /* =========================================================== */
-    function test_removeCommitmentFromStrategy() public {}
+    function test_removeCommitmentFromStrategy() public {
+        vm.startPrank(dev);
+        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
 
-    function test_cannot_removeCommitmentFromStrategy_InvalidCommitmentId() public {}
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
 
-    function test_cannot_removeCommitmentFromStrategy_NotCommitmentCreator() public {}
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
 
-    function test_cannot_removeCommitmentFromStrategy_InvalidAmount() public {}
+        weth.approve(address(vault), wethUnits);
+        link.approve(address(vault), linkUnits);
+        wbtc.approve(address(vault), wbtcUnits);
 
-    function test_cannot_removeCommitmentFromStrategy_InvalidStrategyState() public {}
+        // call commit to strategy with muliple tokens
+        address[] memory assets = new address[](3);
+        assets[0] = address(weth);
+        assets[1] = address(link);
+        assets[2] = address(wbtc);
 
-    function test_cannot_removeCommitmentFromStrategy_InsufficientFeesForCrossChainRemoval() public {}
+        uint256[] memory amounts = new uint256[](3);
+        amounts[0] = wethUnits;
+        amounts[1] = linkUnits;
+        amounts[2] = wbtcUnits;
+
+        uint128[] memory fees;
+
+        bytes32 _commitmentId0 = 0x9db504b84af6d344a44d564e194ceaec5b76318bce7437101cbd03bc5c50bc9d;
+        bytes32 _commitmentId1 = 0x6090b7c3ea63296dd7487e84f1b742ab18bee3fa6f637b2576f4b3f1085d5c97;
+        bytes32 _commitmentId2 = 0x9fcfb4bba5f1e3eb9a5a6947d8132e7660124469423a8b8b2d8dc65f07cc9a2e;
+
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        vault.removeCommitmentFromStrategy(_commitmentId0, wethUnits, 0);
+        vault.removeCommitmentFromStrategy(_commitmentId1, linkUnits, 0);
+        vault.removeCommitmentFromStrategy(_commitmentId2, wbtcUnits, 0);
+
+        bytes32[] memory commitmentIds = new bytes32[](3);
+        commitmentIds[0] = _commitmentId0;
+        commitmentIds[1] = _commitmentId1;
+        commitmentIds[2] = _commitmentId2;
+
+        for (uint256 i = 0; i < commitmentIds.length; i++) {
+            amounts[i] = 0;
+            assertCommitment(commitmentIds[i], _stratId, assets[i], amounts[i]);
+            uint256 committedPerStrat = vault.committedAmountsPerStrategy(_stratId, assets[i]);
+            assertEq(committedPerStrat, amounts[i]);
+        }
+    }
+
+    function test_cannot_removeCommitmentFromStrategy_InvalidCommitmentId() public {
+        vm.expectRevert(bytes4(keccak256("InvalidCommitmentId()")));
+        vault.removeCommitmentFromStrategy(bytes32(0), wethUnits, 0);
+    }
+
+    function test_cannot_removeCommitmentFromStrategy_NotCommitmentCreator() public {
+        vm.startPrank(dev);
+        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
+
+        deal(address(weth), address(dev), wethUnits);
+
+        weth.approve(address(vault), wethUnits);
+
+        // call commit to strategy with muliple tokens
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits;
+
+        uint128[] memory fees;
+
+        bytes32 _commitmentId0 = 0x9db504b84af6d344a44d564e194ceaec5b76318bce7437101cbd03bc5c50bc9d;
+
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+        vm.stopPrank();
+
+        vm.prank(users[1]);
+        vm.expectRevert(bytes4(keccak256("Unauthorized()")));
+        vault.removeCommitmentFromStrategy(_commitmentId0, wethUnits, 0);
+    }
+
+    function test_cannot_removeCommitmentFromStrategy_InvalidAmount() public {
+        vm.startPrank(dev);
+        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
+
+        deal(address(weth), address(dev), wethUnits);
+
+        weth.approve(address(vault), wethUnits);
+
+        // call commit to strategy with muliple tokens
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits;
+
+        uint128[] memory fees;
+
+        bytes32 _commitmentId0 = 0x9db504b84af6d344a44d564e194ceaec5b76318bce7437101cbd03bc5c50bc9d;
+
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        vm.expectRevert(bytes4(keccak256("InvalidAmount()")));
+        vault.removeCommitmentFromStrategy(_commitmentId0, wethUnits + 1, 0);
+    }
+
+    function test_cannot_removeCommitmentFromStrategy_InvalidStrategyState() public {
+        // TODO
+    }
+
+    function test_cannot_removeCommitmentFromStrategy_InsufficientFeesForCrossChainRemoval() public {
+        // TODO
+    }
 
     /* =========================================================== */
     /*  ================  pullMintedTokenShares  ================  */
