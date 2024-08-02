@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import "forge-std/src/console.sol";
+
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -408,6 +410,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             mstore(ccsResponses, respMsgCount)
         }
         bytes memory ccsEncoded = abi.encode(ccsResponses);
+        console.log("sending lz resp msg...");
         _sendLzMsg(CrossChainVaultSignalType.COMMIT_COMPLETE, ccsEncoded, ccs[0].srcChainId, ccs[0].user);
     }
 

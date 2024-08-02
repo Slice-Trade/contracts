@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import "@lz-oapp-v2/interfaces/ILayerZeroReceiver.sol";
 import "./CrossChainVaultStructs.sol";
 
-interface ICrossChainVault {
+interface ICrossChainVault is ILayerZeroReceiver {
     event CommitmentStrategyCreated(bytes32 indexed strategyId);
     event CommitmentStrategyTargetModified(bytes32 indexed strategyId, uint256 indexed newTarget);
     event CommitmentStrategyExecuted(bytes32 indexed strategyId);

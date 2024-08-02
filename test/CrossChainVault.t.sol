@@ -7,6 +7,7 @@ import "./helpers/Helper.sol";
 
 import {IWETH} from "../src/external/IWETH.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IOAppReceiver, Origin} from "@lz-oapp-v2/interfaces/IOAppReceiver.sol";
 import {IOAppCore} from "@lz-oapp-v2/interfaces/IOAppCore.sol";
 
 import {ICrossChainVault} from "../src/CrossChainVault/ICrossChainVault.sol";
@@ -26,6 +27,7 @@ contract CrossChainVaultTest is Helper {
     uint256 immutable POLYGON_BLOCK_NUMBER = 55101688; //TSTAMP: 1711459720
 
     CrossChainVault vault;
+    CrossChainVault ccVault;
     SliceCore core;
     SliceToken sliceToken;
     SliceToken ccToken;
@@ -71,9 +73,11 @@ contract CrossChainVaultTest is Helper {
         weth = IWETH(getAddress("mainnet.weth"));
         wbtc = IERC20(getAddress("mainnet.wbtc"));
 
+        wmaticPolygon = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
+
         fillPositions();
 
-        (address sCore, address sToken) = deployTestContracts(ChainSelect.MAINNET, "");
+        (address sCore, address sToken, address sVault) = deployTestContracts(ChainSelect.MAINNET, "");
         core = SliceCore(payable(sCore));
         sliceToken = SliceToken(payable(sToken));
 
@@ -82,9 +86,8 @@ contract CrossChainVaultTest is Helper {
         address ccTokenAddr = core.createSlice("CC Slice", "CC", ccPositions);
         ccToken = SliceToken(ccTokenAddr);
 
-        ccPosCreator = new CrossChainPositionCreator();
-
-        vault = new CrossChainVault(core, core.chainInfo(), getAddress("mainnet.layerZeroEndpoint"), dev);
+        vault = CrossChainVault(payable(sVault));
+        
         vm.stopPrank();
     }
 
@@ -335,6 +338,63 @@ contract CrossChainVaultTest is Helper {
 
     function test_commitToStrategy_crossChain() public {
         // TODO
+        vm.startPrank(dev);
+        bytes32 _stratId = 0xd60d97ebaeb61f838195ec878d904bacc4f94ebb6c79085528b7cc8c9fefa86d;
+        
+        selectPolygon();
+
+        (address polygonCore,,address polyVault) = deployTestContracts(ChainSelect.POLYGON, "");
+
+        deal(address(wmaticPolygon), address(dev), wmaticUnits);
+        wmaticPolygon.approve(address(vault), wmaticUnits);
+        
+        selectMainnet();
+        deal(dev, 10 ether);
+
+        address[] memory assets = new address[](1);
+        assets[0] = address(wmaticPolygon);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wmaticUnits;
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 0.2 ether;
+
+        vault.createCommitmentStrategy(address(ccToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
+        vault.commitToStrategy{value:1 ether}(_stratId, assets, amounts, fees);
+
+        CrossChainVaultSignal[] memory ccsMsgs = new CrossChainVaultSignal[](1);
+
+        CrossChainVaultSignal memory ccs = CrossChainVaultSignal({
+            id: _stratId,
+            srcChainId: uint32(block.chainid),
+            ccvsType: CrossChainVaultSignalType.COMMIT,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            amount: wmaticUnits,
+            value: 0.2 ether
+        });
+
+        ccsMsgs[0] = ccs;
+
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
+
+        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(vault)))), nonce: 1});
+
+        makePersistent(address(vault));
+
+        selectPolygon();
+        deal(address(wmaticPolygon), dev, wmaticUnits);
+        IERC20(wmaticPolygon).approve(address(vault), wmaticUnits);
+
+        IOAppCore(polyVault).setPeer(30101, bytes32(uint256(uint160(address(vault)))));
+        deal(polyVault, 200 ether);
+        deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
+        vm.stopPrank();
+
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(polyVault).lzReceive{value: 20 ether}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+
     }
 
     function test_commitToStrategy_crossChain_Fuzz() public {
@@ -746,7 +806,7 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     function deployTestContracts(ChainSelect chainSelect, string memory salt)
         internal
-        returns (address sliceCore, address tokenAddr)
+        returns (address sliceCore, address tokenAddr, address sVault)
     {
         if (chainSelect == ChainSelect.MAINNET) {
             selectMainnet();
@@ -795,6 +855,18 @@ contract CrossChainVaultTest is Helper {
         );
 
         tokenAddr = SliceCore(payable(sliceCore)).createSlice("Slice Token", "SC", positions);
+
+
+        bytes memory byteCodeVault = abi.encodePacked(
+            type(CrossChainVault).creationCode, abi.encode(sliceCore, address(chainInfo), endpoint, dev)
+        );
+
+        sVault = create3Deployer.deploy(byteCodeVault, stringToBytes32("testvault"));
+
+        IOAppCore(sVault).setPeer(
+            (chainSelect == ChainSelect.MAINNET ? 30109 : (chainSelect == ChainSelect.POLYGON ? 30101 : 30101)),
+            bytes32(uint256(uint160(sVault)))
+        );
     }
 
     function stringToBytes32(string memory _string) internal pure returns (bytes32 result) {
