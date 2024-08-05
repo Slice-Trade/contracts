@@ -87,7 +87,7 @@ interface ICrossChainVault is ILayerZeroReceiver {
      * @param commitmentId The ID of the commitment for which the user is removing funds from
      * @param amount The amount of funds to remove
      */
-    function removeCommitmentFromStrategy(bytes32 commitmentId, uint256 amount, uint128 fee) external;
+    function removeCommitmentFromStrategy(bytes32 commitmentId, uint256 amount, uint128 fee) external payable;
 
     /**
      * @dev Once a commitment strategy has been executed, the slice tokens will be in the vault.

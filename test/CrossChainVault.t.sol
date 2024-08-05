@@ -87,7 +87,7 @@ contract CrossChainVaultTest is Helper {
         ccToken = SliceToken(ccTokenAddr);
 
         vault = CrossChainVault(payable(sVault));
-        
+
         vm.stopPrank();
     }
 
@@ -96,7 +96,7 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     function test_createCommitmentStrategy() public {
         vm.startPrank(dev);
-        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+        bytes32 _stratId = 0xebc2ab8e2c3a1930ada96b508920f176160de7fcabb6bfd76c953cb5d48dd002;
 
         vm.expectEmit(true, false, false, false);
         emit ICrossChainVault.CommitmentStrategyCreated(_stratId);
@@ -160,7 +160,7 @@ contract CrossChainVaultTest is Helper {
         vm.startPrank(dev);
         // TEST AMOUNT TARGET
         vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, false);
-        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+        bytes32 _stratId = 0xebc2ab8e2c3a1930ada96b508920f176160de7fcabb6bfd76c953cb5d48dd002;
 
         vm.expectEmit(true, true, false, false);
         emit ICrossChainVault.CommitmentStrategyTargetModified(_stratId, 30);
@@ -170,7 +170,7 @@ contract CrossChainVaultTest is Helper {
         assertEq(target, 30);
 
         // TEST TIMESTAMP TARGET
-        bytes32 _stratIdTstamp = 0x24b95feeaea55019b9be6536afa3264a1da0c96c7e28f108923da5a4c711c487;
+        bytes32 _stratIdTstamp = 0x748de79fd9c05cbdcc76d223a55ad13909533d43eceb0f9abf6af133d8d8e68a;
         vault.createCommitmentStrategy(
             address(sliceToken), block.timestamp + 86400, CommitmentStrategyType.TIMESTAMP_TARGET, false
         );
@@ -183,7 +183,7 @@ contract CrossChainVaultTest is Helper {
         assertEq(target2, block.timestamp + 43200);
 
         // TEST TIME INTERVAL TARGET
-        bytes32 _stratIdTInterval = 0xda1405ce44946e57f1c1a6e086bfbc349fbce82985b79ba675a1cbd82754b76f;
+        bytes32 _stratIdTInterval = 0x671bc5ce24789f79e8138a34a0889b0871fde07844075ddcce104f15845e1353;
         vault.createCommitmentStrategy(address(sliceToken), 3600, CommitmentStrategyType.TIME_INTERVAL_TARGET, false);
 
         vm.expectEmit(true, true, false, false);
@@ -197,7 +197,7 @@ contract CrossChainVaultTest is Helper {
     function test_cannot_modifyCommitmentStrategyTarget_VaultIsPaused() public {
         vm.startPrank(dev);
         vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, false);
-        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+        bytes32 _stratId = 0xebc2ab8e2c3a1930ada96b508920f176160de7fcabb6bfd76c953cb5d48dd002;
 
         vault.pauseVault();
         vm.expectRevert(bytes4(keccak256("VaultIsPaused()")));
@@ -213,7 +213,7 @@ contract CrossChainVaultTest is Helper {
     function test_cannot_modifyCommitmentStrategyTarget_NotStrategyCreator() public {
         vm.prank(dev);
         vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, false);
-        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+        bytes32 _stratId = 0xebc2ab8e2c3a1930ada96b508920f176160de7fcabb6bfd76c953cb5d48dd002;
 
         vm.prank(users[1]);
         vm.expectRevert(bytes4(keccak256("Unauthorized()")));
@@ -227,7 +227,7 @@ contract CrossChainVaultTest is Helper {
     function test_cannot_modifyCommitmentStrategyTarget_InvalidAmount() public {
         vm.startPrank(dev);
         vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, false);
-        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+        bytes32 _stratId = 0xebc2ab8e2c3a1930ada96b508920f176160de7fcabb6bfd76c953cb5d48dd002;
 
         vm.expectRevert(bytes4(keccak256("InvalidAmount()")));
         vault.modifyCommitmentStrategyTarget(_stratId, 0);
@@ -236,7 +236,7 @@ contract CrossChainVaultTest is Helper {
 
     function test_cannot_modifyCommitmentStrategyTarget_InvalidTimestamp() public {
         vm.startPrank(dev);
-        bytes32 _stratIdTstamp = 0x992238cb94270b44f2d5a83ddfdc62f202191ab4088e2b6001188eab0facbb0a;
+        bytes32 _stratIdTstamp = 0x41fa7ac187f1ee721253fe9753699724c2efb0928b9219c978f2745f015ec290;
         vault.createCommitmentStrategy(
             address(sliceToken), block.timestamp + 86400, CommitmentStrategyType.TIMESTAMP_TARGET, false
         );
@@ -249,7 +249,7 @@ contract CrossChainVaultTest is Helper {
 
     function test_cannot_modifyCommitmentStrategyTarget_InvalidTimeInterval() public {
         vm.startPrank(dev);
-        bytes32 _stratIdTInterval = 0x60ecb655391dc6f76b72bf58e82aa84db06164ff4308e42b56c7fdf3a13ba0fb;
+        bytes32 _stratIdTInterval = 0x8b60ffb732aea1f9395fa242dd8f4b329d0087156cbc3562780d934808e319fd;
         vault.createCommitmentStrategy(address(sliceToken), 3600, CommitmentStrategyType.TIME_INTERVAL_TARGET, false);
 
         vm.expectRevert(bytes4(keccak256("InvalidTimeInterval()")));
@@ -277,7 +277,7 @@ contract CrossChainVaultTest is Helper {
     function test_commitToStrategy() public {
         // create a strategy
         vm.startPrank(dev);
-        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        bytes32 _stratId = 0x41be4f1bb4f53f709150c7501c7fcf921dbc240da8ab03ea8ced3905ec299b47;
 
         vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
 
@@ -303,9 +303,9 @@ contract CrossChainVaultTest is Helper {
 
         uint128[] memory fees;
 
-        bytes32 _commitmentId0 = 0x9db504b84af6d344a44d564e194ceaec5b76318bce7437101cbd03bc5c50bc9d;
-        bytes32 _commitmentId1 = 0x6090b7c3ea63296dd7487e84f1b742ab18bee3fa6f637b2576f4b3f1085d5c97;
-        bytes32 _commitmentId2 = 0x9fcfb4bba5f1e3eb9a5a6947d8132e7660124469423a8b8b2d8dc65f07cc9a2e;
+        bytes32 _commitmentId0 = 0xce4f84046022cf17384e9ca29bffc4e1f4f585d620b907bb0ac24f8e50d09bed;
+        bytes32 _commitmentId1 = 0x28427307703480c50d36de6e1dfdf3cd867e8f557a55ded07ac78b35f63a97df;
+        bytes32 _commitmentId2 = 0xc11b092955f7adee9836b0a5ceb5b474d689a251d764a91e4dc4f6720ce1506d;
 
         // check that event is emitted
         vm.expectEmit(true, true, false, false);
@@ -337,64 +337,8 @@ contract CrossChainVaultTest is Helper {
     }
 
     function test_commitToStrategy_crossChain() public {
-        // TODO
-        vm.startPrank(dev);
-        bytes32 _stratId = 0xd60d97ebaeb61f838195ec878d904bacc4f94ebb6c79085528b7cc8c9fefa86d;
-        
-        selectPolygon();
-
-        (address polygonCore,,address polyVault) = deployTestContracts(ChainSelect.POLYGON, "");
-
-        deal(address(wmaticPolygon), address(dev), wmaticUnits);
-        wmaticPolygon.approve(address(vault), wmaticUnits);
-        
-        selectMainnet();
-        deal(dev, 10 ether);
-
-        address[] memory assets = new address[](1);
-        assets[0] = address(wmaticPolygon);
-
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = wmaticUnits;
-
-        uint128[] memory fees = new uint128[](1);
-        fees[0] = 0.2 ether;
-
-        vault.createCommitmentStrategy(address(ccToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
-        vault.commitToStrategy{value:1 ether}(_stratId, assets, amounts, fees);
-
-        CrossChainVaultSignal[] memory ccsMsgs = new CrossChainVaultSignal[](1);
-
-        CrossChainVaultSignal memory ccs = CrossChainVaultSignal({
-            id: _stratId,
-            srcChainId: uint32(block.chainid),
-            ccvsType: CrossChainVaultSignalType.COMMIT,
-            user: dev,
-            underlying: address(wmaticPolygon),
-            amount: wmaticUnits,
-            value: 0.2 ether
-        });
-
-        ccsMsgs[0] = ccs;
-
-        bytes memory ccsEncoded = abi.encode(ccsMsgs);
-
-        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(vault)))), nonce: 1});
-
-        makePersistent(address(vault));
-
-        selectPolygon();
-        deal(address(wmaticPolygon), dev, wmaticUnits);
-        IERC20(wmaticPolygon).approve(address(vault), wmaticUnits);
-
-        IOAppCore(polyVault).setPeer(30101, bytes32(uint256(uint160(address(vault)))));
-        deal(polyVault, 200 ether);
-        deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
-        vm.stopPrank();
-
-        vm.prank(getAddress("polygon.layerZeroEndpoint"));
-        IOAppReceiver(polyVault).lzReceive{value: 20 ether}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
-
+        (bytes32 _stratId, bytes32 expectedCommitId,) = commitCrossChain();
+        _verifyCommitment(_stratId, expectedCommitId);
     }
 
     function test_commitToStrategy_crossChain_Fuzz() public {
@@ -404,7 +348,7 @@ contract CrossChainVaultTest is Helper {
     function test_commitToStrategy_TooMuchInCappedAtMax() public {
         // create a strategy
         vm.startPrank(dev);
-        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        bytes32 _stratId = 0x41be4f1bb4f53f709150c7501c7fcf921dbc240da8ab03ea8ced3905ec299b47;
 
         vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
 
@@ -420,7 +364,7 @@ contract CrossChainVaultTest is Helper {
 
         uint128[] memory fees;
 
-        bytes32 _commitmentId = 0x9db504b84af6d344a44d564e194ceaec5b76318bce7437101cbd03bc5c50bc9d;
+        bytes32 _commitmentId = 0xce4f84046022cf17384e9ca29bffc4e1f4f585d620b907bb0ac24f8e50d09bed;
 
         vault.commitToStrategy(_stratId, assets, amounts, fees);
 
@@ -456,7 +400,7 @@ contract CrossChainVaultTest is Helper {
     function test_cannot_commitToStrategy_UnapprovedUser() public {
         // create a strategy
         vm.startPrank(dev);
-        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        bytes32 _stratId = 0x41be4f1bb4f53f709150c7501c7fcf921dbc240da8ab03ea8ced3905ec299b47;
         vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, true);
 
         deal(address(weth), address(dev), wethUnits);
@@ -478,7 +422,7 @@ contract CrossChainVaultTest is Helper {
     function test_cannot_commitToStrategy_InvalidAsset() public {
         // create a strategy
         vm.startPrank(dev);
-        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        bytes32 _stratId = 0x41be4f1bb4f53f709150c7501c7fcf921dbc240da8ab03ea8ced3905ec299b47;
         vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
 
         address[] memory assets = new address[](1);
@@ -503,7 +447,7 @@ contract CrossChainVaultTest is Helper {
 
     function test_cannot_commitToStrategy_InsufficientAmountBalance() public {
         vm.startPrank(dev);
-        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        bytes32 _stratId = 0x41be4f1bb4f53f709150c7501c7fcf921dbc240da8ab03ea8ced3905ec299b47;
         vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
 
         deal(address(weth), address(dev), wethUnits - 1);
@@ -524,7 +468,7 @@ contract CrossChainVaultTest is Helper {
 
     function test_cannot_commitToStrategy_MissingApproval() public {
         vm.startPrank(dev);
-        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        bytes32 _stratId = 0x41be4f1bb4f53f709150c7501c7fcf921dbc240da8ab03ea8ced3905ec299b47;
         vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
 
         deal(address(weth), address(dev), wethUnits);
@@ -544,7 +488,64 @@ contract CrossChainVaultTest is Helper {
     }
 
     function test_cannot_commitToStrategy_InsufficientFeeForCrossChainCommit() public {
-        // TODO
+        vm.startPrank(dev);
+        bytes32 _stratId = 0xd60d97ebaeb61f838195ec878d904bacc4f94ebb6c79085528b7cc8c9fefa86d;
+
+        selectPolygon();
+
+        (,, address polyVault) = deployTestContracts(ChainSelect.POLYGON, "");
+        assertEq(polyVault, address(vault));
+
+        deal(address(wmaticPolygon), address(dev), wmaticUnits);
+        wmaticPolygon.approve(address(vault), wmaticUnits);
+
+        selectMainnet();
+        deal(dev, 10 ether);
+
+        address[] memory assets = new address[](1);
+        assets[0] = address(wmaticPolygon);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wmaticUnits;
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 60 ether;
+
+        vault.createCommitmentStrategy(address(ccToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
+        vault.commitToStrategy{value: 1 ether}(_stratId, assets, amounts, fees);
+
+        CrossChainVaultSignal[] memory ccsMsgs = new CrossChainVaultSignal[](1);
+
+        CrossChainVaultSignal memory ccs = CrossChainVaultSignal({
+            id: _stratId,
+            srcChainId: uint32(block.chainid),
+            ccvsType: CrossChainVaultSignalType.COMMIT,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            amount: wmaticUnits,
+            value: 1 ether
+        });
+
+        ccsMsgs[0] = ccs;
+
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
+
+        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(vault)))), nonce: 1});
+
+        makePersistent(address(vault));
+
+        selectPolygon();
+        deal(address(wmaticPolygon), dev, wmaticUnits);
+        IERC20(wmaticPolygon).approve(address(vault), wmaticUnits);
+
+        IOAppCore(polyVault).setPeer(30101, bytes32(uint256(uint160(address(vault)))));
+
+        deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
+        vm.stopPrank();
+
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        vm.expectRevert();
+        IOAppReceiver(polyVault).lzReceive{value: 1 ether}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
     }
 
     /* =========================================================== */
@@ -552,7 +553,7 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     function test_removeCommitmentFromStrategy() public {
         vm.startPrank(dev);
-        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        bytes32 _stratId = 0x41be4f1bb4f53f709150c7501c7fcf921dbc240da8ab03ea8ced3905ec299b47;
 
         vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
 
@@ -577,9 +578,9 @@ contract CrossChainVaultTest is Helper {
 
         uint128[] memory fees;
 
-        bytes32 _commitmentId0 = 0x9db504b84af6d344a44d564e194ceaec5b76318bce7437101cbd03bc5c50bc9d;
-        bytes32 _commitmentId1 = 0x6090b7c3ea63296dd7487e84f1b742ab18bee3fa6f637b2576f4b3f1085d5c97;
-        bytes32 _commitmentId2 = 0x9fcfb4bba5f1e3eb9a5a6947d8132e7660124469423a8b8b2d8dc65f07cc9a2e;
+        bytes32 _commitmentId0 = 0xce4f84046022cf17384e9ca29bffc4e1f4f585d620b907bb0ac24f8e50d09bed;
+        bytes32 _commitmentId1 = 0x28427307703480c50d36de6e1dfdf3cd867e8f557a55ded07ac78b35f63a97df;
+        bytes32 _commitmentId2 = 0xc11b092955f7adee9836b0a5ceb5b474d689a251d764a91e4dc4f6720ce1506d;
 
         vault.commitToStrategy(_stratId, assets, amounts, fees);
 
@@ -600,6 +601,74 @@ contract CrossChainVaultTest is Helper {
         }
     }
 
+    function test_removeCommitmentFromStrategy_crossChain() public {
+        (bytes32 strategyId, bytes32 commitmentId, address polyVault) = commitCrossChain();
+        vm.prank(dev);
+        vault.removeCommitmentFromStrategy{value: 1 ether}(commitmentId, wmaticUnits, 60 ether);
+
+        CrossChainVaultSignal[] memory ccsMsgs = new CrossChainVaultSignal[](1);
+
+        CrossChainVaultSignal memory ccs = CrossChainVaultSignal({
+            id: commitmentId,
+            srcChainId: uint32(block.chainid),
+            ccvsType: CrossChainVaultSignalType.REMOVE,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            amount: wmaticUnits,
+            value: 60 ether
+        });
+
+        ccsMsgs[0] = ccs;
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
+        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(vault)))), nonce: 1});
+
+        makePersistent(address(vault));
+
+        selectPolygon();
+        vm.prank(dev);
+        IOAppCore(polyVault).setPeer(30101, bytes32(uint256(uint160(address(vault)))));
+
+        deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
+        vm.stopPrank();
+
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(polyVault).lzReceive{value: 60 ether}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        uint256 balance = wmaticPolygon.balanceOf(polyVault);
+        assertEq(0, balance);
+        uint256 balanceUser = wmaticPolygon.balanceOf(dev);
+        assertEq(wmaticUnits, balanceUser);
+
+        ccs = CrossChainVaultSignal({
+            id: commitmentId,
+            srcChainId: uint32(block.chainid),
+            ccvsType: CrossChainVaultSignalType.REMOVE_COMPLETE,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            amount: wmaticUnits,
+            value: 0
+        });
+
+        ccsMsgs[0] = ccs;
+        ccsEncoded = abi.encode(ccsMsgs);
+
+        origin = Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polyVault)))), nonce: 1});
+
+        selectMainnet();
+
+        deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+
+        vm.expectEmit(true, true, false, false);
+        emit ICrossChainVault.RemovedCommitmentFromStrategy(commitmentId, wmaticUnits);
+        IOAppReceiver(address(vault)).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        assertCommitment(commitmentId, strategyId, address(wmaticPolygon), 0);
+
+        uint256 committedAmountForStrat = vault.committedAmountsPerStrategy(strategyId, address(wmaticPolygon));
+        assertEq(committedAmountForStrat, 0);
+    }
+
     function test_cannot_removeCommitmentFromStrategy_InvalidCommitmentId() public {
         vm.expectRevert(bytes4(keccak256("InvalidCommitmentId()")));
         vault.removeCommitmentFromStrategy(bytes32(0), wethUnits, 0);
@@ -607,7 +676,7 @@ contract CrossChainVaultTest is Helper {
 
     function test_cannot_removeCommitmentFromStrategy_NotCommitmentCreator() public {
         vm.startPrank(dev);
-        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        bytes32 _stratId = 0x41be4f1bb4f53f709150c7501c7fcf921dbc240da8ab03ea8ced3905ec299b47;
 
         vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
 
@@ -624,7 +693,7 @@ contract CrossChainVaultTest is Helper {
 
         uint128[] memory fees;
 
-        bytes32 _commitmentId0 = 0x9db504b84af6d344a44d564e194ceaec5b76318bce7437101cbd03bc5c50bc9d;
+        bytes32 _commitmentId0 = 0xce4f84046022cf17384e9ca29bffc4e1f4f585d620b907bb0ac24f8e50d09bed;
 
         vault.commitToStrategy(_stratId, assets, amounts, fees);
         vm.stopPrank();
@@ -636,7 +705,7 @@ contract CrossChainVaultTest is Helper {
 
     function test_cannot_removeCommitmentFromStrategy_InvalidAmount() public {
         vm.startPrank(dev);
-        bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
+        bytes32 _stratId = 0x41be4f1bb4f53f709150c7501c7fcf921dbc240da8ab03ea8ced3905ec299b47;
 
         vault.createCommitmentStrategy(address(sliceToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
 
@@ -653,7 +722,7 @@ contract CrossChainVaultTest is Helper {
 
         uint128[] memory fees;
 
-        bytes32 _commitmentId0 = 0x9db504b84af6d344a44d564e194ceaec5b76318bce7437101cbd03bc5c50bc9d;
+        bytes32 _commitmentId0 = 0xce4f84046022cf17384e9ca29bffc4e1f4f585d620b907bb0ac24f8e50d09bed;
 
         vault.commitToStrategy(_stratId, assets, amounts, fees);
 
@@ -666,7 +735,38 @@ contract CrossChainVaultTest is Helper {
     }
 
     function test_cannot_removeCommitmentFromStrategy_InsufficientFeesForCrossChainRemoval() public {
-        // TODO
+        (, bytes32 commitmentId, address polyVault) = commitCrossChain();
+        vm.prank(dev);
+        vault.removeCommitmentFromStrategy{value: 1 ether}(commitmentId, wmaticUnits, 60 ether);
+
+        CrossChainVaultSignal[] memory ccsMsgs = new CrossChainVaultSignal[](1);
+
+        CrossChainVaultSignal memory ccs = CrossChainVaultSignal({
+            id: commitmentId,
+            srcChainId: uint32(block.chainid),
+            ccvsType: CrossChainVaultSignalType.REMOVE,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            amount: wmaticUnits,
+            value: 1 ether
+        });
+
+        ccsMsgs[0] = ccs;
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
+        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(vault)))), nonce: 1});
+
+        makePersistent(address(vault));
+
+        selectPolygon();
+        vm.prank(dev);
+        IOAppCore(polyVault).setPeer(30101, bytes32(uint256(uint160(address(vault)))));
+
+        deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
+        vm.stopPrank();
+
+        vm.expectRevert();
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(polyVault).lzReceive{value: 1 ether}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
     }
 
     /* =========================================================== */
@@ -696,7 +796,7 @@ contract CrossChainVaultTest is Helper {
         vm.startPrank(dev);
         // TEST AMOUNT TARGET
         vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, true);
-        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+        bytes32 _stratId = 0xebc2ab8e2c3a1930ada96b508920f176160de7fcabb6bfd76c953cb5d48dd002;
 
         vm.expectEmit(true, true, true, false);
         emit ICrossChainVault.ChangedUserApprovalToCommitmentStrategy(_stratId, users[1], true);
@@ -711,7 +811,7 @@ contract CrossChainVaultTest is Helper {
     function test_cannot_changeUserApprovalToCommitmentStrategy_VaultIsPaused() public {
         vm.startPrank(dev);
         vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, true);
-        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+        bytes32 _stratId = 0xebc2ab8e2c3a1930ada96b508920f176160de7fcabb6bfd76c953cb5d48dd002;
 
         vault.pauseVault();
 
@@ -727,7 +827,7 @@ contract CrossChainVaultTest is Helper {
     function test_cannot_changeUserApprovalToCommitmentStrategy_NotStrategyCreator() public {
         vm.prank(dev);
         vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, true);
-        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+        bytes32 _stratId = 0xebc2ab8e2c3a1930ada96b508920f176160de7fcabb6bfd76c953cb5d48dd002;
 
         vm.prank(users[1]);
         vm.expectRevert(bytes4(keccak256("Unauthorized()")));
@@ -737,7 +837,7 @@ contract CrossChainVaultTest is Helper {
     function test_cannot_changeUserApprovalToCommitmentStrategy_NotPrivateStrategy() public {
         vm.startPrank(dev);
         vault.createCommitmentStrategy(address(sliceToken), 10, CommitmentStrategyType.AMOUNT_TARGET, false);
-        bytes32 _stratId = 0x6872a8edab10171a6bd411d9d71d1cd97986f9ba7f0f1e97e73ba2d9be9462fe;
+        bytes32 _stratId = 0xebc2ab8e2c3a1930ada96b508920f176160de7fcabb6bfd76c953cb5d48dd002;
 
         vm.expectRevert(bytes4(keccak256("StrategyNotPrivate()")));
         vault.changeUserApprovalToCommitmentStrategy(_stratId, users[1], true);
@@ -856,7 +956,6 @@ contract CrossChainVaultTest is Helper {
 
         tokenAddr = SliceCore(payable(sliceCore)).createSlice("Slice Token", "SC", positions);
 
-
         bytes memory byteCodeVault = abi.encodePacked(
             type(CrossChainVault).creationCode, abi.encode(sliceCore, address(chainInfo), endpoint, dev)
         );
@@ -900,6 +999,99 @@ contract CrossChainVaultTest is Helper {
         positions.push(wbtcPosition);
     }
 
+    function commitCrossChain() private returns (bytes32, bytes32, address) {
+        vm.startPrank(dev);
+        bytes32 _stratId = 0xd60d97ebaeb61f838195ec878d904bacc4f94ebb6c79085528b7cc8c9fefa86d;
+
+        selectPolygon();
+
+        (address polygonCore,, address polyVault) = deployTestContracts(ChainSelect.POLYGON, "");
+        assertEq(polyVault, address(vault));
+
+        deal(address(wmaticPolygon), address(dev), wmaticUnits);
+        wmaticPolygon.approve(address(vault), wmaticUnits);
+
+        selectMainnet();
+        deal(dev, 10 ether);
+
+        address[] memory assets = new address[](1);
+        assets[0] = address(wmaticPolygon);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wmaticUnits;
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 60 ether;
+
+        vault.createCommitmentStrategy(address(ccToken), 1 ether, CommitmentStrategyType.AMOUNT_TARGET, false);
+        vault.commitToStrategy{value: 1 ether}(_stratId, assets, amounts, fees);
+
+        CrossChainVaultSignal[] memory ccsMsgs = new CrossChainVaultSignal[](1);
+
+        CrossChainVaultSignal memory ccs = CrossChainVaultSignal({
+            id: _stratId,
+            srcChainId: uint32(block.chainid),
+            ccvsType: CrossChainVaultSignalType.COMMIT,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            amount: wmaticUnits,
+            value: 60 ether
+        });
+
+        ccsMsgs[0] = ccs;
+
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
+
+        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(vault)))), nonce: 1});
+
+        makePersistent(address(vault));
+
+        selectPolygon();
+        deal(address(wmaticPolygon), dev, wmaticUnits);
+        IERC20(wmaticPolygon).approve(address(vault), wmaticUnits);
+
+        IOAppCore(polyVault).setPeer(30101, bytes32(uint256(uint160(address(vault)))));
+
+        deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
+        vm.stopPrank();
+
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(polyVault).lzReceive{value: 60 ether}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        uint256 balance = wmaticPolygon.balanceOf(polyVault);
+        assertEq(wmaticUnits, balance);
+        uint256 coreApproval = wmaticPolygon.allowance(polyVault, polygonCore);
+        assertEq(balance, coreApproval);
+
+        ccs = CrossChainVaultSignal({
+            id: _stratId,
+            srcChainId: uint32(block.chainid),
+            ccvsType: CrossChainVaultSignalType.COMMIT_COMPLETE,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            amount: wmaticUnits,
+            value: 0
+        });
+
+        ccsMsgs[0] = ccs;
+        ccsEncoded = abi.encode(ccsMsgs);
+
+        origin = Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polyVault)))), nonce: 1});
+
+        selectMainnet();
+
+        deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+
+        bytes32 expectedCommitId = 0x88616547f7cf6e547e69d8cb247098e71e741f8a16f77192583339d17ffeeaf9;
+
+        vm.expectEmit(true, true, false, false);
+        emit ICrossChainVault.CommittedToStrategy(_stratId, expectedCommitId);
+        IOAppReceiver(address(vault)).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        return (_stratId, expectedCommitId, polyVault);
+    }
+
     function assertTransferredAndAllowances() private view {
         // check that funds arrived to the vault
         uint256 wethBalance = weth.balanceOf(address(vault));
@@ -930,5 +1122,30 @@ contract CrossChainVaultTest is Helper {
         assertEq(asset, _asset);
         assertEq(committed, _amount);
         assertEq(consumed, 0);
+    }
+
+    function _verifyCommitment(bytes32 expectedStratId, bytes32 expectedCommitId) private view {
+        (
+            bytes32 commId,
+            bytes32 strategyId,
+            address creator,
+            uint256 chainId,
+            address asset,
+            uint256 committed,
+            uint256 consumed
+        ) = vault.commitments(expectedCommitId);
+        assertEq(commId, expectedCommitId);
+        assertEq(strategyId, expectedStratId);
+        assertEq(creator, dev);
+        assertEq(chainId, 137);
+        assertEq(asset, address(wmaticPolygon));
+        assertEq(committed, wmaticUnits);
+        assertEq(consumed, 0);
+
+        bytes32 commForStrat = vault.commitmentsForStrategy(expectedStratId, 0);
+        assertEq(commForStrat, expectedCommitId);
+
+        uint256 committedAmountForStrat = vault.committedAmountsPerStrategy(expectedStratId, asset);
+        assertEq(committedAmountForStrat, committed);
     }
 }

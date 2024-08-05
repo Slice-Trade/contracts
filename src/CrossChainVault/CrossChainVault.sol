@@ -205,7 +205,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
                 // approve SliceCore to spend these tokens (for minting later in executeStrategy)
                 IERC20(_positions[i].token).approve(address(sliceCore), amountToTransfer);
                 // record the commitment
-                bytes32 commitmentId = _updateCommitment(strategyId, msg.sender, amountToTransfer, _positions[i].token);
+                bytes32 commitmentId = _updateCommitment(strategyId, msg.sender, amountToTransfer, _positions[i].token, block.chainid);
                 emit CommittedToStrategy(strategyId, commitmentId);
             } else {
                 // create cross-chain vault signal to send to vault on other chain
@@ -229,7 +229,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         }
     }
 
-    function removeCommitmentFromStrategy(bytes32 commitmentId, uint256 amount, uint128 fee) external nonReentrant {
+    function removeCommitmentFromStrategy(bytes32 commitmentId, uint256 amount, uint128 fee) external payable nonReentrant {
         Commitment memory _commitment = commitments[commitmentId];
 
         // check that commitment ID exists
@@ -410,7 +410,6 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             mstore(ccsResponses, respMsgCount)
         }
         bytes memory ccsEncoded = abi.encode(ccsResponses);
-        console.log("sending lz resp msg...");
         _sendLzMsg(CrossChainVaultSignalType.COMMIT_COMPLETE, ccsEncoded, ccs[0].srcChainId, ccs[0].user);
     }
 
@@ -419,7 +418,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         uint256 ccsLength = ccs.length;
         for (uint256 i = 0; i < ccsLength; i++) {
             // update commitment for user
-            bytes32 commitmentId = _updateCommitment(ccs[i].id, ccs[i].user, ccs[i].amount, ccs[i].underlying);
+            bytes32 commitmentId = _updateCommitment(ccs[i].id, ccs[i].user, ccs[i].amount, ccs[i].underlying, ccs[i].srcChainId);
             emit CommittedToStrategy(ccs[i].id, commitmentId);
         }
     }
@@ -538,15 +537,18 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         return amounts[uint256(assetIdx)];
     }
 
-    function _updateCommitment(bytes32 strategyId, address user, uint256 amountToTransfer, address underlyingAsset)
-        private
-        returns (bytes32 commitmentId)
-    {
+    function _updateCommitment(
+        bytes32 strategyId,
+        address user,
+        uint256 amountToTransfer,
+        address underlyingAsset,
+        uint256 chainId
+    ) private returns (bytes32 commitmentId) {
         uint256 nonce = nonces[user]++;
         commitmentId = keccak256(
             abi.encodePacked(
                 this.commitToStrategy.selector,
-                block.chainid,
+                chainId,
                 user,
                 address(this),
                 strategyId,
@@ -561,7 +563,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             id: commitmentId,
             strategyId: strategyId,
             creator: user,
-            chainId: block.chainid,
+            chainId: chainId,
             asset: underlyingAsset,
             committed: amountToTransfer,
             consumed: 0
