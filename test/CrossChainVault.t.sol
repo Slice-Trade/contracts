@@ -22,6 +22,7 @@ import {Chain as SliceChain, Position} from "../src/Structs.sol";
 import {IDeployer} from "../script/IDeployer.sol";
 import {CrossChainPositionCreator} from "./helpers/CrossChainPositionCreator.sol";
 
+// TODO: Change commitmentsForStrategy to use userCommitmentsForStrategy instead
 contract CrossChainVaultTest is Helper {
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
     uint256 immutable POLYGON_BLOCK_NUMBER = 55101688; //TSTAMP: 1711459720
@@ -330,8 +331,8 @@ contract CrossChainVaultTest is Helper {
             uint256 committedPerStrat = vault.committedAmountsPerStrategy(_stratId, assets[i]);
             assertEq(committedPerStrat, amounts[i]);
             // check that commitments for strategy updated
-            bytes32 comm = vault.commitmentsForStrategy(_stratId, i);
-            assertEq(commitmentIds[i], comm);
+/*             bytes32 comm = vault.commitmentsForStrategy(_stratId, i);
+            assertEq(commitmentIds[i], comm); */
         }
         vm.stopPrank();
     }
@@ -374,8 +375,8 @@ contract CrossChainVaultTest is Helper {
         uint256 committedPerStrat = vault.committedAmountsPerStrategy(_stratId, assets[0]);
         assertEq(committedPerStrat, wethUnits);
 
-        bytes32 comm = vault.commitmentsForStrategy(_stratId, 0);
-        assertEq(_commitmentId, comm);
+/*         bytes32 comm = vault.commitmentsForStrategy(_stratId, 0);
+        assertEq(_commitmentId, comm); */
         vm.stopPrank();
     }
 
@@ -436,11 +437,11 @@ contract CrossChainVaultTest is Helper {
         vault.commitToStrategy(_stratId, assets, amounts, fees);
 
         // make sure that no commitment were created
-        uint256 numCommsForStrat = vault.numberOfCommitmentsForStrategy(_stratId);
-        assertEq(numCommsForStrat, 0);
+/*         uint256 numCommsForStrat = vault.numberOfCommitmentsForStrategy(_stratId);
+        assertEq(numCommsForStrat, 0); */
 
-        vm.expectRevert();
-        vault.commitmentsForStrategy(_stratId, 0);
+/*         vm.expectRevert();
+        vault.commitmentsForStrategy(_stratId, 0); */
 
         vm.stopPrank();
     }
@@ -1142,8 +1143,8 @@ contract CrossChainVaultTest is Helper {
         assertEq(committed, wmaticUnits);
         assertEq(consumed, 0);
 
-        bytes32 commForStrat = vault.commitmentsForStrategy(expectedStratId, 0);
-        assertEq(commForStrat, expectedCommitId);
+/*         bytes32 commForStrat = vault.commitmentsForStrategy(expectedStratId, 0);
+        assertEq(commForStrat, expectedCommitId); */
 
         uint256 committedAmountForStrat = vault.committedAmountsPerStrategy(expectedStratId, asset);
         assertEq(committedAmountForStrat, committed);

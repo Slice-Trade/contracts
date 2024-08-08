@@ -12,6 +12,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
 import {MessagingParams, MessagingReceipt} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
 
+import "../external/AggregatorV2V3Interface.sol";
+
 import "./CrossChainVaultStructs.sol";
 import {ICrossChainVault} from "./ICrossChainVault.sol";
 import {ISliceCore} from "../interfaces/ISliceCore.sol";
@@ -22,6 +24,39 @@ import {Position, LzMsgGroupInfo, Chain} from "../Structs.sol";
 import {TokenAmountUtils} from "../libs/TokenAmountUtils.sol";
 import {LayerZeroUtils} from "../libs/LayerZeroUtils.sol";
 
+/* 
+there is a potential problem: with timestamp based commitments, there is a DoS possibility, 
+users can overload the system by submitting a bunch of super small commitments, filling up the commitments & commitmentsForStrategy arrays
+if anyone tries to execute the strategy it will be really expensive because it will loop through all the elements in the array
+
+yeah, probably this is not a problem after all because:
+- we will only need to calculate the share for each user at pull share / remove commitment
+
+then the costs for the micro comitments will be born by the user who did the micro commitments, so there's no point in doing that for them
+
+how to calculate token share for a user?
+Total Slice Price USD / Total User Commitment USD val
+
+--> how to get the total USD Commitment Val?
+if we dont store commitment IDs per user per strategy, we bascially have to loop through all commitment ids for a given strategy, check where creator == msg.sender
+here we bump into a DoS issue again, namely that if the array is very long it can make it hard for users to withdraw their shares
+
+if we store in a mapping strategyIdAddressHash => bytes32[] commitmentIds we might be better off
+and we might not even need to store the commitmentsPerStrategy array, since we probably wont use it anywhere else 
+
+SO:
+loop through userCommitmentsForStrategy:
+    commitment.committed * commitment.asset.latestRoundData
+
+This is all OK for amount target based commitments, and also works for timestamp target: we can reconstruct how much was minted, and then do the calculation based on that value
+, i.e. if there are any leftovers we can calculate becuase we know always the values
+
+what to do in the case of time interval based commitments? 
+
+Namely, how can we always prevent double spending of committed amounts? how can we update consumed in a way that doesn't lead to DoS and is secure when pulling shares and executing
+
+We might need extra mappings and structs for properly accounting for time interval commitments... TODO: Work on this
+ */
 contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OApp {
     using SafeERC20 for IERC20;
 
@@ -29,6 +64,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
     IChainInfo immutable chainInfo;
 
     uint256 constant MIN_TIME_INTERVAL = 3600;
+
+    uint256 public MAX_TIMESTAMP_DIFF = 300; // max timestamp difference between current timestamp and last updated date
 
     bool public isPaused;
 
@@ -43,7 +80,9 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
     /**
      * @dev Stores all commitments for a given commitment strategy
      */
-    mapping(bytes32 strategyId => bytes32[] commitments) public commitmentsForStrategy;
+    // mapping(bytes32 strategyId => bytes32[] commitments) public commitmentsForStrategy; // q - We might not need this...?
+
+    mapping(bytes32 strategyIdAddressHash => bytes32[] commitmentIds) public userCommitmentsForStrategy; // TODO: document this
     /**
      * @dev keccak256(abi.encodePacked(strategyId, userAddress)) to record if user is approved for a strategy
      */
@@ -51,16 +90,17 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
     /**
      * @dev Stores all oracle price updates for a given underlying asset token
      */
-    mapping(address token => OraclePriceUpdate priceUpdate) public oraclePriceUpdates;
+    mapping(bytes32 strategyIdTokenHash => OraclePriceUpdate) public oraclePriceUpdates;
     /**
      * @dev keccak256(abi.encodePacked(strategyId, userAddress)) to record a user's slice token share from a given strategy
      */
-    mapping(bytes32 strategyIdAddressHash => SliceTokenShare) public sliceTokenShares;
+    mapping(bytes32 strategyIdAddressHash => SliceTokenShare) public sliceTokenShares; // q - We might not even need to store this either...?
 
     /**
      * @dev Stores the amounts committed for each asset for each strategy
      */
     mapping(bytes32 strategyId => mapping(address => uint256) commitedAmounts) public committedAmountsPerStrategy;
+
     /**
      * @dev Nonce for each user to guranatee unique hashes for IDs
      */
@@ -70,6 +110,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
      * @dev Stores cross chain gas information for layer zero messages
      */
     mapping(CrossChainVaultSignalType ccsType => uint128 gas) public lzGasLookup;
+
+    mapping(address underlyingAsset => AggregatorV2V3Interface priceFeed) public priceFeedsForAssets;
 
     modifier vaultNotPaused() {
         if (isPaused) {
@@ -165,7 +207,54 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
     }
 
     function executeCommitmentStrategy(bytes32 strategyId) external nonReentrant vaultNotPaused {
-        // TODO
+        // get the strategy
+        CommitmentStrategy memory _strategy = commitmentStrategies[strategyId];
+
+        // check that it is executable
+        if (_strategy.strategyState != CommitmentStrategyState.OPEN) {
+            revert InvalidStrategyState();
+        }
+
+        Position[] memory _positions = ISliceToken(_strategy.token).getPositions();
+        uint256 _positionsLength = _positions.length;
+
+        // go through each underlying position
+        for (uint256 i = 0; i < _positionsLength; i++) {
+            // if target committedAmountsPerStrategy for each is > amountOutMin for target and for each
+            if (_strategy.strategyType == CommitmentStrategyType.AMOUNT_TARGET) {
+                uint256 targetUnits = TokenAmountUtils.calculateAmountOutMin(
+                    _strategy.target, _positions[i].units, _positions[i].decimals
+                );
+                uint256 committedUnits = committedAmountsPerStrategy[strategyId][_positions[i].token];
+                if (committedUnits < targetUnits) {
+                    revert InvalidAmount();
+                }
+            }
+
+            // verify that execution is possible for timestamp
+            if (_strategy.strategyType == CommitmentStrategyType.TIMESTAMP_TARGET && block.timestamp < _strategy.target)
+            {
+                revert InvalidTimestamp();
+            }
+
+            // TODO: Verify time interval target
+
+            // get the price for the position
+            uint256 latestUSDPrice = getLatestPriceInfo(_positions[i].token);
+
+            OraclePriceUpdate memory _priceUpdate = OraclePriceUpdate({
+                id: strategyId,
+                token: _positions[i].token,
+                price: latestUSDPrice,
+                updateTimestamp: block.timestamp
+            });
+
+            // store the oracle price for each underlying asset
+            bytes32 strategyIdTokenHash = keccak256(abi.encode(strategyId, _positions[i].token));
+            oraclePriceUpdates[strategyIdTokenHash] = _priceUpdate;
+        }
+
+        // TODO: execute SliceToken(token).mint ...
     }
 
     function commitToStrategy(
@@ -205,7 +294,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
                 // approve SliceCore to spend these tokens (for minting later in executeStrategy)
                 IERC20(_positions[i].token).approve(address(sliceCore), amountToTransfer);
                 // record the commitment
-                bytes32 commitmentId = _updateCommitment(strategyId, msg.sender, amountToTransfer, _positions[i].token, block.chainid);
+                bytes32 commitmentId =
+                    _updateCommitment(strategyId, msg.sender, amountToTransfer, _positions[i].token, block.chainid);
                 emit CommittedToStrategy(strategyId, commitmentId);
             } else {
                 // create cross-chain vault signal to send to vault on other chain
@@ -229,7 +319,11 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         }
     }
 
-    function removeCommitmentFromStrategy(bytes32 commitmentId, uint256 amount, uint128 fee) external payable nonReentrant {
+    function removeCommitmentFromStrategy(bytes32 commitmentId, uint256 amount, uint128 fee)
+        external
+        payable
+        nonReentrant
+    {
         Commitment memory _commitment = commitments[commitmentId];
 
         // check that commitment ID exists
@@ -286,10 +380,13 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
 
     function pullMintedTokenShares(bytes32 strategyId) external nonReentrant {
         // TODO
-    }
+        // get the oracle price updates for the given strategy & for the provided units
 
-    function updateUnderlyingAssetPrices(bytes32 strategyId) external nonReentrant vaultNotPaused {
-        // TODO
+        // get all the commitments for the given strategy
+
+        // calculate the shares for each user
+
+        // user them to calculate the user's share of the given mint
     }
 
     /**
@@ -336,9 +433,9 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         emit SetLzBaseGas(ccsType, gas);
     }
 
-    function numberOfCommitmentsForStrategy(bytes32 strategyId) external view returns (uint256) {
+    /*     function numberOfCommitmentsForStrategy(bytes32 strategyId) external view returns (uint256) {
         return commitmentsForStrategy[strategyId].length;
-    }
+    } */
 
     /**
      * @dev This is a work around to allow using SafeERC20.safeTransferFrom in a try/catch block
@@ -348,6 +445,32 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
     function attemptTransfer(address token, address from, address to, uint256 amount) external {
         if (msg.sender != address(this)) revert("Only slice core can call");
         IERC20(token).safeTransferFrom(from, to, amount);
+    }
+
+    function setPriceFeedForAsset(address _underlyingAsset, AggregatorV2V3Interface _priceFeed) external onlyOwner {
+        priceFeedsForAssets[_underlyingAsset] = _priceFeed;
+    }
+
+    function getLatestPriceInfo(address underlyingAsset) internal view returns (uint256) {
+        (
+            /* uint80 roundID */
+            ,
+            int256 answer,
+            /*uint startedAt*/
+            ,
+            uint256 timeStamp,
+            /*uint80 answeredInRound*/
+        ) = priceFeedsForAssets[underlyingAsset].latestRoundData();
+
+        if (block.timestamp - timeStamp > MAX_TIMESTAMP_DIFF) {
+            revert StalePrice();
+        }
+
+        if (answer < 0) {
+            revert InvalidPrice();
+        }
+
+        return uint256(answer);
     }
 
     function _lzReceive(
@@ -418,7 +541,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         uint256 ccsLength = ccs.length;
         for (uint256 i = 0; i < ccsLength; i++) {
             // update commitment for user
-            bytes32 commitmentId = _updateCommitment(ccs[i].id, ccs[i].user, ccs[i].amount, ccs[i].underlying, ccs[i].srcChainId);
+            bytes32 commitmentId =
+                _updateCommitment(ccs[i].id, ccs[i].user, ccs[i].amount, ccs[i].underlying, ccs[i].srcChainId);
             emit CommittedToStrategy(ccs[i].id, commitmentId);
         }
     }
@@ -571,7 +695,10 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         commitments[commitmentId] = _commitment;
 
         // update commitmentsForStrategy
-        commitmentsForStrategy[strategyId].push(commitmentId);
+        // commitmentsForStrategy[strategyId].push(commitmentId);
+
+        bytes32 strategyIdAddressHash = keccak256(abi.encode(strategyId, msg.sender));
+        userCommitmentsForStrategy[strategyIdAddressHash].push(commitmentId);
 
         // update committedAmountsPerStrategy
         committedAmountsPerStrategy[strategyId][underlyingAsset] += amountToTransfer;

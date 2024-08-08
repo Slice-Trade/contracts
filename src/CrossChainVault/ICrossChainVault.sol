@@ -36,6 +36,10 @@ interface ICrossChainVault is ILayerZeroReceiver {
     error StrategyOver();
 
     error OriginNotVault();
+
+    error StalePrice();
+
+    error InvalidPrice();
     /**
      * @dev This function allows users to create commitment strategies.
      * They must be able to specify either the mint amount target or the timestamp when the minting can occur.
@@ -98,13 +102,6 @@ interface ICrossChainVault is ILayerZeroReceiver {
     function pullMintedTokenShares(bytes32 strategyId) external;
 
     /**
-     * @dev This function updates the USD price for underyling assets using an off-chain oracle.
-     *
-     * @param strategyId The ID of the startegy to update the underlying asset prices for
-     */
-    function updateUnderlyingAssetPrices(bytes32 strategyId) external;
-
-    /**
      * @dev For private commitment strategies, the creator can whitelist addresses to commit.
      *
      * @param strategyId The ID of the strategy
@@ -122,6 +119,4 @@ interface ICrossChainVault is ILayerZeroReceiver {
      * @dev Allows the vault owner to restart the vault after a pause
      */
     function restartVault() external;
-
-    function numberOfCommitmentsForStrategy(bytes32 strategyId) external view returns (uint256);
 }
