@@ -21,6 +21,7 @@ Calculate the slice token share for a given user based on all the commitments of
 <br>
 
 The amount of slice tokens the user receives is given by:
+
 $$
 USS * sMinted = USA
 $$
@@ -32,16 +33,19 @@ $$
 $$
     
 The USD price of a slice token is given by:   
+
 $$
 \sum_{i=1}^{numPositions} pUSD * pUnits = TSusd
 $$    
     
 The USD value of the total slice tokens minted is given by:   
+
 $$
 TSusd * sMinted = TSVusd
 $$
    
-The totalUSD value of a user's commitments to a strategy is given by:
+The totalUSD value of a user's commitments to a strategy is given by:   
+
 $$
 \sum_{i=1}^{numComms} comm * pUSD = TUCusd
 $$
@@ -53,7 +57,7 @@ $$
 - ETH is 3000 USD
 - Commitment strategy has a mint target of 2 Slice tokens
 - User commits 40,000 USD worth of BTC an 20,000 USD worth of ETH
-- What is *USS* ?
+- What is *USS* and *USA*?
 
 ### Step 1: Calculate the Slice token price in USD (*TS_usd*)
 
@@ -73,10 +77,10 @@ $$
 
 ### Step 3: Calculate the total value of the user's commitments in USD (*TUC_usd*)
 
-The user has committed 40,000 USD worth of BTC and 20,000 USD worth of ETH:
+The user has committed 40,000 USD worth of BTC and 20,000 USD worth of ETH:   
 
 $$
-TUC_{USD} = \text{comm}_{BTC} + \text{comm}_{ETH} = 40,000 + 20,000 = 60,000 \text{ USD}
+TUC_{USD} = comm_{BTC} + comm_{ETH} = 40{,}000 + 20{,}000 = 60{,}000 \ USD
 $$
 
 ### Step 4: Calculate the User Slice token share (*USS*)
@@ -88,6 +92,7 @@ USS = \frac{TUC_{USD}}{TSV_{USD}} = \frac{60,000}{240,000} = 0.25
 $$
 
 So the amount the user receives equals:
+
 $$
 USA = 0.25 * 2 = 0.5
 $$
