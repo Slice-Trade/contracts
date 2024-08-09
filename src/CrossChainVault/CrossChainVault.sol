@@ -77,12 +77,11 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
      * @dev Stores all commitments created in this vault
      */
     mapping(bytes32 commitmentId => Commitment commitment) public commitments;
-    /**
-     * @dev Stores all commitments for a given commitment strategy
-     */
-    // mapping(bytes32 strategyId => bytes32[] commitments) public commitmentsForStrategy; // q - We might not need this...?
 
-    mapping(bytes32 strategyIdAddressHash => bytes32[] commitmentIds) public userCommitmentsForStrategy; // TODO: document this
+    /**
+     * @dev Stores all commitments for a given user for a given commitment strategy
+     */
+    mapping(bytes32 strategyIdAddressHash => bytes32[] commitmentIds) public userCommitmentsForStrategy;
     /**
      * @dev keccak256(abi.encodePacked(strategyId, userAddress)) to record if user is approved for a strategy
      */
@@ -387,6 +386,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         // calculate the shares for each user
 
         // user them to calculate the user's share of the given mint
+
+        //
     }
 
     /**
