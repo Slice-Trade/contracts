@@ -42,6 +42,7 @@ struct Commitment {
 struct OraclePriceUpdate {
     bytes32 id;
     address token;
+    uint8 decimals;
     uint256 price;
     uint256 updateTimestamp;
 }
