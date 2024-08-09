@@ -22,7 +22,6 @@ import {Chain as SliceChain, Position} from "../src/Structs.sol";
 import {IDeployer} from "../script/IDeployer.sol";
 import {CrossChainPositionCreator} from "./helpers/CrossChainPositionCreator.sol";
 
-// TODO: Change commitmentsForStrategy to use userCommitmentsForStrategy instead
 contract CrossChainVaultTest is Helper {
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
     uint256 immutable POLYGON_BLOCK_NUMBER = 55101688; //TSTAMP: 1711459720
@@ -331,8 +330,9 @@ contract CrossChainVaultTest is Helper {
             uint256 committedPerStrat = vault.committedAmountsPerStrategy(_stratId, assets[i]);
             assertEq(committedPerStrat, amounts[i]);
             // check that commitments for strategy updated
-/*             bytes32 comm = vault.commitmentsForStrategy(_stratId, i);
-            assertEq(commitmentIds[i], comm); */
+            bytes32 strategyIdAddressHash = keccak256(abi.encode(_stratId, dev));
+            bytes32 commId = vault.userCommitmentsForStrategy(strategyIdAddressHash, i);
+            assertEq(commitmentIds[i], commId);
         }
         vm.stopPrank();
     }
@@ -375,8 +375,9 @@ contract CrossChainVaultTest is Helper {
         uint256 committedPerStrat = vault.committedAmountsPerStrategy(_stratId, assets[0]);
         assertEq(committedPerStrat, wethUnits);
 
-/*         bytes32 comm = vault.commitmentsForStrategy(_stratId, 0);
-        assertEq(_commitmentId, comm); */
+        bytes32 strategyIdAddressHash = keccak256(abi.encode(_stratId, dev));
+        bytes32 commId = vault.userCommitmentsForStrategy(strategyIdAddressHash, 0);
+        assertEq(_commitmentId, commId);
         vm.stopPrank();
     }
 
@@ -437,11 +438,9 @@ contract CrossChainVaultTest is Helper {
         vault.commitToStrategy(_stratId, assets, amounts, fees);
 
         // make sure that no commitment were created
-/*         uint256 numCommsForStrat = vault.numberOfCommitmentsForStrategy(_stratId);
-        assertEq(numCommsForStrat, 0); */
-
-/*         vm.expectRevert();
-        vault.commitmentsForStrategy(_stratId, 0); */
+        bytes32 strategyIdAddressHash = keccak256(abi.encode(_stratId, dev));
+        vm.expectRevert();
+        vault.userCommitmentsForStrategy(strategyIdAddressHash, 0);
 
         vm.stopPrank();
     }
@@ -1093,6 +1092,16 @@ contract CrossChainVaultTest is Helper {
         return (_stratId, expectedCommitId, polyVault);
     }
 
+        function bytes32ToHexString(bytes32 _bytes32) public pure returns (string memory) {
+        bytes memory hexChars = "0123456789abcdef";
+        bytes memory str = new bytes(64);
+        for (uint256 i = 0; i < 32; i++) {
+            str[i * 2] = hexChars[uint256(uint8(_bytes32[i] >> 4))];
+            str[1 + i * 2] = hexChars[uint256(uint8(_bytes32[i] & 0x0f))];
+        }
+        return string(str);
+    }
+
     function assertTransferredAndAllowances() private view {
         // check that funds arrived to the vault
         uint256 wethBalance = weth.balanceOf(address(vault));
@@ -1143,8 +1152,9 @@ contract CrossChainVaultTest is Helper {
         assertEq(committed, wmaticUnits);
         assertEq(consumed, 0);
 
-/*         bytes32 commForStrat = vault.commitmentsForStrategy(expectedStratId, 0);
-        assertEq(commForStrat, expectedCommitId); */
+        bytes32 strategyIdAddressHash = keccak256(abi.encode(expectedStratId, creator));
+        bytes32 _commId = vault.userCommitmentsForStrategy(strategyIdAddressHash, 0);
+        assertEq(expectedCommitId, _commId);
 
         uint256 committedAmountForStrat = vault.committedAmountsPerStrategy(expectedStratId, asset);
         assertEq(committedAmountForStrat, committed);

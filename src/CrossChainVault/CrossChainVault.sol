@@ -55,7 +55,7 @@ what to do in the case of time interval based commitments?
 
 Namely, how can we always prevent double spending of committed amounts? how can we update consumed in a way that doesn't lead to DoS and is secure when pulling shares and executing
 
-We might need extra mappings and structs for properly accounting for time interval commitments... TODO: Work on this
+We might need extra mappings and structs for properly accounting for time interval commitments... TODO: Work this out
  */
 contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OApp {
     using SafeERC20 for IERC20;
@@ -694,10 +694,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         });
         commitments[commitmentId] = _commitment;
 
-        // update commitmentsForStrategy
-        // commitmentsForStrategy[strategyId].push(commitmentId);
-
-        bytes32 strategyIdAddressHash = keccak256(abi.encode(strategyId, msg.sender));
+        bytes32 strategyIdAddressHash = keccak256(abi.encode(strategyId, user));
         userCommitmentsForStrategy[strategyIdAddressHash].push(commitmentId);
 
         // update committedAmountsPerStrategy
