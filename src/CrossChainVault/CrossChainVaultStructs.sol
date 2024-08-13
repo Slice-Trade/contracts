@@ -35,6 +35,7 @@ struct Commitment {
     address creator;
     uint256 chainId;
     address asset;
+    uint8 decimals;
     uint256 committed;
     uint256 consumed;
 }
@@ -61,6 +62,7 @@ struct CrossChainVaultSignal {
     CrossChainVaultSignalType ccvsType;
     address user;
     address underlying;
+    uint8 decimals;
     uint256 amount;
     uint256 value;
 }

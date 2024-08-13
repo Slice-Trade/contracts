@@ -369,7 +369,7 @@ contract CrossChainVaultTest is Helper {
 
         vault.commitToStrategy(_stratId, assets, amounts, fees);
 
-        (,,,,, uint256 committed,) = vault.commitments(_commitmentId);
+        (,,,,,, uint256 committed,) = vault.commitments(_commitmentId);
         assertEq(committed, wethUnits);
 
         uint256 committedPerStrat = vault.committedAmountsPerStrategy(_stratId, assets[0]);
@@ -522,6 +522,7 @@ contract CrossChainVaultTest is Helper {
             ccvsType: CrossChainVaultSignalType.COMMIT,
             user: dev,
             underlying: address(wmaticPolygon),
+            decimals: 18,
             amount: wmaticUnits,
             value: 1 ether
         });
@@ -614,6 +615,7 @@ contract CrossChainVaultTest is Helper {
             ccvsType: CrossChainVaultSignalType.REMOVE,
             user: dev,
             underlying: address(wmaticPolygon),
+            decimals: 18,
             amount: wmaticUnits,
             value: 60 ether
         });
@@ -645,6 +647,7 @@ contract CrossChainVaultTest is Helper {
             ccvsType: CrossChainVaultSignalType.REMOVE_COMPLETE,
             user: dev,
             underlying: address(wmaticPolygon),
+            decimals: 18,
             amount: wmaticUnits,
             value: 0
         });
@@ -747,6 +750,7 @@ contract CrossChainVaultTest is Helper {
             ccvsType: CrossChainVaultSignalType.REMOVE,
             user: dev,
             underlying: address(wmaticPolygon),
+            decimals: 18,
             amount: wmaticUnits,
             value: 1 ether
         });
@@ -1034,6 +1038,7 @@ contract CrossChainVaultTest is Helper {
             ccvsType: CrossChainVaultSignalType.COMMIT,
             user: dev,
             underlying: address(wmaticPolygon),
+            decimals: 18,
             amount: wmaticUnits,
             value: 60 ether
         });
@@ -1069,6 +1074,7 @@ contract CrossChainVaultTest is Helper {
             ccvsType: CrossChainVaultSignalType.COMMIT_COMPLETE,
             user: dev,
             underlying: address(wmaticPolygon),
+            decimals: 18,
             amount: wmaticUnits,
             value: 0
         });
@@ -1124,7 +1130,7 @@ contract CrossChainVaultTest is Helper {
 
     function assertCommitment(bytes32 _commitmentId, bytes32 _stratId, address _asset, uint256 _amount) private view {
         // check that commitments updated
-        (bytes32 commitmentId, bytes32 strategyId, address creator,, address asset, uint256 committed, uint256 consumed)
+        (bytes32 commitmentId, bytes32 strategyId, address creator,, address asset,, uint256 committed, uint256 consumed)
         = vault.commitments(_commitmentId);
         assertEq(commitmentId, _commitmentId);
         assertEq(strategyId, _stratId);
@@ -1141,6 +1147,7 @@ contract CrossChainVaultTest is Helper {
             address creator,
             uint256 chainId,
             address asset,
+            ,
             uint256 committed,
             uint256 consumed
         ) = vault.commitments(expectedCommitId);

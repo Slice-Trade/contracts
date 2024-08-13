@@ -29,7 +29,7 @@ $$
 The user's slice token share is given by:    
 
 $$
-\frac{TSVusd}{TUCusd} = USS
+\frac{TUCusd}{TSVusd} = USS
 $$
     
 The USD price of a slice token is given by:   

@@ -241,9 +241,12 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             // get the price for the position
             uint256 latestUSDPrice = getLatestPriceInfo(_positions[i].token);
 
+            uint8 answerDecimals = priceFeedsForAssets[_positions[i].token].decimals();
+
             OraclePriceUpdate memory _priceUpdate = OraclePriceUpdate({
                 id: strategyId,
                 token: _positions[i].token,
+                decimals: answerDecimals,
                 price: latestUSDPrice,
                 updateTimestamp: block.timestamp
             });
@@ -293,8 +296,9 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
                 // approve SliceCore to spend these tokens (for minting later in executeStrategy)
                 IERC20(_positions[i].token).approve(address(sliceCore), amountToTransfer);
                 // record the commitment
-                bytes32 commitmentId =
-                    _updateCommitment(strategyId, msg.sender, amountToTransfer, _positions[i].token, block.chainid);
+                bytes32 commitmentId = _updateCommitment(
+                    strategyId, msg.sender, amountToTransfer, _positions[i].token, _positions[i].decimals, block.chainid
+                );
                 emit CommittedToStrategy(strategyId, commitmentId);
             } else {
                 // create cross-chain vault signal to send to vault on other chain
@@ -304,6 +308,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
                     ccvsType: CrossChainVaultSignalType.COMMIT,
                     user: msg.sender,
                     underlying: _positions[i].token,
+                    decimals: _positions[i].decimals,
                     amount: amountToTransfer,
                     value: 0
                 });
@@ -363,6 +368,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
                 ccvsType: CrossChainVaultSignalType.REMOVE,
                 user: _commitment.creator,
                 underlying: _commitment.asset,
+                decimals: _commitment.decimals,
                 amount: amount,
                 value: fee
             });
@@ -522,6 +528,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
                 ccvsType: CrossChainVaultSignalType.COMMIT_COMPLETE,
                 user: ccs[i].user,
                 underlying: ccs[i].underlying,
+                decimals: ccs[i].decimals,
                 amount: ccs[i].amount,
                 value: 0
             });
@@ -542,8 +549,9 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         uint256 ccsLength = ccs.length;
         for (uint256 i = 0; i < ccsLength; i++) {
             // update commitment for user
-            bytes32 commitmentId =
-                _updateCommitment(ccs[i].id, ccs[i].user, ccs[i].amount, ccs[i].underlying, ccs[i].srcChainId);
+            bytes32 commitmentId = _updateCommitment(
+                ccs[i].id, ccs[i].user, ccs[i].amount, ccs[i].underlying, ccs[i].decimals, ccs[i].srcChainId
+            );
             emit CommittedToStrategy(ccs[i].id, commitmentId);
         }
     }
@@ -559,6 +567,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             ccvsType: CrossChainVaultSignalType.REMOVE_COMPLETE,
             user: ccs[0].user,
             underlying: ccs[0].underlying,
+            decimals: ccs[0].decimals,
             amount: ccs[0].amount,
             value: 0
         });
@@ -667,6 +676,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         address user,
         uint256 amountToTransfer,
         address underlyingAsset,
+        uint8 decimals,
         uint256 chainId
     ) private returns (bytes32 commitmentId) {
         uint256 nonce = nonces[user]++;
@@ -690,6 +700,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             creator: user,
             chainId: chainId,
             asset: underlyingAsset,
+            decimals: decimals,
             committed: amountToTransfer,
             consumed: 0
         });
@@ -700,6 +711,27 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
 
         // update committedAmountsPerStrategy
         committedAmountsPerStrategy[strategyId][underlyingAsset] += amountToTransfer;
+    }
+
+    // calculates TUCUsd
+    function calcUserCommsTotalValue(Commitment[] memory _userCommitmentsForStrat) internal view returns (uint256) {
+        uint256 commLength = _userCommitmentsForStrat.length;
+        uint256 totalUserCommVal;
+
+        for (uint256 i = 0; i < commLength; i++) {
+            bytes32 strategyIdTokenHash =
+                keccak256(abi.encode(_userCommitmentsForStrat[i].strategyId, _userCommitmentsForStrat[i].asset));
+            OraclePriceUpdate memory _priceUpdate = oraclePriceUpdates[strategyIdTokenHash];
+            uint256 scaledPrice = _priceUpdate.price * (10 ** _userCommitmentsForStrat[i].decimals);
+
+            // TODO: Should this be consumed?
+            uint256 usdValue = (_userCommitmentsForStrat[i].committed * scaledPrice)
+                / (10 ** (_userCommitmentsForStrat[i].decimals + _priceUpdate.decimals));
+
+            totalUserCommVal += usdValue;
+        }
+
+        return totalUserCommVal;
     }
 
     function requiredGas(CrossChainVaultSignalType ccsType, uint128 msgsLength) internal view returns (uint128) {

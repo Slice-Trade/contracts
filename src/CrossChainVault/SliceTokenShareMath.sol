@@ -2,15 +2,23 @@
 pragma solidity 0.8.26;
 
 import {Position} from "../Structs.sol";
-import {OraclePriceUpdate} from "./CrossChainVaultStructs.sol";
+import {OraclePriceUpdate, Commitment} from "./CrossChainVaultStructs.sol";
 
 library SliceTokenShareMath {
     error InvalidPositionsLength();
 
     function calcAmountOfTokensReceived() internal pure returns (uint256) {}
 
-    function calcUserTokenShare() internal pure returns (uint256) {}
+    // calculates USS
+    function calcUserTokenShare(uint256 totalUserCommVal, uint256 totalMintedSlice) internal pure returns (uint256) {
+        if (totalMintedSlice == 0) {
+            revert();
+        }
+        uint256 result = (totalUserCommVal * 1e18) / totalMintedSlice;
+        return result;
+    }
 
+    // calculates TSusd
     function calcSliceTokenUSDValue(Position[] memory positions, OraclePriceUpdate[] memory positionUsdPrices)
         internal
         pure
@@ -30,7 +38,8 @@ library SliceTokenShareMath {
         }
     }
 
-    function calcTotalMintedSliceUSDValue() internal pure returns (uint256) {}
-
-    function calcUserCommsTotalValue() internal pure returns (uint256) {}
+    // calculates TSVUsd
+    function calcTotalMintedSliceUSDValue(uint256 tsUsd, uint256 sMinted) internal pure returns (uint256) {
+        return tsUsd * sMinted;
+    }
 }
