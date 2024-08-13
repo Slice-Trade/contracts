@@ -205,7 +205,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         emit CommitmentStrategyTargetModified(strategyId, newTarget);
     }
 
-    function executeCommitmentStrategy(bytes32 strategyId) external nonReentrant vaultNotPaused {
+    function executeCommitmentStrategy(bytes32 strategyId, uint128[] calldata fees) external payable nonReentrant vaultNotPaused {
         // get the strategy
         CommitmentStrategy memory _strategy = commitmentStrategies[strategyId];
 
@@ -216,6 +216,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
 
         Position[] memory _positions = ISliceToken(_strategy.token).getPositions();
         uint256 _positionsLength = _positions.length;
+
+        uint256 amountToMint = type(uint256).max;
 
         // go through each underlying position
         for (uint256 i = 0; i < _positionsLength; i++) {
@@ -231,9 +233,16 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             }
 
             // verify that execution is possible for timestamp
-            if (_strategy.strategyType == CommitmentStrategyType.TIMESTAMP_TARGET && block.timestamp < _strategy.target)
-            {
-                revert InvalidTimestamp();
+            if (_strategy.strategyType == CommitmentStrategyType.TIMESTAMP_TARGET) {
+                if (block.timestamp < _strategy.target) {
+                    revert InvalidTimestamp();
+                }
+
+                uint256 committedUnits = committedAmountsPerStrategy[strategyId][_positions[i].token];
+                uint256 amountMintable = TokenAmountUtils.calculateAmountInMin(committedUnits, _positions[i].units, _positions[i].decimals);
+                if (amountMintable < amountToMint) {
+                    amountToMint = amountMintable;
+                }
             }
 
             // TODO: Verify time interval target
@@ -256,7 +265,13 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             oraclePriceUpdates[strategyIdTokenHash] = _priceUpdate;
         }
 
-        // TODO: execute SliceToken(token).mint ...
+        if (_strategy.strategyType == CommitmentStrategyType.AMOUNT_TARGET) {
+            ISliceToken(_strategy.token).mint(_strategy.target, fees);
+        } else if (_strategy.strategyType == CommitmentStrategyType.TIMESTAMP_TARGET && amountToMint != type(uint256).max) {
+            ISliceToken(_strategy.token).mint(amountToMint, fees);
+        }
+        
+        // TODO: execute SliceToken(token).mint for TIME INTERVAL TARGET
     }
 
     function commitToStrategy(

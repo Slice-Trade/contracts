@@ -7,14 +7,16 @@ import {OraclePriceUpdate, Commitment} from "./CrossChainVaultStructs.sol";
 library SliceTokenShareMath {
     error InvalidPositionsLength();
 
-    function calcAmountOfTokensReceived() internal pure returns (uint256) {}
+    function calcAmountOfTokensReceived() internal pure returns (uint256) {
+        
+    }
 
     // calculates USS
-    function calcUserTokenShare(uint256 totalUserCommVal, uint256 totalMintedSlice) internal pure returns (uint256) {
-        if (totalMintedSlice == 0) {
+    function calcUserTokenShare(uint256 totalUserCommVal, uint256 totalMintedSliceVal) internal pure returns (uint256) {
+        if (totalMintedSliceVal == 0) {
             revert();
         }
-        uint256 result = (totalUserCommVal * 1e18) / totalMintedSlice;
+        uint256 result = (totalUserCommVal * 1e18) / totalMintedSliceVal;
         return result;
     }
 

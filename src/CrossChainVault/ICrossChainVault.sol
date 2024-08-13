@@ -74,7 +74,7 @@ interface ICrossChainVault is ILayerZeroReceiver {
      *
      * @param strategyId The id of the commitment strategy to execute
      */
-    function executeCommitmentStrategy(bytes32 strategyId) external;
+    function executeCommitmentStrategy(bytes32 strategyId, uint128[] calldata fees) external payable;
 
     /**
      * @dev This is for users to deposit underlying assets to a commitment strategy
