@@ -22,52 +22,18 @@ import {IChainInfo} from "../interfaces/IChainInfo.sol";
 
 import {Position, LzMsgGroupInfo, Chain} from "../Structs.sol";
 import {TokenAmountUtils} from "../libs/TokenAmountUtils.sol";
+import {SliceTokenShareMath} from "./SliceTokenShareMath.sol";
 import {LayerZeroUtils} from "../libs/LayerZeroUtils.sol";
 
-/* 
-there is a potential problem: with timestamp based commitments, there is a DoS possibility, 
-users can overload the system by submitting a bunch of super small commitments, filling up the commitments & commitmentsForStrategy arrays
-if anyone tries to execute the strategy it will be really expensive because it will loop through all the elements in the array
-
-yeah, probably this is not a problem after all because:
-- we will only need to calculate the share for each user at pull share / remove commitment
-
-then the costs for the micro comitments will be born by the user who did the micro commitments, so there's no point in doing that for them
-
-how to calculate token share for a user?
-Total Slice Price USD / Total User Commitment USD val
-
---> how to get the total USD Commitment Val?
-if we dont store commitment IDs per user per strategy, we bascially have to loop through all commitment ids for a given strategy, check where creator == msg.sender
-here we bump into a DoS issue again, namely that if the array is very long it can make it hard for users to withdraw their shares
-
-if we store in a mapping strategyIdAddressHash => bytes32[] commitmentIds we might be better off
-and we might not even need to store the commitmentsPerStrategy array, since we probably wont use it anywhere else 
-
-SO:
-loop through userCommitmentsForStrategy:
-    commitment.committed * commitment.asset.latestRoundData
-
-This is all OK for amount target based commitments, and also works for timestamp target: we can reconstruct how much was minted, and then do the calculation based on that value
-, i.e. if there are any leftovers we can calculate becuase we know always the values
-
-what to do in the case of time interval based commitments? 
-
-Namely, how can we always prevent double spending of committed amounts? how can we update consumed in a way that doesn't lead to DoS and is secure when pulling shares and executing
-
-We might need extra mappings and structs for properly accounting for time interval commitments... TODO: Work this out
- */
 contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OApp {
     using SafeERC20 for IERC20;
 
     ISliceCore immutable sliceCore;
     IChainInfo immutable chainInfo;
 
-    uint256 constant MIN_TIME_INTERVAL = 3600;
-
-    uint256 public MAX_TIMESTAMP_DIFF = 300; // max timestamp difference between current timestamp and last updated date
-
     bool public isPaused;
+
+    uint256 public MAX_TIMESTAMP_DIFF = 300;
 
     /**
      * @dev Stores all commitment strategies created in this vault
@@ -79,10 +45,6 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
     mapping(bytes32 commitmentId => Commitment commitment) public commitments;
 
     /**
-     * @dev Stores all commitments for a given user for a given commitment strategy
-     */
-    mapping(bytes32 strategyIdAddressHash => bytes32[] commitmentIds) public userCommitmentsForStrategy;
-    /**
      * @dev keccak256(abi.encodePacked(strategyId, userAddress)) to record if user is approved for a strategy
      */
     mapping(bytes32 strategyIdAddressHash => bool approved) public approvedForPrivateStrategy;
@@ -90,10 +52,6 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
      * @dev Stores all oracle price updates for a given underlying asset token
      */
     mapping(bytes32 strategyIdTokenHash => OraclePriceUpdate) public oraclePriceUpdates;
-    /**
-     * @dev keccak256(abi.encodePacked(strategyId, userAddress)) to record a user's slice token share from a given strategy
-     */
-    mapping(bytes32 strategyIdAddressHash => SliceTokenShare) public sliceTokenShares; // q - We might not even need to store this either...?
 
     /**
      * @dev Stores the amounts committed for each asset for each strategy
@@ -101,16 +59,24 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
     mapping(bytes32 strategyId => mapping(address => uint256) commitedAmounts) public committedAmountsPerStrategy;
 
     /**
-     * @dev Nonce for each user to guranatee unique hashes for IDs
+     * @dev Stores cross-chain asset removals, that are sent to LZ but have not been confirmed yet 
      */
-    mapping(address => uint256) public nonces;
+    mapping(bytes32 strategyId => mapping(address => uint256)) public pendingRemovals;
 
     /**
      * @dev Stores cross chain gas information for layer zero messages
      */
     mapping(CrossChainVaultSignalType ccsType => uint128 gas) public lzGasLookup;
 
+    /**
+     * @dev Stores the chainlink price feed addresses for the given underlying asset token
+     */
     mapping(address underlyingAsset => AggregatorV2V3Interface priceFeed) public priceFeedsForAssets;
+
+    /**
+     * @dev Nonce for each user to guranatee unique hashes for IDs
+     */
+    mapping(address => uint256) public nonces;
 
     modifier vaultNotPaused() {
         if (isPaused) {
@@ -136,19 +102,14 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
     /**
      * @dev See ICrossChainVault - createCommitmentStrategy
      */
-    function createCommitmentStrategy(
-        address token,
-        uint256 target,
-        CommitmentStrategyType strategyType,
-        bool isPrivate
-    ) external vaultNotPaused {
+    function createCommitmentStrategy(address token, uint256 target, bool isPrivate) external vaultNotPaused {
         // check that slice token exists
         bool isValidSlice = sliceCore.isSliceTokenRegistered(token);
         if (!isValidSlice) {
             revert UnregisteredSliceToken();
         }
 
-        _verifyTarget(strategyType, target);
+        _verifyTarget(target);
 
         // create strategy ID
         uint256 nonce = nonces[msg.sender]++;
@@ -169,12 +130,11 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         // create strategy
         CommitmentStrategy memory _strategy = CommitmentStrategy({
             id: strategyId,
-            strategyType: strategyType,
-            strategyState: CommitmentStrategyState.OPEN,
             creator: msg.sender,
             token: token,
             target: target,
-            isPrivate: isPrivate
+            isPrivate: isPrivate,
+            nonce: 0
         });
 
         // store strategy
@@ -194,58 +154,49 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             revert Unauthorized();
         }
 
-        if (_strategy.strategyState != CommitmentStrategyState.OPEN) {
-            revert InvalidStrategyState();
-        }
+        _verifyTarget(newTarget);
 
-        _verifyTarget(_strategy.strategyType, newTarget);
+        // if new target is lower, it can only be lowered to not be less than the already committed amounts
+        Position[] memory _positions = ISliceToken(_strategy.token).getPositions();
+        uint256 posLength = _positions.length;
+        for (uint256 i = 0; i < posLength; i++) {
+            uint256 newUnits =
+                TokenAmountUtils.calculateAmountOutMin(newTarget, _positions[i].units, _positions[i].decimals);
+            if (newUnits < committedAmountsPerStrategy[strategyId][_positions[i].token]) {
+                revert NewTargetTooLow();
+            }
+        }
 
         commitmentStrategies[strategyId].target = newTarget;
 
         emit CommitmentStrategyTargetModified(strategyId, newTarget);
     }
 
-    function executeCommitmentStrategy(bytes32 strategyId, uint128[] calldata fees) external payable nonReentrant vaultNotPaused {
+    function executeCommitmentStrategy(bytes32 strategyId, uint128[] calldata fees)
+        external
+        payable
+        nonReentrant
+        vaultNotPaused
+    {
         // get the strategy
         CommitmentStrategy memory _strategy = commitmentStrategies[strategyId];
-
-        // check that it is executable
-        if (_strategy.strategyState != CommitmentStrategyState.OPEN) {
-            revert InvalidStrategyState();
-        }
 
         Position[] memory _positions = ISliceToken(_strategy.token).getPositions();
         uint256 _positionsLength = _positions.length;
 
-        uint256 amountToMint = type(uint256).max;
-
         // go through each underlying position
         for (uint256 i = 0; i < _positionsLength; i++) {
             // if target committedAmountsPerStrategy for each is > amountOutMin for target and for each
-            if (_strategy.strategyType == CommitmentStrategyType.AMOUNT_TARGET) {
-                uint256 targetUnits = TokenAmountUtils.calculateAmountOutMin(
-                    _strategy.target, _positions[i].units, _positions[i].decimals
-                );
-                uint256 committedUnits = committedAmountsPerStrategy[strategyId][_positions[i].token];
-                if (committedUnits < targetUnits) {
-                    revert InvalidAmount();
-                }
+            uint256 targetUnits =
+                TokenAmountUtils.calculateAmountOutMin(_strategy.target, _positions[i].units, _positions[i].decimals);
+            uint256 committedUnits = committedAmountsPerStrategy[strategyId][_positions[i].token];
+            uint256 pendingRemovalUnits = pendingRemovals[strategyId][_positions[i].token];
+            if ((committedUnits - pendingRemovalUnits) < targetUnits) {
+                revert InvalidAmount();
             }
 
-            // verify that execution is possible for timestamp
-            if (_strategy.strategyType == CommitmentStrategyType.TIMESTAMP_TARGET) {
-                if (block.timestamp < _strategy.target) {
-                    revert InvalidTimestamp();
-                }
-
-                uint256 committedUnits = committedAmountsPerStrategy[strategyId][_positions[i].token];
-                uint256 amountMintable = TokenAmountUtils.calculateAmountInMin(committedUnits, _positions[i].units, _positions[i].decimals);
-                if (amountMintable < amountToMint) {
-                    amountToMint = amountMintable;
-                }
-            }
-
-            // TODO: Verify time interval target
+            // reset all committed units to 0
+            committedAmountsPerStrategy[strategyId][_positions[i].token] = 0;
 
             // get the price for the position
             uint256 latestUSDPrice = getLatestPriceInfo(_positions[i].token);
@@ -265,13 +216,10 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             oraclePriceUpdates[strategyIdTokenHash] = _priceUpdate;
         }
 
-        if (_strategy.strategyType == CommitmentStrategyType.AMOUNT_TARGET) {
-            ISliceToken(_strategy.token).mint(_strategy.target, fees);
-        } else if (_strategy.strategyType == CommitmentStrategyType.TIMESTAMP_TARGET && amountToMint != type(uint256).max) {
-            ISliceToken(_strategy.token).mint(amountToMint, fees);
-        }
-        
-        // TODO: execute SliceToken(token).mint for TIME INTERVAL TARGET
+        // Increase nonce for commitment strategy
+        ++commitmentStrategies[strategyId].nonce;
+
+        ISliceToken(_strategy.token).mint(_strategy.target, fees);
     }
 
     function commitToStrategy(
@@ -299,9 +247,6 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             //      - check if assets array contains the position
             uint256 amountToTransfer = _getAmountToTransfer(assets, amounts, _positions[i]);
 
-            if (_strategy.strategyType == CommitmentStrategyType.AMOUNT_TARGET) {
-                amountToTransfer = _verifyAmountToTransferForAsset(amountToTransfer, _strategy, _positions[i]);
-            }
             if (amountToTransfer == 0) {
                 continue;
             }
@@ -355,15 +300,14 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             revert Unauthorized();
         }
 
-        // check that amount has not been consumed yet
-        uint256 availableToRemove = _commitment.committed - _commitment.consumed;
-        if (availableToRemove < amount) {
-            revert InvalidAmount();
+        // Check the commitment nonce and revert if it is less then current strategy nonce
+        if (commitmentStrategies[_commitment.strategyId].nonce != _commitment.strategyNonce) {
+            revert StrategyAlreadyExecuted();
         }
 
-        // check that strategy state is open
-        if (commitmentStrategies[_commitment.strategyId].strategyState != CommitmentStrategyState.OPEN) {
-            revert StrategyOver();
+        // check that amount has not been consumed yet
+        if (_commitment.committed < amount) {
+            revert InvalidAmount();
         }
 
         bool _isCommitmentLocal = _commitment.chainId == block.chainid;
@@ -372,7 +316,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         if (_isCommitmentLocal) {
             IERC20(_commitment.asset).safeTransfer(_commitment.creator, amount);
             // update the committed amount to the new amount
-            commitments[commitmentId].committed = _commitment.committed - amount;
+            commitments[commitmentId].committed -= amount;
             committedAmountsPerStrategy[_commitment.strategyId][_commitment.asset] -= amount;
 
             emit RemovedCommitmentFromStrategy(_commitment.id, amount);
@@ -391,24 +335,76 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             CrossChainVaultSignal[] memory ccsMsgs = new CrossChainVaultSignal[](1);
             ccsMsgs[0] = ccs;
             bytes memory ccsEncoded = abi.encode(ccsMsgs);
+            // update pending removals, this will prevent execution while the removal is pending becuase the amount will be less
+            pendingRemovals[_commitment.strategyId][_commitment.asset] += amount;
+            // send the cross-chain message
             _sendLzMsg(CrossChainVaultSignalType.REMOVE, ccsEncoded, uint32(block.chainid), msg.sender);
         }
-
-        // q - do we allow users to remove their commitments if the target has been reached, but strategy has not yet been executed??
-        // we should allow it, because in the execute transaction we will check anyway
     }
 
-    function pullMintedTokenShares(bytes32 strategyId) external nonReentrant {
-        // TODO
-        // get the oracle price updates for the given strategy & for the provided units
+    function pullMintedTokenShares(bytes32 strategyId, uint256 nonce) external nonReentrant {
+        // get the given strategy
+        CommitmentStrategy memory _strategy = commitmentStrategies[strategyId];
+        if (_strategy.id == bytes32(0) || _strategy.id != strategyId) {
+            revert InvalidStrategyId();
+        }
 
-        // get all the commitments for the given strategy
+        // check the strategy nonce, if current revert
+        if (nonce >= _strategy.nonce) {
+            revert StrategyNotExecuted();
+        }
+        Position[] memory _positions = ISliceToken(_strategy.token).getPositions();
+        uint256 posLength = _positions.length;
 
-        // calculate the shares for each user
+        // we need usder commitment[] array for TUC_usd
+        Commitment[] memory userComms = new Commitment[](posLength);
+
+        // we need position[] array and priceUpdate[] array for TS_usd
+        OraclePriceUpdate[] memory priceUpdates = new OraclePriceUpdate[](posLength);
+
+        for (uint256 i = 0; i < posLength; i++) {
+            bytes32 commitmentId = keccak256(
+                abi.encodePacked(this.commitToStrategy.selector, strategyId, msg.sender, _positions[i].token, nonce)
+            );
+            // get commitment
+            Commitment memory _comm = commitments[commitmentId];
+            if (_comm.commitmentState == CommitmentState.PULLED) {
+                revert MintedTokenShareAlreadyPulled();
+            }
+            userComms[i] = _comm;
+
+            // get the oracle price for the asset
+            OraclePriceUpdate memory _price = oraclePriceUpdates[keccak256(abi.encode(strategyId, _positions[i].token))];
+            priceUpdates[i] = _price;
+
+            // update commitment state to pulled
+            commitments[commitmentId].commitmentState = CommitmentState.PULLED;
+        }
+
+        // calculate the user slice token share using these values and slice token math
+        uint256 TS_usd = SliceTokenShareMath.calcSliceTokenUSDValue(_positions, priceUpdates);
+
+        // we need sMinted (_strategy.target) and TS_usd for TSV_usd
+        uint256 TSV_usd = SliceTokenShareMath.calcTotalMintedSliceUSDValue(TS_usd, _strategy.target);
+
+        // we need TUC_usd and TSV_usd for USS
+        uint256 TUC_usd = SliceTokenShareMath.calcUserCommsTotalValue(userComms, priceUpdates);
+
+        // tuc / tsv
+        uint256 USS = SliceTokenShareMath.calcUserTokenShare(TUC_usd, TSV_usd);
+
+        // uss * sMinted
+        uint256 USA = SliceTokenShareMath.calcAmountOfTokensReceiveable(USS, _strategy.target);
 
         // user them to calculate the user's share of the given mint
+        ISliceToken(_strategy.token).transfer(msg.sender, USA);
+    }
 
-        //
+    function commitmentExists(bytes32 commitmentId) internal view returns (bool) {
+        if (commitmentId == bytes32(0)) {
+            return false;
+        }
+        return commitments[commitmentId].id == commitmentId;
     }
 
     /**
@@ -423,10 +419,6 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
 
         if (msg.sender != _strategy.creator) {
             revert Unauthorized();
-        }
-
-        if (_strategy.strategyState != CommitmentStrategyState.OPEN) {
-            revert InvalidStrategyState();
         }
 
         if (!_strategy.isPrivate) {
@@ -454,10 +446,6 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         lzGasLookup[ccsType] = gas;
         emit SetLzBaseGas(ccsType, gas);
     }
-
-    /*     function numberOfCommitmentsForStrategy(bytes32 strategyId) external view returns (uint256) {
-        return commitmentsForStrategy[strategyId].length;
-    } */
 
     /**
      * @dev This is a work around to allow using SafeERC20.safeTransferFrom in a try/catch block
@@ -596,9 +584,11 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
 
         Commitment memory _commitment = commitments[_ccs.id];
 
-        commitments[_ccs.id].committed = _commitment.committed - _ccs.amount;
+        commitments[_ccs.id].committed -= _ccs.amount;
 
         committedAmountsPerStrategy[_commitment.strategyId][_commitment.asset] -= _ccs.amount;
+
+        pendingRemovals[_commitment.strategyId][_commitment.asset] -= _ccs.amount;
 
         emit RemovedCommitmentFromStrategy(_commitment.id, _ccs.amount);
     }
@@ -694,59 +684,31 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         uint8 decimals,
         uint256 chainId
     ) private returns (bytes32 commitmentId) {
-        uint256 nonce = nonces[user]++;
+        uint256 _strategyNonce = commitmentStrategies[strategyId].nonce;
         commitmentId = keccak256(
-            abi.encodePacked(
-                this.commitToStrategy.selector,
-                chainId,
-                user,
-                address(this),
-                strategyId,
-                underlyingAsset,
-                block.timestamp,
-                nonce
-            )
+            abi.encodePacked(this.commitToStrategy.selector, strategyId, user, underlyingAsset, _strategyNonce)
         );
 
-        // update commitments
-        Commitment memory _commitment = Commitment({
-            id: commitmentId,
-            strategyId: strategyId,
-            creator: user,
-            chainId: chainId,
-            asset: underlyingAsset,
-            decimals: decimals,
-            committed: amountToTransfer,
-            consumed: 0
-        });
-        commitments[commitmentId] = _commitment;
-
-        bytes32 strategyIdAddressHash = keccak256(abi.encode(strategyId, user));
-        userCommitmentsForStrategy[strategyIdAddressHash].push(commitmentId);
+        if (commitmentExists(commitmentId)) {
+            commitments[commitmentId].committed += amountToTransfer;
+        } else {
+            // update commitments
+            Commitment memory _commitment = Commitment({
+                id: commitmentId,
+                strategyId: strategyId,
+                commitmentState: CommitmentState.COMMITTED,
+                creator: user,
+                chainId: chainId,
+                asset: underlyingAsset,
+                decimals: decimals,
+                committed: amountToTransfer,
+                strategyNonce: _strategyNonce
+            });
+            commitments[commitmentId] = _commitment;
+        }
 
         // update committedAmountsPerStrategy
         committedAmountsPerStrategy[strategyId][underlyingAsset] += amountToTransfer;
-    }
-
-    // calculates TUCUsd
-    function calcUserCommsTotalValue(Commitment[] memory _userCommitmentsForStrat) internal view returns (uint256) {
-        uint256 commLength = _userCommitmentsForStrat.length;
-        uint256 totalUserCommVal;
-
-        for (uint256 i = 0; i < commLength; i++) {
-            bytes32 strategyIdTokenHash =
-                keccak256(abi.encode(_userCommitmentsForStrat[i].strategyId, _userCommitmentsForStrat[i].asset));
-            OraclePriceUpdate memory _priceUpdate = oraclePriceUpdates[strategyIdTokenHash];
-            uint256 scaledPrice = _priceUpdate.price * (10 ** _userCommitmentsForStrat[i].decimals);
-
-            // TODO: Should this be consumed?
-            uint256 usdValue = (_userCommitmentsForStrat[i].committed * scaledPrice)
-                / (10 ** (_userCommitmentsForStrat[i].decimals + _priceUpdate.decimals));
-
-            totalUserCommVal += usdValue;
-        }
-
-        return totalUserCommVal;
     }
 
     function requiredGas(CrossChainVaultSignalType ccsType, uint128 msgsLength) internal view returns (uint128) {
@@ -770,11 +732,6 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         // check that strategy exists
         _verifyStrategyId(strategyId, _strategy);
 
-        // check that strategy state is open
-        if (_strategy.strategyState != CommitmentStrategyState.OPEN) {
-            revert InvalidStrategyState();
-        }
-
         // if private check that user is allowed to commit
         if (_strategy.isPrivate) {
             bytes32 strategyIdAddressHash = keccak256(abi.encode(strategyId, msg.sender));
@@ -782,12 +739,6 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
                 revert Unauthorized();
             }
         }
-
-        // if timestamp target we simply check that timestamp is bigger than current timestamp
-        if (_strategy.strategyType == CommitmentStrategyType.TIMESTAMP_TARGET && block.timestamp >= _strategy.target) {
-            revert StrategyOver();
-        }
-        // if it is a recurring time interval users can commit anytime so we don't check
     }
 
     function _verifyStrategyId(bytes32 strategyId, CommitmentStrategy memory _strategy) private pure {
@@ -796,20 +747,10 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         }
     }
 
-    function _verifyTarget(CommitmentStrategyType strategyType, uint256 target) private view {
+    function _verifyTarget(uint256 target) private pure {
         // if type is amount check that > 0
-        if (strategyType == CommitmentStrategyType.AMOUNT_TARGET && target == 0) {
+        if (target == 0) {
             revert InvalidAmount();
-        }
-
-        // if type is tstamp check that target is in the future
-        if (strategyType == CommitmentStrategyType.TIMESTAMP_TARGET && target <= block.timestamp) {
-            revert InvalidTimestamp();
-        }
-
-        // if type is time interval check that interval is >= of min
-        if (strategyType == CommitmentStrategyType.TIME_INTERVAL_TARGET && target < MIN_TIME_INTERVAL) {
-            revert InvalidTimeInterval();
         }
     }
 

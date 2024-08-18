@@ -31,6 +31,8 @@ interface ICrossChainVault is ILayerZeroReceiver {
     error InvalidStrategyState();
     error StrategyNotPrivate();
 
+    error StrategyAlreadyExecuted();
+
     error InvalidCommitmentId();
     
     error StrategyOver();
@@ -40,6 +42,13 @@ interface ICrossChainVault is ILayerZeroReceiver {
     error StalePrice();
 
     error InvalidPrice();
+
+    error NewTargetTooLow();
+
+    error StrategyNotExecuted();
+
+    error MintedTokenShareAlreadyPulled();
+
     /**
      * @dev This function allows users to create commitment strategies.
      * They must be able to specify either the mint amount target or the timestamp when the minting can occur.
@@ -49,13 +58,11 @@ interface ICrossChainVault is ILayerZeroReceiver {
      *
      * @param token The slice token address this commitment strategy is aimed at
      * @param target The mint amount target or mint timestamp (depending on the strategy type)
-     * @param strategyType The type of the strategy, can be either mint amount target or timestamp target
      * @param isPrivate Whether the strategy is private. If private only approved addresses can commit
      */
     function createCommitmentStrategy(
         address token,
         uint256 target,
-        CommitmentStrategyType strategyType,
         bool isPrivate
     ) external;
 
@@ -99,7 +106,7 @@ interface ICrossChainVault is ILayerZeroReceiver {
      *
      * @param strategyId The ID of the strategy to pull the shares for
      */
-    function pullMintedTokenShares(bytes32 strategyId) external;
+    function pullMintedTokenShares(bytes32 strategyId, uint256 nonce) external;
 
     /**
      * @dev For private commitment strategies, the creator can whitelist addresses to commit.

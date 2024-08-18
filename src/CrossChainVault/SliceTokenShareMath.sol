@@ -7,12 +7,21 @@ import {OraclePriceUpdate, Commitment} from "./CrossChainVaultStructs.sol";
 library SliceTokenShareMath {
     error InvalidPositionsLength();
 
-    function calcAmountOfTokensReceived() internal pure returns (uint256) {
-        
+    // calculates USA
+    function calcAmountOfTokensReceiveable(uint256 userTokenShare, uint256 sliceTokenAmountMinted)
+        internal
+        pure
+        returns (uint256)
+    {
+        return userTokenShare * sliceTokenAmountMinted;
     }
 
     // calculates USS
-    function calcUserTokenShare(uint256 totalUserCommVal, uint256 totalMintedSliceVal) internal pure returns (uint256) {
+    function calcUserTokenShare(uint256 totalUserCommVal, uint256 totalMintedSliceVal)
+        internal
+        pure
+        returns (uint256)
+    {
         if (totalMintedSliceVal == 0) {
             revert();
         }
@@ -43,5 +52,26 @@ library SliceTokenShareMath {
     // calculates TSVUsd
     function calcTotalMintedSliceUSDValue(uint256 tsUsd, uint256 sMinted) internal pure returns (uint256) {
         return tsUsd * sMinted;
+    }
+
+    // calculates TUC_usd
+    function calcUserCommsTotalValue(
+        Commitment[] memory _userCommitmentsForStrat,
+        OraclePriceUpdate[] memory _priceUpdates
+    ) internal pure returns (uint256) {
+        uint256 commLength = _userCommitmentsForStrat.length;
+        uint256 totalUserCommVal;
+
+        for (uint256 i = 0; i < commLength; i++) {
+            OraclePriceUpdate memory _priceUpdate = _priceUpdates[i];
+            uint256 scaledPrice = _priceUpdate.price * (10 ** _userCommitmentsForStrat[i].decimals);
+
+            uint256 usdValue = (_userCommitmentsForStrat[i].committed * scaledPrice)
+                / (10 ** (_userCommitmentsForStrat[i].decimals + _priceUpdate.decimals));
+
+            totalUserCommVal += usdValue;
+        }
+
+        return totalUserCommVal;
     }
 }
