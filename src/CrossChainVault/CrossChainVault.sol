@@ -59,7 +59,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
     mapping(bytes32 strategyId => mapping(address => uint256) commitedAmounts) public committedAmountsPerStrategy;
 
     /**
-     * @dev Stores cross-chain asset removals, that are sent to LZ but have not been confirmed yet 
+     * @dev Stores cross-chain asset removals, that are sent to LZ but have not been confirmed yet
      */
     mapping(bytes32 strategyId => mapping(address => uint256)) public pendingRemovals;
 
@@ -245,11 +245,12 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         // duplicates in the assets[] array will be ignored since we use the slice tokens positions for the loop
         for (uint256 i = 0; i < _positions.length; i++) {
             //      - check if assets array contains the position
-            uint256 amountToTransfer = _getAmountToTransfer(assets, amounts, _positions[i]);
+            uint256 amountToTransfer = _getAmountToTransfer(strategyId, assets, amounts, _positions[i]);
 
             if (amountToTransfer == 0) {
                 continue;
             }
+
             //      - if it is local, transfer funds from user to vault, create commitment struct, save it, modify storage to store other details
             if (_isPositionLocal(_positions[i])) {
                 IERC20(_positions[i].token).safeTransferFrom(msg.sender, address(this), amountToTransfer);
@@ -662,18 +663,30 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         _lzSend(srcChain.lzEndpointId, ccsEncoded, _lzSendOpts, MessagingFee(msg.value, 0), refundAddress);
     }
 
-    function _getAmountToTransfer(address[] calldata assets, uint256[] calldata amounts, Position memory position)
-        private
-        pure
-        returns (uint256)
-    {
+    function _getAmountToTransfer(
+        bytes32 strategyId,
+        address[] calldata assets,
+        uint256[] calldata amounts,
+        Position memory position
+    ) private view returns (uint256) {
         //      - check if assets array contains the position
         int256 assetIdx = _isAssetCommitted(position.token, assets);
         if (assetIdx == -1) {
             return 0;
         }
 
-        return amounts[uint256(assetIdx)];
+        CommitmentStrategy memory _strategy = commitmentStrategies[strategyId];
+        uint256 amountToTransfer = amounts[uint256(assetIdx)];
+
+        uint256 amountNeeded = TokenAmountUtils.calculateAmountOutMin(
+            _strategy.target, position.units, position.decimals
+        ) - committedAmountsPerStrategy[strategyId][position.token];
+
+        if (amountToTransfer > amountNeeded) {
+            amountToTransfer = amountNeeded;
+        }
+
+        return amountToTransfer;
     }
 
     function _updateCommitment(
