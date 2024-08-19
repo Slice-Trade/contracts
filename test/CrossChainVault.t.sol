@@ -187,7 +187,27 @@ contract CrossChainVaultTest is Helper {
     }
 
     function test_cannot_modifyCommitmentStrategyTarget_NewTargetTooLow() public {
-        // TODO
+        vm.startPrank(dev);
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, false);
+        bytes32 _stratId = 0x236f8502c965dcf95e2572ddf9303f883c8141e5850173b663476c3e67662722;
+
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, false);
+
+        deal(address(weth), address(dev), wethUnits);
+        weth.approve(address(vault), wethUnits);
+
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits;
+
+        uint128[] memory fees;
+
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        vm.expectRevert(bytes4(keccak256("NewTargetTooLow()")));
+        vault.modifyCommitmentStrategyTarget(_stratId, 0.5 ether);
     }
 
     /* =========================================================== */

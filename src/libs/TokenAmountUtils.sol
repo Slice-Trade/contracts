@@ -12,7 +12,6 @@ library TokenAmountUtils {
      */
     function calculateAmountOutMin(uint256 quantity, uint256 units, uint8 decimals) internal pure returns (uint256) {
         quantity = convertSliceTokenDecimalsToOther(quantity, decimals);
-
         uint256 result = (units * quantity) / 10 ** decimals;
 
         return result;

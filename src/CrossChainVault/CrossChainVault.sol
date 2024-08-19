@@ -681,6 +681,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         uint256 amountNeeded = TokenAmountUtils.calculateAmountOutMin(
             _strategy.target, position.units, position.decimals
         ) - committedAmountsPerStrategy[strategyId][position.token];
+            _strategy.target, position.units, position.decimals
+        ));
 
         if (amountToTransfer > amountNeeded) {
             amountToTransfer = amountNeeded;
