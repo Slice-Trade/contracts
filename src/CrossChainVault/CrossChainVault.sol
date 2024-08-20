@@ -53,6 +53,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
      */
     mapping(bytes32 strategyIdTokenHash => OraclePriceUpdate) public oraclePriceUpdates;
 
+    // TODO: Maybe store strategyIdTokenHash everywhere instead of nested mappings...
     /**
      * @dev Stores the amounts committed for each asset for each strategy
      */
@@ -462,6 +463,10 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         priceFeedsForAssets[_underlyingAsset] = _priceFeed;
     }
 
+    function setMaxTimestampDiff(uint256 newMaxTimestampDiff) external onlyOwner {
+        MAX_TIMESTAMP_DIFF = newMaxTimestampDiff;
+    }
+
     function getLatestPriceInfo(address underlyingAsset) internal view returns (uint256) {
         (
             /* uint80 roundID */
@@ -681,8 +686,6 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         uint256 amountNeeded = TokenAmountUtils.calculateAmountOutMin(
             _strategy.target, position.units, position.decimals
         ) - committedAmountsPerStrategy[strategyId][position.token];
-            _strategy.target, position.units, position.decimals
-        ));
 
         if (amountToTransfer > amountNeeded) {
             amountToTransfer = amountNeeded;

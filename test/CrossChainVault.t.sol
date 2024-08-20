@@ -18,6 +18,7 @@ import {SliceToken} from "../src/SliceToken.sol";
 import {ChainInfo} from "../src/utils/ChainInfo.sol";
 import {SliceTokenDeployer} from "../src/utils/SliceTokenDeployer.sol";
 import {Chain as SliceChain, Position} from "../src/Structs.sol";
+import "../src/external/AggregatorV2V3Interface.sol";
 
 import {IDeployer} from "../script/IDeployer.sol";
 import {CrossChainPositionCreator} from "./helpers/CrossChainPositionCreator.sol";
@@ -52,6 +53,10 @@ contract CrossChainVaultTest is Helper {
     CrossChainPositionCreator public ccPosCreator;
 
     address polygonLink = 0xb0897686c545045aFc77CF20eC7A532E3120E0F1;
+
+    AggregatorV2V3Interface public wethPriceFeed = AggregatorV2V3Interface(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
+    AggregatorV2V3Interface public linkPriceFeed = AggregatorV2V3Interface(0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c);
+    AggregatorV2V3Interface public wbtcPriceFeed = AggregatorV2V3Interface(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c);
 
     enum ChainSelect {
         MAINNET,
@@ -213,17 +218,175 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     /*  ==============  executeCommitmentStrategy  =============   */
     /* =========================================================== */
-    function test_executeCommitmentStrategy() public {}
+    function test_executeCommitmentStrategy() public {
+        // create commitment strategy
+        vm.startPrank(dev);
+        bytes32 _stratId = 0x28cbbe1250d99285a4c007bac00ddf0fb20ea5646ebdfbcf775cb0f7133c02f1;
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, false);
 
-    function test_executeCommitmentStrategy_VaultIsPaused() public {}
+        // set the price feeds
+        vault.setPriceFeedForAsset(address(weth), wethPriceFeed);
+        vault.setPriceFeedForAsset(address(link), linkPriceFeed);
+        vault.setPriceFeedForAsset(address(wbtc), wbtcPriceFeed);
 
-    function test_cannot_executeCommitmentStrategy_TargetNotReached() public {}
+        vault.setMaxTimestampDiff(3600);
 
-    function test_cannot_executeCommitmentStrategy_InvalidState() public {}
+        deal(address(weth), users[1], wethUnits);
+        deal(address(link), users[2], linkUnits);
+        deal(address(wbtc), users[3], wbtcUnits);
 
-    function test_cannot_executeCommitmentStrategy_OraclePriceStale() public {}
+        vm.stopPrank();
 
-    function test_cannot_executeCommitmentStrategy_InsufficientLzFee() public {}
+        vm.prank(users[1]);
+        weth.approve(address(vault), wethUnits);
+        vm.prank(users[2]);
+        link.approve(address(vault), linkUnits);
+        vm.prank(users[3]);
+        wbtc.approve(address(vault), wbtcUnits);
+
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits;
+
+        uint128[] memory fees;
+
+        // commit weth to commitment strategy from account 1
+        vm.prank(users[1]);
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        // commit link to commitment strategy from account 2
+        assets[0] = address(link);
+        amounts[0] = linkUnits;
+        vm.prank(users[2]);
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        // commit wbtc to commitment strategy from account 3
+        vm.prank(users[3]);
+        assets[0] = address(wbtc);
+        amounts[0] = wbtcUnits;
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        uint256 sliceTokenBalanceBefore = sliceToken.balanceOf(address(vault));
+        assertEq(sliceTokenBalanceBefore, 0);
+        // execute the commitment strategy
+        vm.prank(dev);
+        vault.executeCommitmentStrategy(_stratId, fees);
+
+        // check that balance of vault has been increased to target
+        uint256 sliceTokenBalanceAfter = sliceToken.balanceOf(address(vault));
+        assertEq(sliceTokenBalanceAfter, 1 ether);
+
+        // check that strategy nonce has been increased
+        (,,,,, uint256 nonce) = vault.commitmentStrategies(_stratId);
+        assertEq(nonce, 1);
+
+        Position[] memory _positions = sliceToken.getPositions();
+
+        // check that committed amounts per strategy has been reset to 0
+        for (uint256 i = 0; i < _positions.length; i++) {
+            uint256 comm = vault.committedAmountsPerStrategy(_stratId, _positions[i].token);
+            assertEq(comm, 0);
+
+            // check that oracle prices have been updated
+            _verifyOraclePriceUpdate(_stratId, _positions[i].token);
+        }
+    }
+
+    function test_executeCommitmentStrategy_CrossChain() public {
+        // TODO
+    }
+
+    function test_executeCommitmentStrategy_CrossChain_Fuzz() public {
+        // TODO
+    }
+
+    function test_executeCommitmentStrategy_VaultIsPaused() public {
+        vm.startPrank(dev);
+        bytes32 _stratId = 0x28cbbe1250d99285a4c007bac00ddf0fb20ea5646ebdfbcf775cb0f7133c02f1;
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, false);
+
+        vault.pauseVault();
+
+        uint128[] memory fees;
+        vm.expectRevert(bytes4(keccak256("VaultIsPaused()")));
+        vault.executeCommitmentStrategy(_stratId, fees);
+        vm.stopPrank();
+    }
+
+    function test_cannot_executeCommitmentStrategy_TargetNotReached() public {
+        vm.startPrank(dev);
+        bytes32 _stratId = 0x28cbbe1250d99285a4c007bac00ddf0fb20ea5646ebdfbcf775cb0f7133c02f1;
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, false);
+        
+        uint128[] memory fees;
+        vm.expectRevert(bytes4(keccak256("InvalidAmount()")));
+        vault.executeCommitmentStrategy(_stratId, fees);
+        vm.stopPrank();
+    }
+
+    function test_cannot_executeCommitmentStrategy_OraclePriceStale() public {
+        // create commitment strategy
+        vm.startPrank(dev);
+        bytes32 _stratId = 0x28cbbe1250d99285a4c007bac00ddf0fb20ea5646ebdfbcf775cb0f7133c02f1;
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, false);
+
+        // set the price feeds
+        vault.setPriceFeedForAsset(address(weth), wethPriceFeed);
+        vault.setPriceFeedForAsset(address(link), linkPriceFeed);
+        vault.setPriceFeedForAsset(address(wbtc), wbtcPriceFeed);
+
+        // vault.setMaxTimestampDiff(3600);
+
+        deal(address(weth), users[1], wethUnits);
+        deal(address(link), users[2], linkUnits);
+        deal(address(wbtc), users[3], wbtcUnits);
+
+        vm.stopPrank();
+
+        vm.prank(users[1]);
+        weth.approve(address(vault), wethUnits);
+        vm.prank(users[2]);
+        link.approve(address(vault), linkUnits);
+        vm.prank(users[3]);
+        wbtc.approve(address(vault), wbtcUnits);
+
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits;
+
+        uint128[] memory fees;
+
+        // commit weth to commitment strategy from account 1
+        vm.prank(users[1]);
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        // commit link to commitment strategy from account 2
+        assets[0] = address(link);
+        amounts[0] = linkUnits;
+        vm.prank(users[2]);
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        // commit wbtc to commitment strategy from account 3
+        vm.prank(users[3]);
+        assets[0] = address(wbtc);
+        amounts[0] = wbtcUnits;
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        uint256 sliceTokenBalanceBefore = sliceToken.balanceOf(address(vault));
+        assertEq(sliceTokenBalanceBefore, 0);
+        // execute the commitment strategy
+        vm.prank(dev);
+        vm.expectRevert(bytes4(keccak256("StalePrice()")));
+        vault.executeCommitmentStrategy(_stratId, fees);
+    }
+
+    function test_cannot_executeCommitmentStrategy_InsufficientLzFee() public {
+        // TODO
+    }
 
     /* =========================================================== */
     /*  ===================  commitToStrategy  =================   */
@@ -860,9 +1023,19 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     /*  ================  setPriceFeedForAsset  =================  */
     /* =========================================================== */
-    function test_setPriceFeedForAsset() public {}
+    function test_setPriceFeedForAsset() public {
+        vm.prank(dev);
+        vault.setPriceFeedForAsset(address(weth), wethPriceFeed);
 
-    function test_setPriceFeedForAsset_NotOwner() public {}
+        AggregatorInterface _priceFeedAddress = vault.priceFeedsForAssets(address(weth));
+
+        assertEq(address(_priceFeedAddress), address(wethPriceFeed));
+    }
+
+    function test_cannot_setPriceFeedForAsset_NotOwner() public {
+        vm.expectRevert();
+        vault.setPriceFeedForAsset(address(weth), wethPriceFeed);
+    }
 
     /* =========================================================== */
     /*  ======================  helpers  ========================  */
@@ -1136,5 +1309,16 @@ contract CrossChainVaultTest is Helper {
 
         uint256 committedAmountForStrat = vault.committedAmountsPerStrategy(expectedStratId, asset);
         assertEq(committedAmountForStrat, committed);
+    }
+
+    function _verifyOraclePriceUpdate(bytes32 _stratId, address _token) private view {
+        bytes32 strategyIdTokenHash = keccak256(abi.encode(_stratId, _token));
+        (bytes32 id, address token, uint8 decimals, uint256 price, uint256 updateTimestamp) =
+            vault.oraclePriceUpdates(strategyIdTokenHash);
+        assertEq(id, _stratId);
+        assertEq(token, _token);
+        assertEq(decimals, 8);
+        assertGt(price, 0);
+        assertGt(updateTimestamp, 1711459720);
     }
 }
