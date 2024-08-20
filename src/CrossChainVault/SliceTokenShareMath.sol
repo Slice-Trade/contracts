@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
-
+import "forge-std/src/console.sol";
 import {Position} from "../Structs.sol";
 import {OraclePriceUpdate, Commitment} from "./CrossChainVaultStructs.sol";
 
 library SliceTokenShareMath {
     error InvalidPositionsLength();
+
+    uint256 constant SLICE_TOKEN_DECIMALS = 18;
 
     // calculates USA
     function calcAmountOfTokensReceiveable(uint256 userTokenShare, uint256 sliceTokenAmountMinted)
@@ -13,7 +15,7 @@ library SliceTokenShareMath {
         pure
         returns (uint256)
     {
-        return userTokenShare * sliceTokenAmountMinted;
+        return (userTokenShare * sliceTokenAmountMinted) / 1e18;
     }
 
     // calculates USS
@@ -45,13 +47,19 @@ library SliceTokenShareMath {
             uint256 usdValue =
                 (positions[i].units * scaledPrice) / (10 ** (positions[i].decimals + positionUsdPrices[i].decimals));
 
+            if (positions[i].decimals < SLICE_TOKEN_DECIMALS) {
+                usdValue = usdValue * (10**(SLICE_TOKEN_DECIMALS - positions[i].decimals));
+            } else if (positions[i].decimals > SLICE_TOKEN_DECIMALS) {
+                usdValue = usdValue / (10**(positions[i].decimals - SLICE_TOKEN_DECIMALS));
+            }
+
             totalUsdvalue += usdValue;
         }
     }
 
     // calculates TSVUsd
     function calcTotalMintedSliceUSDValue(uint256 tsUsd, uint256 sMinted) internal pure returns (uint256) {
-        return tsUsd * sMinted;
+        return (tsUsd * sMinted) / 1e18;
     }
 
     // calculates TUC_usd

@@ -319,7 +319,7 @@ contract CrossChainVaultTest is Helper {
         vm.startPrank(dev);
         bytes32 _stratId = 0x28cbbe1250d99285a4c007bac00ddf0fb20ea5646ebdfbcf775cb0f7133c02f1;
         vault.createCommitmentStrategy(address(sliceToken), 1 ether, false);
-        
+
         uint128[] memory fees;
         vm.expectRevert(bytes4(keccak256("InvalidAmount()")));
         vault.executeCommitmentStrategy(_stratId, fees);
@@ -500,7 +500,25 @@ contract CrossChainVaultTest is Helper {
         vm.stopPrank();
     }
 
-    function test_cannot_commitToStrategy_VaultIsPaused() public {}
+    function test_cannot_commitToStrategy_VaultIsPaused() public {
+        vm.startPrank(dev);
+        bytes32 _stratId = 0x28cbbe1250d99285a4c007bac00ddf0fb20ea5646ebdfbcf775cb0f7133c02f1;
+
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, false);
+
+        vault.pauseVault();
+
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits;
+
+        uint128[] memory fees;
+
+        vm.expectRevert(bytes4(keccak256("VaultIsPaused()")));
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+    }
 
     function test_cannot_commitToStrategy_InvalidStrategyId() public {
         bytes32 _stratId = 0xef9820b1b961524a73d3153985dfff86bdaf36b2c25ddc465bf9c7366ba71afa;
@@ -514,10 +532,6 @@ contract CrossChainVaultTest is Helper {
 
         vm.expectRevert(bytes4(keccak256("InvalidStrategyId()")));
         vault.commitToStrategy(_stratId, assets, amounts, fees);
-    }
-
-    function test_cannot_commitToStrategy_InvalidStrategyState() public {
-        // TODO
     }
 
     function test_cannot_commitToStrategy_UnapprovedUser() public {
@@ -558,7 +572,16 @@ contract CrossChainVaultTest is Helper {
 
         vault.commitToStrategy(_stratId, assets, amounts, fees);
 
-        // TODO: check that no commitment was created
+        Position[] memory _positions = sliceToken.getPositions();
+        for (uint256 i = 0; i < _positions.length; i++) {
+            bytes32 commitmentId = keccak256(
+                abi.encodePacked(CrossChainVault.commitToStrategy.selector, _stratId, dev, _positions[i].token, uint256(0))
+            );
+            (bytes32 id, bytes32 strategyId,,,,,,uint256 committed,) = vault.commitments(commitmentId);
+            assertEq(id, bytes32(0));
+            assertEq(strategyId, bytes32(0));
+            assertEq(committed, 0);
+        }
 
         vm.stopPrank();
     }
@@ -833,7 +856,63 @@ contract CrossChainVaultTest is Helper {
     }
 
     function test_cannot_removeCommitmentFromStrategy_StrategyAlreadyExecuted() public {
-        // TODO
+        vm.startPrank(dev);
+        bytes32 _stratId = 0x28cbbe1250d99285a4c007bac00ddf0fb20ea5646ebdfbcf775cb0f7133c02f1;
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, false);
+        // set the price feeds
+        vault.setPriceFeedForAsset(address(weth), wethPriceFeed);
+        vault.setPriceFeedForAsset(address(link), linkPriceFeed);
+        vault.setPriceFeedForAsset(address(wbtc), wbtcPriceFeed);
+
+        vault.setMaxTimestampDiff(3600);
+
+        deal(address(weth), users[1], wethUnits);
+        deal(address(link), users[2], linkUnits);
+        deal(address(wbtc), users[3], wbtcUnits);
+
+        vm.stopPrank();
+
+        vm.prank(users[1]);
+        weth.approve(address(vault), wethUnits);
+        vm.prank(users[2]);
+        link.approve(address(vault), linkUnits);
+        vm.prank(users[3]);
+        wbtc.approve(address(vault), wbtcUnits);
+
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits;
+
+        uint128[] memory fees;
+
+        // commit weth to commitment strategy from account 1
+        vm.prank(users[1]);
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        // commit link to commitment strategy from account 2
+        assets[0] = address(link);
+        amounts[0] = linkUnits;
+        vm.prank(users[2]);
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        // commit wbtc to commitment strategy from account 3
+        vm.prank(users[3]);
+        assets[0] = address(wbtc);
+        amounts[0] = wbtcUnits;
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        uint256 sliceTokenBalanceBefore = sliceToken.balanceOf(address(vault));
+        assertEq(sliceTokenBalanceBefore, 0);
+        // execute the commitment strategy
+        vm.prank(dev);
+        vault.executeCommitmentStrategy(_stratId, fees);
+
+        bytes32 _commId1 = 0x9137ab68fa7d6e7043e44db6952928c58c6eab6ee9021fc13c08b454ee41e585;
+        vm.prank(users[1]);
+        vm.expectRevert(bytes4(keccak256("StrategyAlreadyExecuted()")));
+        vault.removeCommitmentFromStrategy(_commId1, wethUnits, 0);
     }
 
     function test_cannot_removeCommitmentFromStrategy_InvalidAmount() public {
@@ -904,20 +983,220 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     /*  ================  pullMintedTokenShares  ================  */
     /* =========================================================== */
-    function test_pullMintedTokenShares() public {}
+    function test_pullMintedTokenShares() public {
+        /* 
+            WETH Price:  3634.40000000
+            LINK Price:  20.46450600
+            WBTC Price:  70877.62121670
 
-    function test_cannot_pullMintedTokenShares_InvalidStrategyId() public {}
+            TSVUsd = 1 * TS_usd = (10 * 3634) + (2000 * 20.46450600) + 70877.62121670 = 
+            36344 + 40929,012 + 70877.62121670 =
+            148150,6332167
 
-    function test_cannot_pullMintedTokenShares_StrategyNotExecuted() public {}
+            Refer to: src/CrossChainVault/math.md to understand the calculations
+         */
 
-    function test_cannot_pullMintedTokenShares_AlreadyPulled() public {}
+        // create, commit to, and execute commitment strategy
+        vm.startPrank(dev);
+        bytes32 _stratId = 0x28cbbe1250d99285a4c007bac00ddf0fb20ea5646ebdfbcf775cb0f7133c02f1;
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, false);
+
+        vault.setPriceFeedForAsset(address(weth), wethPriceFeed);
+        vault.setPriceFeedForAsset(address(link), linkPriceFeed);
+        vault.setPriceFeedForAsset(address(wbtc), wbtcPriceFeed);
+
+        vault.setMaxTimestampDiff(3600);
+
+        deal(address(weth), users[1], wethUnits);
+        deal(address(link), users[2], linkUnits);
+        deal(address(wbtc), users[3], wbtcUnits);
+
+        vm.stopPrank();
+
+        vm.prank(users[1]);
+        weth.approve(address(vault), wethUnits);
+        vm.prank(users[2]);
+        link.approve(address(vault), linkUnits);
+        vm.prank(users[3]);
+        wbtc.approve(address(vault), wbtcUnits);
+
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits;
+
+        uint128[] memory fees;
+
+        // commit weth to commitment strategy from account 1
+        vm.prank(users[1]);
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        // commit link to commitment strategy from account 2
+        assets[0] = address(link);
+        amounts[0] = linkUnits;
+        vm.prank(users[2]);
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        // commit wbtc to commitment strategy from account 3
+        vm.prank(users[3]);
+        assets[0] = address(wbtc);
+        amounts[0] = wbtcUnits;
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        uint256 sliceTokenBalanceBefore = sliceToken.balanceOf(address(vault));
+        assertEq(sliceTokenBalanceBefore, 0);
+        // execute the commitment strategy
+        vm.prank(dev);
+        vault.executeCommitmentStrategy(_stratId, fees);
+
+        uint256 sliceTokenBalanceAfter = sliceToken.balanceOf(address(vault));
+        assertEq(sliceTokenBalanceAfter, 1 ether);
+
+        sliceTokenBalanceBefore = sliceTokenBalanceAfter;
+
+        // pull minted token shares & check correct values received
+        vm.prank(users[1]);
+        vault.pullMintedTokenShares(_stratId, 0);
+        sliceTokenBalanceAfter = sliceToken.balanceOf(address(vault));
+
+        /* 
+            User 1:
+            Usa = 1 * Uss = 36344 / 148150,6332167 = 0,245317884985612
+         */
+        uint256 user1Balance = sliceToken.balanceOf(users[1]);
+        assertApproxEqAbs(user1Balance, 245317884985612000, 100);
+
+        assertApproxEqAbs(sliceTokenBalanceAfter, 1 ether - user1Balance, 100);
+
+        sliceTokenBalanceBefore = sliceTokenBalanceAfter;
+
+        /* 
+            User 2: 
+            Usa = 1 * Uss = 40929,012 / 148150,6332167 = 0,276266196852045
+         */
+        vm.prank(users[2]);
+        vault.pullMintedTokenShares(_stratId, 0);
+        sliceTokenBalanceAfter = sliceToken.balanceOf(address(vault));
+
+        uint256 user2Balance = sliceToken.balanceOf(users[2]);
+        assertApproxEqAbs(user2Balance, 276266196852045000, 300);
+        assertApproxEqAbs(sliceTokenBalanceAfter, sliceTokenBalanceBefore - user2Balance, 100);
+
+        sliceTokenBalanceBefore = sliceTokenBalanceAfter;
+
+        /* 
+            User 3:
+            usa = 1 * Uss = 70877.62121670 / 148150,6332167 = 0,478415918162343
+         */
+        vm.prank(users[3]);
+        vault.pullMintedTokenShares(_stratId, 0);
+        sliceTokenBalanceAfter = sliceToken.balanceOf(address(vault));
+
+        uint256 user3Balance = sliceToken.balanceOf(users[3]);
+        assertApproxEqAbs(user3Balance, 47841591, 100);
+        assertApproxEqAbs(sliceTokenBalanceAfter, sliceTokenBalanceBefore - user3Balance, 100);
+    }
+
+    function test_pullMintedTokenShares_CrossChain() public {
+        // TODO
+    }
+
+    function test_pullMintedTokenShares_CrossChain_Fuzz() public {
+        // TODO
+    }
+
+    function test_cannot_pullMintedTokenShares_InvalidStrategyId() public {
+        vm.expectRevert(bytes4(keccak256("InvalidStrategyId()")));
+        vault.pullMintedTokenShares(bytes32(0), 0);
+    }
+
+    function test_cannot_pullMintedTokenShares_StrategyNotExecuted() public {
+        vm.startPrank(dev);
+        bytes32 _stratId = 0x28cbbe1250d99285a4c007bac00ddf0fb20ea5646ebdfbcf775cb0f7133c02f1;
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, false);
+
+        vm.expectRevert(bytes4(keccak256("StrategyNotExecuted()")));
+        vault.pullMintedTokenShares(_stratId, 1);
+        vm.stopPrank();
+    }
+
+    function test_cannot_pullMintedTokenShares_AlreadyPulled() public {
+        vm.startPrank(dev);
+        bytes32 _stratId = 0x28cbbe1250d99285a4c007bac00ddf0fb20ea5646ebdfbcf775cb0f7133c02f1;
+        vault.createCommitmentStrategy(address(sliceToken), 1 ether, false);
+
+        vault.setPriceFeedForAsset(address(weth), wethPriceFeed);
+        vault.setPriceFeedForAsset(address(link), linkPriceFeed);
+        vault.setPriceFeedForAsset(address(wbtc), wbtcPriceFeed);
+
+        vault.setMaxTimestampDiff(3600);
+
+        deal(address(weth), users[1], wethUnits);
+        deal(address(link), users[2], linkUnits);
+        deal(address(wbtc), users[3], wbtcUnits);
+
+        vm.stopPrank();
+
+        vm.prank(users[1]);
+        weth.approve(address(vault), wethUnits);
+        vm.prank(users[2]);
+        link.approve(address(vault), linkUnits);
+        vm.prank(users[3]);
+        wbtc.approve(address(vault), wbtcUnits);
+
+        address[] memory assets = new address[](1);
+        assets[0] = address(weth);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = wethUnits;
+
+        uint128[] memory fees;
+
+        // commit weth to commitment strategy from account 1
+        vm.prank(users[1]);
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        // commit link to commitment strategy from account 2
+        assets[0] = address(link);
+        amounts[0] = linkUnits;
+        vm.prank(users[2]);
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        // commit wbtc to commitment strategy from account 3
+        vm.prank(users[3]);
+        assets[0] = address(wbtc);
+        amounts[0] = wbtcUnits;
+        vault.commitToStrategy(_stratId, assets, amounts, fees);
+
+        vm.prank(dev);
+        vault.executeCommitmentStrategy(_stratId, fees);
+
+        vm.startPrank(users[1]);
+        vault.pullMintedTokenShares(_stratId, 0);
+        vm.expectRevert(bytes4(keccak256("MintedTokenShareAlreadyPulled()")));
+        vault.pullMintedTokenShares(_stratId, 0);
+        vm.stopPrank();
+
+        vm.startPrank(users[2]);
+        vault.pullMintedTokenShares(_stratId, 0);
+        vm.expectRevert(bytes4(keccak256("MintedTokenShareAlreadyPulled()")));
+        vault.pullMintedTokenShares(_stratId, 0);
+        vm.stopPrank();
+
+        vm.startPrank(users[3]);
+        vault.pullMintedTokenShares(_stratId, 0);
+        vm.expectRevert(bytes4(keccak256("MintedTokenShareAlreadyPulled()")));
+        vault.pullMintedTokenShares(_stratId, 0);
+        vm.stopPrank();
+    }
 
     /* =========================================================== */
     /* ========== changeUserApprovalToCommitmentStrategy ========= */
     /* =========================================================== */
     function test_changeUserApprovalToCommitmentStrategy() public {
         vm.startPrank(dev);
-        // TEST AMOUNT TARGET
+
         vault.createCommitmentStrategy(address(sliceToken), 10, true);
         bytes32 _stratId = 0xcbb45c72a86d01c3c8003d9bab43a5042576ad23e8eb4b93a093c0f1b3f4f969;
 
