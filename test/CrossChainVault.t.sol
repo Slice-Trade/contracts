@@ -305,7 +305,7 @@ contract CrossChainVaultTest is Helper {
 
     function test_executeCommitmentStrategy_CrossChain() public {
         (bytes32 strategyId, bytes32 commitmentId, address polyVault) = commitCrossChain();
-        executeCrossChain(strategyId);
+        executeCrossChain(strategyId, false);
 
         // check that execute was successful, vault balance increased
         uint256 ccVaultBalance = ccToken.balanceOf(address(vault));
@@ -405,7 +405,8 @@ contract CrossChainVaultTest is Helper {
     }
 
     function test_cannot_executeCommitmentStrategy_InsufficientLzFee() public {
-        // TODO
+        (bytes32 strategyId,,) = commitCrossChain();
+        executeCrossChain(strategyId, true);
     }
 
     /* =========================================================== */
@@ -1537,7 +1538,7 @@ contract CrossChainVaultTest is Helper {
         return (_stratId, expectedCommitId, polyVault);
     }
 
-    function executeCrossChain(bytes32 strategyId) private {
+    function executeCrossChain(bytes32 strategyId, bool shouldFailOnLzFee) private {
         // take polyCore and polyVault
         deal(dev, 100 ether);
         vm.startPrank(dev);
@@ -1549,6 +1550,13 @@ contract CrossChainVaultTest is Helper {
             _estimateFee(polyCore, CrossChainSignalType.MINT, CrossChainSignalType.MINT_COMPLETE);
 
         // call execute commitment strategy
+        if (shouldFailOnLzFee) {
+            vm.expectRevert();
+            vault.executeCommitmentStrategy{value: 0}(strategyId, toUint128Array(feesForMsgs));
+            uint128[] memory badFees;
+            vm.expectRevert();
+            vault.executeCommitmentStrategy{value: feeTotal}(strategyId, badFees);
+        }
         vault.executeCommitmentStrategy{value: feeTotal}(strategyId, toUint128Array(feesForMsgs));
 
         // crate cross chain signal for SliceCore
