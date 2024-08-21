@@ -7,6 +7,7 @@ import "./helpers/Helper.sol";
 
 import {IWETH} from "../src/external/IWETH.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ILayerZeroEndpointV2, MessagingParams} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
 import {IOAppReceiver, Origin} from "@lz-oapp-v2/interfaces/IOAppReceiver.sol";
 import {IOAppCore} from "@lz-oapp-v2/interfaces/IOAppCore.sol";
 
@@ -17,13 +18,18 @@ import {SliceCore} from "../src/SliceCore.sol";
 import {SliceToken} from "../src/SliceToken.sol";
 import {ChainInfo} from "../src/utils/ChainInfo.sol";
 import {SliceTokenDeployer} from "../src/utils/SliceTokenDeployer.sol";
-import {Chain as SliceChain, Position} from "../src/Structs.sol";
+import {Chain as SliceChain, Position, CrossChainSignal, CrossChainSignalType} from "../src/Structs.sol";
 import "../src/external/AggregatorV2V3Interface.sol";
+import {TokenAmountUtils} from "../src/libs/TokenAmountUtils.sol";
 
 import {IDeployer} from "../script/IDeployer.sol";
 import {CrossChainPositionCreator} from "./helpers/CrossChainPositionCreator.sol";
 
+import {LZFeeEstimator} from "./helpers/LZFeeEstimator.sol";
+
 contract CrossChainVaultTest is Helper {
+    using TokenAmountUtils for CrossChainVaultTest;
+
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
     uint256 immutable POLYGON_BLOCK_NUMBER = 55101688; //TSTAMP: 1711459720
 
@@ -44,7 +50,7 @@ contract CrossChainVaultTest is Helper {
     uint256 public linkUnits = 2000000000000000000000; // 2000 LINK
     uint256 public wbtcUnits = 100000000;
 
-    uint256 wmaticUnits = 95000000000000000000;
+    uint256 wmaticUnits = 95000000000000000000; // 95 wmatic
 
     Position[] public positions;
 
@@ -52,11 +58,14 @@ contract CrossChainVaultTest is Helper {
 
     CrossChainPositionCreator public ccPosCreator;
 
+    address public polyCore;
+
     address polygonLink = 0xb0897686c545045aFc77CF20eC7A532E3120E0F1;
 
     AggregatorV2V3Interface public wethPriceFeed = AggregatorV2V3Interface(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
     AggregatorV2V3Interface public linkPriceFeed = AggregatorV2V3Interface(0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c);
     AggregatorV2V3Interface public wbtcPriceFeed = AggregatorV2V3Interface(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c);
+    AggregatorV2V3Interface public wmaticPriceFeed = AggregatorV2V3Interface(0x7bAC85A8a13A4BcD8abb3eB7d6b4d632c5a57676);
 
     enum ChainSelect {
         MAINNET,
@@ -295,7 +304,18 @@ contract CrossChainVaultTest is Helper {
     }
 
     function test_executeCommitmentStrategy_CrossChain() public {
-        // TODO
+        (bytes32 strategyId, bytes32 commitmentId, address polyVault) = commitCrossChain();
+        executeCrossChain(strategyId);
+
+        // check that execute was successful, vault balance increased
+        uint256 ccVaultBalance = ccToken.balanceOf(address(vault));
+        assertEq(ccVaultBalance, 1 ether);
+
+        (,,,,, uint256 nonce) = vault.commitmentStrategies(strategyId);
+        assertEq(nonce, 1);
+
+        uint256 comms = vault.committedAmountsPerStrategy(strategyId, address(wmaticPolygon));
+        assertEq(comms, 0);
     }
 
     function test_executeCommitmentStrategy_CrossChain_Fuzz() public {
@@ -575,9 +595,11 @@ contract CrossChainVaultTest is Helper {
         Position[] memory _positions = sliceToken.getPositions();
         for (uint256 i = 0; i < _positions.length; i++) {
             bytes32 commitmentId = keccak256(
-                abi.encodePacked(CrossChainVault.commitToStrategy.selector, _stratId, dev, _positions[i].token, uint256(0))
+                abi.encodePacked(
+                    CrossChainVault.commitToStrategy.selector, _stratId, dev, _positions[i].token, uint256(0)
+                )
             );
-            (bytes32 id, bytes32 strategyId,,,,,,uint256 committed,) = vault.commitments(commitmentId);
+            (bytes32 id, bytes32 strategyId,,,,,, uint256 committed,) = vault.commitments(commitmentId);
             assertEq(id, bytes32(0));
             assertEq(strategyId, bytes32(0));
             assertEq(committed, 0);
@@ -1423,6 +1445,8 @@ contract CrossChainVaultTest is Helper {
         (address polygonCore,, address polyVault) = deployTestContracts(ChainSelect.POLYGON, "");
         assertEq(polyVault, address(vault));
 
+        polyCore = polygonCore;
+
         deal(address(wmaticPolygon), address(dev), wmaticUnits);
         wmaticPolygon.approve(address(vault), wmaticUnits);
 
@@ -1513,6 +1537,89 @@ contract CrossChainVaultTest is Helper {
         return (_stratId, expectedCommitId, polyVault);
     }
 
+    function executeCrossChain(bytes32 strategyId) private {
+        // take polyCore and polyVault
+        deal(dev, 100 ether);
+        vm.startPrank(dev);
+        vault.setMaxTimestampDiff(3000);
+        vault.setPriceFeedForAsset(address(wmaticPolygon), wmaticPriceFeed);
+
+        // estimate fee for mint
+        (, uint256 feeTotal, uint128[] memory fees, uint256[] memory feesForMsgs) =
+            _estimateFee(polyCore, CrossChainSignalType.MINT, CrossChainSignalType.MINT_COMPLETE);
+
+        // call execute commitment strategy
+        vault.executeCommitmentStrategy{value: feeTotal}(strategyId, toUint128Array(feesForMsgs));
+
+        // crate cross chain signal for SliceCore
+        CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](ccPositions.length);
+
+        // send cross chain signal for SliceCore
+        bytes32 _expMintId = 0x4320aed1d5ca011d776b4ef7e7ae814cb721fb4785e9679770f236b1c76f5518;
+
+        for (uint256 i = 0; i < ccPositions.length; i++) {
+            CrossChainSignal memory ccs = CrossChainSignal({
+                id: _expMintId,
+                srcChainId: uint32(block.chainid),
+                ccsType: CrossChainSignalType.MINT,
+                success: false,
+                user: address(vault),
+                underlying: ccPositions[i].token,
+                units: wmaticUnits,
+                value: i == 0 ? feesForMsgs[0] : 0
+            });
+
+            ccsMsgs[i] = ccs;
+        }
+
+        // make SliceCore persistent
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
+
+        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
+        makePersistent(address(ccToken));
+        // switch to polygon
+        selectPolygon();
+
+        // deal money for gas & msg value to lzendpoint
+        uint256 amountOut = TokenAmountUtils.calculateAmountOutMin(1 ether, wmaticUnits, 18);
+        for (uint256 i = 0; i < ccPositions.length; i++) {
+            deal(ccPositions[i].token, address(vault), amountOut);
+            IERC20(ccPositions[i].token).approve(polyCore, amountOut);
+        }
+        IOAppCore(polyCore).setPeer(30101, bytes32(uint256(uint160(address(core)))));
+        deal(polyCore, 0);
+
+        deal(getAddress("polygon.layerZeroEndpoint"), fees[0]);
+        vm.stopPrank();
+
+        // call lz receive on SliceCore
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(polyCore).lzReceive{value: fees[0]}(origin, bytes32(0), ccsEncoded, address(vault), bytes(""));
+
+        // create response
+        for (uint256 i = 0; i < ccPositions.length; i++) {
+            CrossChainSignal memory ccs = CrossChainSignal({
+                id: _expMintId,
+                srcChainId: uint32(block.chainid),
+                ccsType: CrossChainSignalType.MINT_COMPLETE,
+                success: true,
+                user: address(vault),
+                underlying: ccPositions[i].token,
+                units: wmaticUnits,
+                value: 0
+            });
+
+            ccsMsgs[i] = ccs;
+        }
+        bytes memory ccsEncoded2 = abi.encode(ccsMsgs);
+
+        // call response on mainnet on SliceCore
+        selectMainnet();
+        origin = Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(polyCore)))), nonce: 1});
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+        IOAppReceiver(core).lzReceive(origin, bytes32(0), ccsEncoded2, address(vault), bytes(""));
+    }
+
     function bytes32ToHexString(bytes32 _bytes32) public pure returns (string memory) {
         bytes memory hexChars = "0123456789abcdef";
         bytes memory str = new bytes(64);
@@ -1599,5 +1706,49 @@ contract CrossChainVaultTest is Helper {
         assertEq(decimals, 8);
         assertGt(price, 0);
         assertGt(updateTimestamp, 1711459720);
+    }
+
+    function _estimateFee(address polygonCore, CrossChainSignalType type1, CrossChainSignalType typeRes)
+        private
+        returns (address, uint256, uint128[] memory, uint256[] memory)
+    {
+        uint128[] memory fees = new uint128[](1);
+
+        selectPolygon();
+        if (polygonCore == address(0)) {
+            revert("Polygon core is zero address");
+        }
+
+        LZFeeEstimator feeEstimatorPolygon = new LZFeeEstimator(
+            SliceCore(payable(polygonCore)),
+            SliceCore(payable(polygonCore)).chainInfo(),
+            ILayerZeroEndpointV2(getAddress("polygon.layerZeroEndpoint"))
+        );
+        uint256 polygonFee = feeEstimatorPolygon.estimateLzFeeCompleted(ccPositions, typeRes, 1);
+        fees[0] = uint128(polygonFee);
+
+        selectMainnet();
+
+        vm.deal(dev, 100 ether);
+
+        LZFeeEstimator feeEstimator =
+            new LZFeeEstimator(core, core.chainInfo(), ILayerZeroEndpointV2(getAddress("polygon.layerZeroEndpoint")));
+
+        uint256[] memory feesForMsgs = feeEstimator.estimateLzFee(address(ccToken), type1, fees);
+
+        uint256 feeTotal;
+        for (uint256 i = 0; i < feesForMsgs.length; i++) {
+            feeTotal += feesForMsgs[i];
+        }
+
+        return (polygonCore, feeTotal, fees, feesForMsgs);
+    }
+
+    function toUint128Array(uint256[] memory arr) internal pure returns (uint128[] memory) {
+        uint128[] memory _arr = new uint128[](arr.length);
+        for (uint256 i = 0; i < arr.length; i++) {
+            _arr[i] = uint128(arr[i]);
+        }
+        return _arr;
     }
 }

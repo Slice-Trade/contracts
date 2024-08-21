@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
-import "forge-std/src/console.sol";
+
 import {Position} from "../Structs.sol";
 import {OraclePriceUpdate, Commitment} from "./CrossChainVaultStructs.sol";
 

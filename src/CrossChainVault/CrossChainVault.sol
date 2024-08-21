@@ -218,7 +218,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         // Increase nonce for commitment strategy
         ++commitmentStrategies[strategyId].nonce;
 
-        ISliceToken(_strategy.token).mint(_strategy.target, fees);
+        ISliceToken(_strategy.token).mint{value: msg.value}(_strategy.target, fees);
     }
 
     function commitToStrategy(
