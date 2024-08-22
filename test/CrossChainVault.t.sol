@@ -59,6 +59,7 @@ contract CrossChainVaultTest is Helper {
     CrossChainPositionCreator public ccPosCreator;
 
     address public polyCore;
+    address public polyVault;
 
     address polygonLink = 0xb0897686c545045aFc77CF20eC7A532E3120E0F1;
 
@@ -304,8 +305,8 @@ contract CrossChainVaultTest is Helper {
     }
 
     function test_executeCommitmentStrategy_CrossChain() public {
-        (bytes32 strategyId, bytes32 commitmentId, address polyVault) = commitCrossChain();
-        executeCrossChain(strategyId, false);
+        (bytes32 strategyId,) = commitCrossChain(1 ether);
+        executeCrossChain(strategyId, 1 ether, false);
 
         // check that execute was successful, vault balance increased
         uint256 ccVaultBalance = ccToken.balanceOf(address(vault));
@@ -318,8 +319,22 @@ contract CrossChainVaultTest is Helper {
         assertEq(comms, 0);
     }
 
-    function test_executeCommitmentStrategy_CrossChain_Fuzz() public {
-        // TODO
+    function test_executeCommitmentStrategy_CrossChain_Fuzz(uint256 targetAmount) public {
+        vm.assume(targetAmount > 0);
+        vm.assume(targetAmount < 1000 ether);
+
+        (bytes32 strategyId,) = commitCrossChain(targetAmount);
+        executeCrossChain(strategyId, targetAmount, false);
+
+        // check that execute was successful, vault balance increased
+        uint256 ccVaultBalance = ccToken.balanceOf(address(vault));
+        assertEq(ccVaultBalance, targetAmount);
+
+        (,,,,, uint256 nonce) = vault.commitmentStrategies(strategyId);
+        assertEq(nonce, 1);
+
+        uint256 comms = vault.committedAmountsPerStrategy(strategyId, address(wmaticPolygon));
+        assertEq(comms, 0);
     }
 
     function test_executeCommitmentStrategy_VaultIsPaused() public {
@@ -405,8 +420,8 @@ contract CrossChainVaultTest is Helper {
     }
 
     function test_cannot_executeCommitmentStrategy_InsufficientLzFee() public {
-        (bytes32 strategyId,,) = commitCrossChain();
-        executeCrossChain(strategyId, true);
+        (bytes32 strategyId,) = commitCrossChain(1 ether);
+        executeCrossChain(strategyId, 1 ether, true);
     }
 
     /* =========================================================== */
@@ -478,12 +493,16 @@ contract CrossChainVaultTest is Helper {
     }
 
     function test_commitToStrategy_crossChain() public {
-        (bytes32 _stratId, bytes32 expectedCommitId,) = commitCrossChain();
-        _verifyCommitment(_stratId, expectedCommitId);
+        (bytes32 _stratId, bytes32 expectedCommitId) = commitCrossChain(1 ether);
+        _verifyCommitment(_stratId, expectedCommitId, 1 ether);
     }
 
-    function test_commitToStrategy_crossChain_Fuzz() public {
-        // TODO
+    function test_commitToStrategy_crossChain_Fuzz(uint256 targetAmount) public {
+        vm.assume(targetAmount > 0);
+        vm.assume(targetAmount < 100 ether);
+
+        (bytes32 _stratId, bytes32 expectedCommitId) = commitCrossChain(targetAmount);
+        _verifyCommitment(_stratId, expectedCommitId, targetAmount);
     }
 
     function test_commitToStrategy_TooMuchInCappedAtMax() public {
@@ -657,7 +676,8 @@ contract CrossChainVaultTest is Helper {
 
         selectPolygon();
 
-        (,, address polyVault) = deployTestContracts(ChainSelect.POLYGON, "");
+        (,, address polygonVault) = deployTestContracts(ChainSelect.POLYGON, "");
+        polyVault = polygonVault;
         assertEq(polyVault, address(vault));
 
         deal(address(wmaticPolygon), address(dev), wmaticUnits);
@@ -773,7 +793,7 @@ contract CrossChainVaultTest is Helper {
     }
 
     function test_removeCommitmentFromStrategy_crossChain() public {
-        (bytes32 strategyId, bytes32 commitmentId, address polyVault) = commitCrossChain();
+        (bytes32 strategyId, bytes32 commitmentId) = commitCrossChain(1 ether);
         vm.prank(dev);
         vault.removeCommitmentFromStrategy{value: 1 ether}(commitmentId, wmaticUnits, 60 ether);
 
@@ -968,7 +988,7 @@ contract CrossChainVaultTest is Helper {
     }
 
     function test_cannot_removeCommitmentFromStrategy_InsufficientFeesForCrossChainRemoval() public {
-        (, bytes32 commitmentId, address polyVault) = commitCrossChain();
+        (, bytes32 commitmentId) = commitCrossChain(1 ether);
         vm.prank(dev);
         vault.removeCommitmentFromStrategy{value: 1 ether}(commitmentId, wmaticUnits, 60 ether);
 
@@ -1122,11 +1142,32 @@ contract CrossChainVaultTest is Helper {
     }
 
     function test_pullMintedTokenShares_CrossChain() public {
-        // TODO
+        (bytes32 strategyId,) = commitCrossChain(1 ether);
+        executeCrossChain(strategyId, 1 ether, false);
+
+        vm.prank(dev);
+        vault.pullMintedTokenShares(strategyId, 0);
+        uint256 vaultBalanceAfterPull = ccToken.balanceOf(address(vault));
+        assertEq(vaultBalanceAfterPull, 0);
+
+        uint256 userBalance = ccToken.balanceOf(dev);
+        assertEq(userBalance, 1 ether);
     }
 
-    function test_pullMintedTokenShares_CrossChain_Fuzz() public {
-        // TODO
+    function test_pullMintedTokenShares_CrossChain_Fuzz(uint256 targetAmount) public {
+        vm.assume(targetAmount > 0);
+        vm.assume(targetAmount < 1000 ether);
+
+        (bytes32 strategyId,) = commitCrossChain(targetAmount);
+        executeCrossChain(strategyId, targetAmount, false);
+
+        vm.prank(dev);
+        vault.pullMintedTokenShares(strategyId, 0);
+        uint256 vaultBalanceAfterPull = ccToken.balanceOf(address(vault));
+        assertEq(vaultBalanceAfterPull, 0);
+
+        uint256 userBalance = ccToken.balanceOf(dev);
+        assertEq(userBalance, targetAmount);
     }
 
     function test_cannot_pullMintedTokenShares_InvalidStrategyId() public {
@@ -1437,13 +1478,25 @@ contract CrossChainVaultTest is Helper {
         positions.push(wbtcPosition);
     }
 
-    function commitCrossChain() private returns (bytes32, bytes32, address) {
+    function commitCrossChain(uint256 targetAmount) private returns (bytes32, bytes32) {
         vm.startPrank(dev);
-        bytes32 _stratId = 0x860200ef8180fd0973a6a252b60ca04bd649076e56246c907bdf52817689399d;
+        bytes32 _stratId = keccak256(
+            abi.encodePacked(
+                CrossChainVault.createCommitmentStrategy.selector,
+                block.chainid,
+                dev,
+                address(vault),
+                address(ccToken),
+                targetAmount,
+                block.timestamp,
+                uint256(0)
+            )
+        );
 
         selectPolygon();
 
-        (address polygonCore,, address polyVault) = deployTestContracts(ChainSelect.POLYGON, "");
+        (address polygonCore,, address polygonVault) = deployTestContracts(ChainSelect.POLYGON, "");
+        polyVault = polygonVault;
         assertEq(polyVault, address(vault));
 
         polyCore = polygonCore;
@@ -1458,12 +1511,17 @@ contract CrossChainVaultTest is Helper {
         assets[0] = address(wmaticPolygon);
 
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = wmaticUnits;
+        console.log("target amount: ", targetAmount);
+        console.log("wmatic unit: ", wmaticUnits);
+
+        uint256 wmaticAmount = TokenAmountUtils.calculateAmountOutMin(targetAmount, wmaticUnits, 18);
+        amounts[0] = wmaticAmount;
+        console.log("wmatic amount: ", wmaticAmount);
 
         uint128[] memory fees = new uint128[](1);
         fees[0] = 60 ether;
 
-        vault.createCommitmentStrategy(address(ccToken), 1 ether, false);
+        vault.createCommitmentStrategy(address(ccToken), targetAmount, false);
         vault.commitToStrategy{value: 1 ether}(_stratId, assets, amounts, fees);
 
         CrossChainVaultSignal[] memory ccsMsgs = new CrossChainVaultSignal[](1);
@@ -1475,7 +1533,7 @@ contract CrossChainVaultTest is Helper {
             user: dev,
             underlying: address(wmaticPolygon),
             decimals: 18,
-            amount: wmaticUnits,
+            amount: wmaticAmount,
             value: 60 ether
         });
 
@@ -1488,8 +1546,8 @@ contract CrossChainVaultTest is Helper {
         makePersistent(address(vault));
 
         selectPolygon();
-        deal(address(wmaticPolygon), dev, wmaticUnits);
-        IERC20(wmaticPolygon).approve(address(vault), wmaticUnits);
+        deal(address(wmaticPolygon), dev, wmaticAmount);
+        IERC20(wmaticPolygon).approve(address(vault), wmaticAmount);
 
         IOAppCore(polyVault).setPeer(30101, bytes32(uint256(uint160(address(vault)))));
 
@@ -1500,7 +1558,7 @@ contract CrossChainVaultTest is Helper {
         IOAppReceiver(polyVault).lzReceive{value: 60 ether}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
 
         uint256 balance = wmaticPolygon.balanceOf(polyVault);
-        assertEq(wmaticUnits, balance);
+        assertEq(wmaticAmount, balance);
         uint256 coreApproval = wmaticPolygon.allowance(polyVault, polygonCore);
         assertEq(balance, coreApproval);
 
@@ -1511,7 +1569,7 @@ contract CrossChainVaultTest is Helper {
             user: dev,
             underlying: address(wmaticPolygon),
             decimals: 18,
-            amount: wmaticUnits,
+            amount: wmaticAmount,
             value: 0
         });
 
@@ -1535,15 +1593,17 @@ contract CrossChainVaultTest is Helper {
         emit ICrossChainVault.CommittedToStrategy(_stratId, expectedCommitId);
         IOAppReceiver(address(vault)).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
 
-        return (_stratId, expectedCommitId, polyVault);
+        return (_stratId, expectedCommitId);
     }
 
-    function executeCrossChain(bytes32 strategyId, bool shouldFailOnLzFee) private {
+    function executeCrossChain(bytes32 strategyId, uint256 targetAmount, bool shouldFailOnLzFee) private {
         // take polyCore and polyVault
         deal(dev, 100 ether);
         vm.startPrank(dev);
         vault.setMaxTimestampDiff(3000);
         vault.setPriceFeedForAsset(address(wmaticPolygon), wmaticPriceFeed);
+
+        uint256 amountOut = TokenAmountUtils.calculateAmountOutMin(targetAmount, wmaticUnits, 18);
 
         // estimate fee for mint
         (, uint256 feeTotal, uint128[] memory fees, uint256[] memory feesForMsgs) =
@@ -1563,7 +1623,11 @@ contract CrossChainVaultTest is Helper {
         CrossChainSignal[] memory ccsMsgs = new CrossChainSignal[](ccPositions.length);
 
         // send cross chain signal for SliceCore
-        bytes32 _expMintId = 0x4320aed1d5ca011d776b4ef7e7ae814cb721fb4785e9679770f236b1c76f5518;
+        bytes32 _expMintId = keccak256(
+            abi.encodePacked(
+                SliceToken.mint.selector, block.chainid, address(vault), address(ccToken), targetAmount, block.timestamp, uint256(0)
+            )
+        );
 
         for (uint256 i = 0; i < ccPositions.length; i++) {
             CrossChainSignal memory ccs = CrossChainSignal({
@@ -1573,7 +1637,7 @@ contract CrossChainVaultTest is Helper {
                 success: false,
                 user: address(vault),
                 underlying: ccPositions[i].token,
-                units: wmaticUnits,
+                units: amountOut,
                 value: i == 0 ? feesForMsgs[0] : 0
             });
 
@@ -1589,7 +1653,6 @@ contract CrossChainVaultTest is Helper {
         selectPolygon();
 
         // deal money for gas & msg value to lzendpoint
-        uint256 amountOut = TokenAmountUtils.calculateAmountOutMin(1 ether, wmaticUnits, 18);
         for (uint256 i = 0; i < ccPositions.length; i++) {
             deal(ccPositions[i].token, address(vault), amountOut);
             IERC20(ccPositions[i].token).approve(polyCore, amountOut);
@@ -1613,11 +1676,12 @@ contract CrossChainVaultTest is Helper {
                 success: true,
                 user: address(vault),
                 underlying: ccPositions[i].token,
-                units: wmaticUnits,
+                units: amountOut,
                 value: 0
             });
 
             ccsMsgs[i] = ccs;
+            console.log("Token: ", ccPositions[i].token);
         }
         bytes memory ccsEncoded2 = abi.encode(ccsMsgs);
 
@@ -1680,7 +1744,7 @@ contract CrossChainVaultTest is Helper {
         assertEq(strategyNonce, 0);
     }
 
-    function _verifyCommitment(bytes32 expectedStratId, bytes32 expectedCommitId) private view {
+    function _verifyCommitment(bytes32 expectedStratId, bytes32 expectedCommitId, uint256 targetAmount) private view {
         (
             bytes32 commId,
             bytes32 strategyId,
@@ -1698,7 +1762,8 @@ contract CrossChainVaultTest is Helper {
         assertEq(creator, dev);
         assertEq(chainId, 137);
         assertEq(asset, address(wmaticPolygon));
-        assertEq(committed, wmaticUnits);
+        
+        assertEq(committed, TokenAmountUtils.calculateAmountOutMin(targetAmount, wmaticUnits, 18));
         assertEq(strategyNonce, 0);
 
         uint256 committedAmountForStrat = vault.committedAmountsPerStrategy(expectedStratId, asset);
