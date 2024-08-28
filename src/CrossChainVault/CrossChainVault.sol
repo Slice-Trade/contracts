@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import "forge-std/src/console.sol";
+
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -51,16 +53,15 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
      */
     mapping(bytes32 strategyIdTokenHash => OraclePriceUpdate) public oraclePriceUpdates;
 
-    // TODO: Maybe store strategyIdTokenHash everywhere instead of nested mappings...
     /**
      * @dev Stores the amounts committed for each asset for each strategy
      */
-    mapping(bytes32 strategyId => mapping(address => uint256) commitedAmounts) public committedAmountsPerStrategy;
+    mapping(bytes32 strategyIdTokenhash => uint256 commitedAmounts) public committedAmountsPerStrategy;
 
     /**
      * @dev Stores cross-chain asset removals, that are sent to LZ but have not been confirmed yet
      */
-    mapping(bytes32 strategyId => mapping(address => uint256)) public pendingRemovals;
+    mapping(bytes32 strategyIdUserHash => uint256) public pendingRemovals;
 
     /**
      * @dev Stores cross chain gas information for layer zero messages
@@ -161,7 +162,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         for (uint256 i = 0; i < posLength; i++) {
             uint256 newUnits =
                 TokenAmountUtils.calculateAmountOutMin(newTarget, _positions[i].units, _positions[i].decimals);
-            if (newUnits < committedAmountsPerStrategy[strategyId][_positions[i].token]) {
+            bytes32 strategyIdTokenHash = keccak256(abi.encode(strategyId, _positions[i].token));
+            if (newUnits < committedAmountsPerStrategy[strategyIdTokenHash]) {
                 revert NewTargetTooLow();
             }
         }
@@ -188,14 +190,18 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             // if target committedAmountsPerStrategy for each is > amountOutMin for target and for each
             uint256 targetUnits =
                 TokenAmountUtils.calculateAmountOutMin(_strategy.target, _positions[i].units, _positions[i].decimals);
-            uint256 committedUnits = committedAmountsPerStrategy[strategyId][_positions[i].token];
-            uint256 pendingRemovalUnits = pendingRemovals[strategyId][_positions[i].token];
+
+            bytes32 strategyIdTokenHash = keccak256(abi.encode(strategyId, _positions[i].token));
+
+            uint256 committedUnits = committedAmountsPerStrategy[strategyIdTokenHash];
+
+            uint256 pendingRemovalUnits = pendingRemovals[keccak256(abi.encode(strategyId, _positions[i].token))];
             if ((committedUnits - pendingRemovalUnits) < targetUnits) {
                 revert InvalidAmount();
             }
 
             // reset all committed units to 0
-            committedAmountsPerStrategy[strategyId][_positions[i].token] = 0;
+            committedAmountsPerStrategy[strategyIdTokenHash] = 0;
 
             // get the price for the position
             uint256 latestUSDPrice = getLatestPriceInfo(_positions[i].token);
@@ -211,7 +217,6 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             });
 
             // store the oracle price for each underlying asset
-            bytes32 strategyIdTokenHash = keccak256(abi.encode(strategyId, _positions[i].token));
             oraclePriceUpdates[strategyIdTokenHash] = _priceUpdate;
         }
 
@@ -315,9 +320,11 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         // send the asset to the user if local
         if (_isCommitmentLocal) {
             IERC20(_commitment.asset).safeTransfer(_commitment.creator, amount);
+            bytes32 strategyIdTokenHash = keccak256(abi.encode(_commitment.strategyId, _commitment.asset));
+
             // update the committed amount to the new amount
             commitments[commitmentId].committed -= amount;
-            committedAmountsPerStrategy[_commitment.strategyId][_commitment.asset] -= amount;
+            committedAmountsPerStrategy[strategyIdTokenHash] -= amount;
 
             emit RemovedCommitmentFromStrategy(_commitment.id, amount);
         } else {
@@ -335,8 +342,10 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             CrossChainVaultSignal[] memory ccsMsgs = new CrossChainVaultSignal[](1);
             ccsMsgs[0] = ccs;
             bytes memory ccsEncoded = abi.encode(ccsMsgs);
+
             // update pending removals, this will prevent execution while the removal is pending becuase the amount will be less
-            pendingRemovals[_commitment.strategyId][_commitment.asset] += amount;
+            bytes32 strategyIdUserHash = keccak256(abi.encode(_commitment.strategyId, _commitment.asset));
+            pendingRemovals[strategyIdUserHash] += amount;
             // send the cross-chain message
             _sendLzMsg(CrossChainVaultSignalType.REMOVE, ccsEncoded, uint32(block.chainid), msg.sender);
         }
@@ -590,9 +599,12 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
 
         commitments[_ccs.id].committed -= _ccs.amount;
 
-        committedAmountsPerStrategy[_commitment.strategyId][_commitment.asset] -= _ccs.amount;
+        bytes32 strategyIdTokenHash = keccak256(abi.encode(_commitment.strategyId, _commitment.asset));
 
-        pendingRemovals[_commitment.strategyId][_commitment.asset] -= _ccs.amount;
+        committedAmountsPerStrategy[strategyIdTokenHash] -= _ccs.amount;
+
+        bytes32 strategyIdUserHash = keccak256(abi.encode(_commitment.strategyId, _commitment.asset));
+        pendingRemovals[strategyIdUserHash] -= _ccs.amount;
 
         emit RemovedCommitmentFromStrategy(_commitment.id, _ccs.amount);
     }
@@ -681,9 +693,11 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         CommitmentStrategy memory _strategy = commitmentStrategies[strategyId];
         uint256 amountToTransfer = amounts[uint256(assetIdx)];
 
+        bytes32 strategyIdTokenHash = keccak256(abi.encode(strategyId, position.token));
+
         uint256 amountNeeded = TokenAmountUtils.calculateAmountOutMin(
             _strategy.target, position.units, position.decimals
-        ) - committedAmountsPerStrategy[strategyId][position.token];
+        ) - committedAmountsPerStrategy[strategyIdTokenHash];
 
         if (amountToTransfer > amountNeeded) {
             amountToTransfer = amountNeeded;
@@ -724,7 +738,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         }
 
         // update committedAmountsPerStrategy
-        committedAmountsPerStrategy[strategyId][underlyingAsset] += amountToTransfer;
+        bytes32 strategyIdTokenHash = keccak256(abi.encode(strategyId, underlyingAsset));
+        committedAmountsPerStrategy[strategyIdTokenHash] += amountToTransfer;
     }
 
     function requiredGas(CrossChainVaultSignalType ccsType, uint128 msgsLength) internal view returns (uint128) {
@@ -776,7 +791,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         Position memory _position
     ) private view returns (uint256) {
         //      - if yes check how much has been committed
-        uint256 alreadyCommitted = committedAmountsPerStrategy[_strategy.id][_position.token];
+        bytes32 strategyIdTokenHash = keccak256(abi.encode(_strategy.id, _position.token));
+        uint256 alreadyCommitted = committedAmountsPerStrategy[strategyIdTokenHash];
 
         //      - calculate total target amount required for asset: target * position units
         uint256 targetAmountForAsset =

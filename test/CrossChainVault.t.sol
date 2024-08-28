@@ -228,7 +228,7 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     /*  ==============  executeCommitmentStrategy  =============   */
     /* =========================================================== */
-    function test_executeCommitmentStrategy() public {
+    function test_executeCommitmentStrategy1() public {
         // create commitment strategy
         vm.startPrank(dev);
         bytes32 _stratId = 0x28cbbe1250d99285a4c007bac00ddf0fb20ea5646ebdfbcf775cb0f7133c02f1;
@@ -296,7 +296,8 @@ contract CrossChainVaultTest is Helper {
 
         // check that committed amounts per strategy has been reset to 0
         for (uint256 i = 0; i < _positions.length; i++) {
-            uint256 comm = vault.committedAmountsPerStrategy(_stratId, _positions[i].token);
+            bytes32 strategyIdTokenHash = keccak256(abi.encode(_stratId, _positions[i].token));
+            uint256 comm = vault.committedAmountsPerStrategy(strategyIdTokenHash);
             assertEq(comm, 0);
 
             // check that oracle prices have been updated
@@ -315,7 +316,8 @@ contract CrossChainVaultTest is Helper {
         (,,,,, uint256 nonce) = vault.commitmentStrategies(strategyId);
         assertEq(nonce, 1);
 
-        uint256 comms = vault.committedAmountsPerStrategy(strategyId, address(wmaticPolygon));
+        bytes32 strategyIdTokenHash = keccak256(abi.encode(strategyId, address(wmaticPolygon)));
+        uint256 comms = vault.committedAmountsPerStrategy(strategyIdTokenHash);
         assertEq(comms, 0);
     }
 
@@ -333,7 +335,8 @@ contract CrossChainVaultTest is Helper {
         (,,,,, uint256 nonce) = vault.commitmentStrategies(strategyId);
         assertEq(nonce, 1);
 
-        uint256 comms = vault.committedAmountsPerStrategy(strategyId, address(wmaticPolygon));
+        bytes32 strategyIdTokenHash = keccak256(abi.encode(strategyId, address(wmaticPolygon)));
+        uint256 comms = vault.committedAmountsPerStrategy(strategyIdTokenHash);
         assertEq(comms, 0);
     }
 
@@ -486,7 +489,8 @@ contract CrossChainVaultTest is Helper {
         for (uint256 i = 0; i < commitmentIds.length; i++) {
             assertCommitment(commitmentIds[i], _stratId, assets[i], amounts[i]);
             // check that committed amounts per strategy updated
-            uint256 committedPerStrat = vault.committedAmountsPerStrategy(_stratId, assets[i]);
+            bytes32 strategyIdTokenHash = keccak256(abi.encode(_stratId, assets[i]));
+            uint256 committedPerStrat = vault.committedAmountsPerStrategy(strategyIdTokenHash);
             assertEq(committedPerStrat, amounts[i]);
         }
         vm.stopPrank();
@@ -534,7 +538,8 @@ contract CrossChainVaultTest is Helper {
 
         assertEq(committed, wethUnits);
 
-        uint256 committedPerStrat = vault.committedAmountsPerStrategy(_stratId, assets[0]);
+        bytes32 strategyIdTokenHash = keccak256(abi.encode(_stratId, assets[0]));
+        uint256 committedPerStrat = vault.committedAmountsPerStrategy(strategyIdTokenHash);
         assertEq(committedPerStrat, wethUnits);
 
         vm.stopPrank();
@@ -787,7 +792,8 @@ contract CrossChainVaultTest is Helper {
         for (uint256 i = 0; i < commitmentIds.length; i++) {
             amounts[i] = 0;
             assertCommitment(commitmentIds[i], _stratId, assets[i], amounts[i]);
-            uint256 committedPerStrat = vault.committedAmountsPerStrategy(_stratId, assets[i]);
+            bytes32 strategyIdTokenHash = keccak256(abi.encode(_stratId, assets[i]));
+            uint256 committedPerStrat = vault.committedAmountsPerStrategy(strategyIdTokenHash);
             assertEq(committedPerStrat, amounts[i]);
         }
     }
@@ -858,7 +864,8 @@ contract CrossChainVaultTest is Helper {
 
         assertCommitment(commitmentId, strategyId, address(wmaticPolygon), 0);
 
-        uint256 committedAmountForStrat = vault.committedAmountsPerStrategy(strategyId, address(wmaticPolygon));
+        bytes32 strategyIdTokenHash = keccak256(abi.encode(strategyId, address(wmaticPolygon)));
+        uint256 committedAmountForStrat = vault.committedAmountsPerStrategy(strategyIdTokenHash);
         assertEq(committedAmountForStrat, 0);
     }
 
@@ -1511,12 +1518,9 @@ contract CrossChainVaultTest is Helper {
         assets[0] = address(wmaticPolygon);
 
         uint256[] memory amounts = new uint256[](1);
-        console.log("target amount: ", targetAmount);
-        console.log("wmatic unit: ", wmaticUnits);
 
         uint256 wmaticAmount = TokenAmountUtils.calculateAmountOutMin(targetAmount, wmaticUnits, 18);
         amounts[0] = wmaticAmount;
-        console.log("wmatic amount: ", wmaticAmount);
 
         uint128[] memory fees = new uint128[](1);
         fees[0] = 60 ether;
@@ -1681,7 +1685,6 @@ contract CrossChainVaultTest is Helper {
             });
 
             ccsMsgs[i] = ccs;
-            console.log("Token: ", ccPositions[i].token);
         }
         bytes memory ccsEncoded2 = abi.encode(ccsMsgs);
 
@@ -1766,7 +1769,8 @@ contract CrossChainVaultTest is Helper {
         assertEq(committed, TokenAmountUtils.calculateAmountOutMin(targetAmount, wmaticUnits, 18));
         assertEq(strategyNonce, 0);
 
-        uint256 committedAmountForStrat = vault.committedAmountsPerStrategy(expectedStratId, asset);
+        bytes32 strategyIdTokenHash = keccak256(abi.encode(expectedStratId, asset));
+        uint256 committedAmountForStrat = vault.committedAmountsPerStrategy(strategyIdTokenHash);
         assertEq(committedAmountForStrat, committed);
     }
 
