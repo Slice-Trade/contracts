@@ -92,10 +92,9 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         sliceCore = _sliceCore;
         chainInfo = _chainInfo;
 
-        // TODO: gas estimations
-        lzGasLookup[CrossChainVaultSignalType.COMMIT] = 2e5;
+        lzGasLookup[CrossChainVaultSignalType.COMMIT] = 280_000;
         lzGasLookup[CrossChainVaultSignalType.COMMIT_COMPLETE] = 2e5;
-        lzGasLookup[CrossChainVaultSignalType.REMOVE] = 2e5;
+        lzGasLookup[CrossChainVaultSignalType.REMOVE] = 250_000;
         lzGasLookup[CrossChainVaultSignalType.REMOVE_COMPLETE] = 2e5;
     }
 
@@ -752,11 +751,13 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
     }
 
     function gasStep(CrossChainVaultSignalType ccsType) internal pure returns (uint128) {
-        // TODO: Gas estimations
-        if (ccsType == CrossChainVaultSignalType.COMMIT || ccsType == CrossChainVaultSignalType.COMMIT_COMPLETE) {
-            return 55_000;
+        if (ccsType == CrossChainVaultSignalType.COMMIT) {
+            return 75_000;
+        } else if(ccsType == CrossChainVaultSignalType.COMMIT_COMPLETE) {
+            return 163_000;
         }
-        return 37_000;
+
+        return 0;
     }
 
     function _verifyStrategy(bytes32 strategyId, CommitmentStrategy memory _strategy) private view {

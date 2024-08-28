@@ -207,11 +207,6 @@ contract SliceCoreTest is Helper {
 
         ccPosCreator = new CrossChainPositionCreator();
 
-        /*         ChainInfo chainInfo = new ChainInfo();
-        SliceTokenDeployer deployer = new SliceTokenDeployer();
-
-        SliceCore _core =
-            new SliceCore(getAddress("mainnet.layerZeroEndpoint"), address(chainInfo), address(deployer), dev); */
         vm.stopPrank();
     }
 
