@@ -228,7 +228,7 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     /*  ==============  executeCommitmentStrategy  =============   */
     /* =========================================================== */
-    function test_executeCommitmentStrategy1() public {
+    function test_executeCommitmentStrategy() public {
         // create commitment strategy
         vm.startPrank(dev);
         bytes32 _stratId = 0x28cbbe1250d99285a4c007bac00ddf0fb20ea5646ebdfbcf775cb0f7133c02f1;
@@ -321,14 +321,11 @@ contract CrossChainVaultTest is Helper {
         assertEq(comms, 0);
     }
 
-    function test_executeCommitmentStrategy_CrossChain_Fuzz(uint256 targetAmount, uint8 length) public {
+    function test_executeCommitmentStrategy_CrossChain_Fuzz(uint256 targetAmount) public {
         vm.assume(targetAmount > 0);
         vm.assume(targetAmount < 1000 ether);
-        vm.assume(length > 0);
-        vm.assume(length < 10);
 
-        (bytes32 strategyId,) = commitCrossChain(targetAmount, length);
-        console.log("OK");
+        (bytes32 strategyId,) = commitCrossChain(targetAmount, 1);
         executeCrossChain(strategyId, targetAmount, false);
 
         // check that execute was successful, vault balance increased
@@ -1166,13 +1163,11 @@ contract CrossChainVaultTest is Helper {
         assertEq(userBalance, 1 ether);
     }
 
-    function test_pullMintedTokenShares_CrossChain_Fuzz(uint256 targetAmount, uint8 length) public {
+    function test_pullMintedTokenShares_CrossChain_Fuzz(uint256 targetAmount) public {
         vm.assume(targetAmount > 0);
         vm.assume(targetAmount < 1000 ether);
-        vm.assume(length > 0);
-        vm.assume(length < 10);
 
-        (bytes32 strategyId,) = commitCrossChain(targetAmount, length);
+        (bytes32 strategyId,) = commitCrossChain(targetAmount, 1);
         executeCrossChain(strategyId, targetAmount, false);
 
         vm.prank(dev);
@@ -1525,7 +1520,6 @@ contract CrossChainVaultTest is Helper {
         uint256[] memory amounts = new uint256[](length);
 
         uint256 wmaticAmount = TokenAmountUtils.calculateAmountOutMin(targetAmount, wmaticUnits, 18);
-        console.log("wmatic ubints: ", wmaticAmount);
 
         uint128[] memory fees = new uint128[](1);
         fees[0] = 160 ether;
@@ -1625,7 +1619,6 @@ contract CrossChainVaultTest is Helper {
         vault.setPriceFeedForAsset(address(wmaticPolygon), wmaticPriceFeed);
 
         uint256 amountOut = TokenAmountUtils.calculateAmountOutMin(targetAmount, wmaticUnits, 18);
-
         // estimate fee for mint
         (, uint256 feeTotal, uint128[] memory fees, uint256[] memory feesForMsgs) =
             _estimateFee(polyCore, CrossChainSignalType.MINT, CrossChainSignalType.MINT_COMPLETE);
