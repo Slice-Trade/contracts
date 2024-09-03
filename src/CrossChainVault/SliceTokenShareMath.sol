@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Position} from "../Structs.sol";
 import {OraclePriceUpdate, Commitment} from "./CrossChainVaultStructs.sol";
 
+/// @dev Please refer to math.md for more detail on these calculations
 library SliceTokenShareMath {
     error InvalidPositionsLength();
 
