@@ -11,7 +11,6 @@ interface ICrossChainVault is ILayerZeroReceiver {
     event CommittedToStrategy(bytes32 indexed strategyId, bytes32 indexed commitmentId);
     event RemovedCommitmentFromStrategy(bytes32 indexed commitmentId, uint256 indexed amount);
     event PulledMintedTokenShares(bytes32 indexed strategyId, address indexed user, uint256 indexed sliceTokenAmount);
-    event UpdatedUnderlyingAssetPrices(bytes32 indexed strategyId);
     event ChangedUserApprovalToCommitmentStrategy(bytes32 indexed strategyId, address indexed user, bool indexed isApproved);
     event VaultPaused();
     event VaultRestarted();
@@ -22,20 +21,15 @@ interface ICrossChainVault is ILayerZeroReceiver {
     error VaultNotPaused();
 
     error UnregisteredSliceToken();
-    error InvalidTimestamp();
-    error InvalidTimeInterval();
     error InvalidAmount();
 
     error InvalidStrategyId();
     error Unauthorized();
-    error InvalidStrategyState();
     error StrategyNotPrivate();
 
     error StrategyAlreadyExecuted();
 
     error InvalidCommitmentId();
-    
-    error StrategyOver();
 
     error OriginNotVault();
 

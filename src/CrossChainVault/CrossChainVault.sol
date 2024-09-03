@@ -223,6 +223,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         ++commitmentStrategies[strategyId].nonce;
 
         ISliceToken(_strategy.token).mint{value: msg.value}(_strategy.target, fees);
+
+        emit CommitmentStrategyExecuted(strategyId);
     }
 
     function commitToStrategy(
@@ -406,6 +408,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
 
         // user them to calculate the user's share of the given mint
         ISliceToken(_strategy.token).transfer(msg.sender, USA);
+
+        emit PulledMintedTokenShares(strategyId, msg.sender, USA);
     }
 
     function commitmentExists(bytes32 commitmentId) internal view returns (bool) {
@@ -441,6 +445,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
 
     function pauseVault() external onlyOwner vaultNotPaused {
         isPaused = true;
+
+        emit VaultPaused();
     }
 
     function restartVault() external onlyOwner {
@@ -448,6 +454,8 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
             revert VaultNotPaused();
         }
         isPaused = false;
+
+        emit VaultRestarted();
     }
 
     function setLzBaseGas(CrossChainVaultSignalType ccsType, uint128 gas) external onlyOwner {
