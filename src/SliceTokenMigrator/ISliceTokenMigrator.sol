@@ -8,9 +8,9 @@ interface ISliceTokenMigrator {
 
     error UnregisteredSliceToken();
 
-    function migrateStep1(address srcAsset, address dstAsset, uint256 fromAmount) external;
+    function migrateStep1(address srcAsset, address dstAsset, uint256 fromAmount, uint128[] calldata fees) external payable;
 
-    function migrateStep2(bytes32 migrationId) external;
+    function migrateStep2(bytes32 migrationId, uint128[] calldata fees) external payable;
 
     function withdraw(bytes32 migrationId) external;
 }
