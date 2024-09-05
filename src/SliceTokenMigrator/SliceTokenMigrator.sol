@@ -37,6 +37,7 @@ import "./MigratorUtils.sol";
 
 contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
     using SafeERC20 for ISliceToken;
+    using SafeERC20 for IERC20;
 
     ISliceCore immutable SLICE_CORE;
     IChainInfo immutable CHAIN_INFO;
@@ -62,8 +63,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
 
         // TODO: Gas estimations
         lzGasLookup[MigratorCrossChainSignalType.APPROVE_TRANSFER] = 150_000;
-        lzGasLookup[MigratorCrossChainSignalType.WITHDRAW_REDEEM] = 250_000;
-        lzGasLookup[MigratorCrossChainSignalType.WITHDRAW_REFUND] = 250_000;
+        lzGasLookup[MigratorCrossChainSignalType.WITHDRAW] = 250_000;
     }
 
     function migrateStep1(address srcAsset, address dstAsset, uint256 fromAmount, uint128[] calldata fees)
@@ -109,10 +109,11 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
             revert InvalidTransactionState();
         }
 
+        // TODO: introduce state controls so this can only be called once
+
         Position[] memory dstAssetPositions = ISliceToken(migrationInfo.dstAsset).getPositions();
         MigratePosition[] memory common =
             MigratorUtils.getCommonAssets(ISliceToken(migrationInfo.srcAsset).getPositions(), dstAssetPositions);
-
 
         uint256 mintAmount = type(uint256).max;
         // calculate how much we can mint from SliceB
@@ -136,7 +137,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
             uint256 approveAmount = TokenAmountUtils.calculateAmountOutMin(
                 mintAmount, dstAssetPositions[i].units, dstAssetPositions[i].decimals
             );
-            if (_isPositionLocal(dstAssetPositions[i])) {
+            if (_isPositionLocal(dstAssetPositions[i].chainId)) {
                 IERC20(dstAssetPositions[i].token).approve(address(SLICE_CORE), approveAmount);
             } else {
                 MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
@@ -146,7 +147,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
                     amount: approveAmount
                 });
 
-                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, dstAssetPositions[i], lzMsgInfo);
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, dstAssetPositions[i].chainId, lzMsgInfo);
             }
         }
 
@@ -161,7 +162,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
         emit MigrateStep2(migrationId);
     }
 
-    function withdraw(bytes32 migrationId) external payable {
+    function withdrawMintedSlice(bytes32 migrationId) external {
         MigrationInfo memory migrationInfo = migrationInfos[migrationId];
         if (migrationInfo.creator != msg.sender) {
             revert Unauthorized();
@@ -171,18 +172,68 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
             revert InvalidTransactionState();
         }
 
+        // TODO: introduce state controls so this can only be called once
+
         ISliceToken(migrationInfo.dstAsset).safeTransfer(migrationInfo.creator, migrationInfo.mintAmount);
 
-        Position[] memory redeemedAssets = MigratorUtils.getSliceAOnlyAssets(
+        emit Withdraw(migrationId);
+    }
+
+    function withdrawLeftoverAssets(bytes32 migrationId) external payable {
+        MigrationInfo memory migrationInfo = migrationInfos[migrationId];
+        if (migrationInfo.creator != msg.sender) {
+            revert Unauthorized();
+        }
+
+        if (ISliceToken(migrationInfo.dstAsset).getMint(migrationInfo.mintId).state != TransactionState.FULFILLED) {
+            revert InvalidTransactionState();
+        }
+
+        // TODO: introduce state controls so this can only be called once
+
+        MigratePosition[] memory common = MigratorUtils.getCommonAssets(
             ISliceToken(migrationInfo.srcAsset).getPositions(), ISliceToken(migrationInfo.dstAsset).getPositions()
         );
 
-        // TODO: we also need to get any leftover assets that were not used during the mintStep2
+        uint256 commonLength = common.length;
+        MigratorCrossChainSignal[] memory ccMsgs = new MigratorCrossChainSignal[](commonLength);
+        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, commonLength, msg.value);
 
-        // Position[]
-        // TODO: we need to send cross-chain msgs to transfer out the redeemed assets
+        for (uint256 i = 0; i < commonLength; i++) {
+            uint256 amountRedeemed =
+                TokenAmountUtils.calculateAmountOutMin(migrationInfo.fromAmount, common[i].unitsA, common[i].decimals);
 
-        emit Withdraw(migrationId);
+            uint256 amountUsedForMint =
+                TokenAmountUtils.calculateAmountOutMin(migrationInfo.mintAmount, common[i].unitsB, common[i].decimals);
+
+            uint256 transferAmount;
+            if (amountRedeemed <= amountUsedForMint) {
+                continue;
+            }
+            // we need to transfer the difference
+            transferAmount = amountRedeemed - amountUsedForMint;
+            if (_isPositionLocal(common[i].chainId)) {
+                IERC20(common[i].token).safeTransfer(migrationInfo.creator, transferAmount);
+            } else {
+                MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
+                    ccsType: MigratorCrossChainSignalType.WITHDRAW,
+                    underlying: common[i].token,
+                    user: migrationInfo.creator,
+                    amount: transferAmount
+                });
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, common[i].chainId, lzMsgInfo);
+            }
+
+            if (lzMsgInfo.currentCount != 0) {
+                _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, migrationInfo.creator);
+            }
+        }
+    }
+
+    // Position[]
+    // TODO: we need to send cross-chain msgs to transfer out the redeemed assets
+    function withdrawRedeemedAssets(bytes32 migrationId) external payable {
+        // TODO: introduce state controls so this can only be called once
     }
 
     function refund(bytes32 migrationId, uint128[] calldata fees) external payable {
@@ -238,10 +289,10 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
     function groupAndSendLzMsg(
         MigratorCrossChainSignal[] memory ccMsgs,
         MigratorCrossChainSignal memory ccs,
-        Position memory position,
+        uint256 positionChainId,
         LzMsgGroupInfo memory lzMsgInfo
     ) internal returns (MigratorCrossChainSignal[] memory, LzMsgGroupInfo memory) {
-        if (lzMsgInfo.currentChainId == position.chainId) {
+        if (lzMsgInfo.currentChainId == positionChainId) {
             ccMsgs[lzMsgInfo.currentCount] = ccs;
             ++lzMsgInfo.currentCount;
         } else {
@@ -249,11 +300,11 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
                 (ccMsgs, lzMsgInfo) = _sendGroupedLzMsg(ccMsgs, ccs, lzMsgInfo, address(this));
 
                 lzMsgInfo.currentCount = 0;
-                lzMsgInfo.currentChainId = position.chainId;
+                lzMsgInfo.currentChainId = positionChainId;
                 ccMsgs = new MigratorCrossChainSignal[](lzMsgInfo.positionsLength);
             }
             ccMsgs[lzMsgInfo.currentCount] = ccs;
-            lzMsgInfo.currentChainId = position.chainId;
+            lzMsgInfo.currentChainId = positionChainId;
             ++lzMsgInfo.currentCount;
         }
         return (ccMsgs, lzMsgInfo);
@@ -309,8 +360,8 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
         return 25_000;
     }
 
-    function _isPositionLocal(Position memory position) private view returns (bool) {
-        return position.chainId == block.chainid;
+    function _isPositionLocal(uint256 positionChainId) private view returns (bool) {
+        return positionChainId == block.chainid;
     }
 
     /* =========================================================== */

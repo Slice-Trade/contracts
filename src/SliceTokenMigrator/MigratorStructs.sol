@@ -22,8 +22,7 @@ struct MigratePosition {
 
 enum MigratorCrossChainSignalType {
     APPROVE_TRANSFER,
-    WITHDRAW_REDEEM,
-    WITHDRAW_REFUND
+    WITHDRAW
 }
 
 struct MigratorCrossChainSignal {

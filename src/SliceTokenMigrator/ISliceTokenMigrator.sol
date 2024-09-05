@@ -18,5 +18,5 @@ interface ISliceTokenMigrator {
 
     function migrateStep2(bytes32 migrationId, uint128[] calldata fees) external payable;
 
-    function withdraw(bytes32 migrationId) external payable;
+    function withdrawMintedSlice(bytes32 migrationId) external;
 }

@@ -8,7 +8,7 @@ library MigratorUtils {
     function sortAssets(Position[] memory sliceAPositions, Position[] memory sliceBPositions)
         public
         pure
-        returns (Position[] memory, Position[] memory)
+        returns (MigratePosition[] memory, Position[] memory)
     {
         uint256 lengthA = sliceAPositions.length;
         uint256 lengthB = sliceBPositions.length;
@@ -16,14 +16,20 @@ library MigratorUtils {
         uint256 commonCount;
         uint256 inSliceACount;
 
-        Position[] memory common = new Position[](lengthA);
+        MigratePosition[] memory common = new MigratePosition[](lengthA);
         Position[] memory inSliceA = new Position[](lengthA);
 
         for (uint256 i = 0; i < lengthA; i++) {
             bool isCommon;
             for (uint256 j = 0; j < lengthB; j++) {
                 if (sliceAPositions[i].token == sliceBPositions[j].token) {
-                    common[commonCount] = sliceAPositions[i];
+                    common[commonCount] = MigratePosition({
+                        chainId: sliceAPositions[i].chainId,
+                        token: sliceAPositions[i].token,
+                        decimals: sliceAPositions[i].decimals,
+                        unitsA: sliceAPositions[i].units,
+                        unitsB: sliceBPositions[j].units
+                    });
                     ++commonCount;
                     isCommon = true;
                     break;
