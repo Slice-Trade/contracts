@@ -8,9 +8,15 @@ interface ISliceTokenMigrator {
 
     error UnregisteredSliceToken();
 
+    error Unauthorized();
+
+    error InvalidTransactionState();
+
+    error WithdrawFailed();
+
     function migrateStep1(address srcAsset, address dstAsset, uint256 fromAmount, uint128[] calldata fees) external payable;
 
     function migrateStep2(bytes32 migrationId, uint128[] calldata fees) external payable;
 
-    function withdraw(bytes32 migrationId) external;
+    function withdraw(bytes32 migrationId) external payable;
 }
