@@ -14,6 +14,10 @@ interface ISliceTokenMigrator {
 
     error WithdrawFailed();
 
+    error ActionAlreadyExecuted(string action);
+
+    error OriginNotVault();
+
     function migrateStep1(address srcAsset, address dstAsset, uint256 fromAmount, uint128[] calldata fees) external payable;
 
     function migrateStep2(bytes32 migrationId, uint128[] calldata fees) external payable;

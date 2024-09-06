@@ -5,6 +5,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
 import {MessagingParams, MessagingReceipt} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
 import {ISliceCore} from "../interfaces/ISliceCore.sol";
@@ -20,22 +21,7 @@ import {LayerZeroUtils} from "../libs/LayerZeroUtils.sol";
 import "./MigratorStructs.sol";
 import "./MigratorUtils.sol";
 
-/* 
- we have 3 cross-chain messages: approve asset, transfer redeemed, transfer refunded
- - we only need to send LZ fee for the message, and enough gas to cover execution
- - this should be much simpler since we dont have reply gas cost + reply msg fees
-
- - for these messages we only need to have the required gas, then call _quote with the correct lzSendOpts
-
- TODO:
- - add lzgaslookup for all 3 msgs DONE
- - add gas step function (probably will be small gas step) DONE
- - create _sendLzMsg function DONE
- - create _groupLzMsg function to group messages by chain ID DONE
- - send the messages via LZ
- */
-
-contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
+contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuard, OApp {
     using SafeERC20 for ISliceToken;
     using SafeERC20 for IERC20;
 
@@ -43,6 +29,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
     IChainInfo immutable CHAIN_INFO;
 
     mapping(bytes32 migrationId => MigrationInfo) public migrationInfos;
+    mapping(bytes32 migrationId => MigrationActions) public migrationActions;
 
     /**
      * @dev Nonce for each user to guranatee unique hashes for IDs
@@ -69,6 +56,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
     function migrateStep1(address srcAsset, address dstAsset, uint256 fromAmount, uint128[] calldata fees)
         external
         payable
+        nonReentrant
     {
         if (!isRegisteredSliceToken(srcAsset) || !isRegisteredSliceToken(dstAsset)) {
             revert UnregisteredSliceToken();
@@ -99,7 +87,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
         emit MigrateStep1(migrationId);
     }
 
-    function migrateStep2(bytes32 migrationId, uint128[] calldata fees) external payable {
+    function migrateStep2(bytes32 migrationId, uint128[] calldata fees) external payable nonReentrant {
         MigrationInfo memory migrationInfo = migrationInfos[migrationId];
         if (migrationInfo.creator != msg.sender) {
             revert Unauthorized();
@@ -109,7 +97,11 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
             revert InvalidTransactionState();
         }
 
-        // TODO: introduce state controls so this can only be called once
+        if (migrationActions[migrationId].step2Executed) {
+            revert ActionAlreadyExecuted("migrateStep2");
+        }
+
+        migrationActions[migrationId].step2Executed = true;
 
         Position[] memory dstAssetPositions = ISliceToken(migrationInfo.dstAsset).getPositions();
         MigratePosition[] memory common =
@@ -133,6 +125,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
         MigratorCrossChainSignal[] memory ccMsgs = new MigratorCrossChainSignal[](dstAssetPositionsLength);
         LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, dstAssetPositionsLength, msg.value);
 
+        // TODO: We need to do the approvals in migrateStep1 -> because if we execute the mint() right away, that might get there sooner than the approve
         for (uint256 i = 0; i < dstAssetPositionsLength; i++) {
             uint256 approveAmount = TokenAmountUtils.calculateAmountOutMin(
                 mintAmount, dstAssetPositions[i].units, dstAssetPositions[i].decimals
@@ -143,7 +136,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
                 MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
                     ccsType: MigratorCrossChainSignalType.APPROVE_TRANSFER,
                     underlying: dstAssetPositions[i].token,
-                    user: address(this),
+                    user: address(SLICE_CORE),
                     amount: approveAmount
                 });
 
@@ -162,7 +155,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
         emit MigrateStep2(migrationId);
     }
 
-    function withdrawMintedSlice(bytes32 migrationId) external {
+    function withdrawMintedSlice(bytes32 migrationId) external nonReentrant {
         MigrationInfo memory migrationInfo = migrationInfos[migrationId];
         if (migrationInfo.creator != msg.sender) {
             revert Unauthorized();
@@ -172,14 +165,18 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
             revert InvalidTransactionState();
         }
 
-        // TODO: introduce state controls so this can only be called once
+        if (migrationActions[migrationId].mintedSliceWithdrawn) {
+            revert ActionAlreadyExecuted("withdrawMintedSlice");
+        }
+
+        migrationActions[migrationId].mintedSliceWithdrawn = true;
 
         ISliceToken(migrationInfo.dstAsset).safeTransfer(migrationInfo.creator, migrationInfo.mintAmount);
 
         emit Withdraw(migrationId);
     }
 
-    function withdrawLeftoverAssets(bytes32 migrationId) external payable {
+    function withdrawLeftoverAssets(bytes32 migrationId) external payable nonReentrant {
         MigrationInfo memory migrationInfo = migrationInfos[migrationId];
         if (migrationInfo.creator != msg.sender) {
             revert Unauthorized();
@@ -189,7 +186,11 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
             revert InvalidTransactionState();
         }
 
-        // TODO: introduce state controls so this can only be called once
+        if (migrationActions[migrationId].leftoversWithdrawn) {
+            revert ActionAlreadyExecuted("withdrawLeftoverAssets");
+        }
+
+        migrationActions[migrationId].leftoversWithdrawn = true;
 
         MigratePosition[] memory common = MigratorUtils.getCommonAssets(
             ISliceToken(migrationInfo.srcAsset).getPositions(), ISliceToken(migrationInfo.dstAsset).getPositions()
@@ -223,20 +224,59 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
                 });
                 (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, common[i].chainId, lzMsgInfo);
             }
-
-            if (lzMsgInfo.currentCount != 0) {
-                _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, migrationInfo.creator);
-            }
+        }
+        if (lzMsgInfo.currentCount != 0) {
+            _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, migrationInfo.creator);
         }
     }
 
-    // Position[]
-    // TODO: we need to send cross-chain msgs to transfer out the redeemed assets
-    function withdrawRedeemedAssets(bytes32 migrationId) external payable {
-        // TODO: introduce state controls so this can only be called once
+    function withdrawRedeemedAssets(bytes32 migrationId) external payable nonReentrant {
+        MigrationInfo memory migrationInfo = migrationInfos[migrationId];
+        if (migrationInfo.creator != msg.sender) {
+            revert Unauthorized();
+        }
+
+        if (ISliceToken(migrationInfo.dstAsset).getMint(migrationInfo.redeemId).state != TransactionState.FULFILLED) {
+            revert InvalidTransactionState();
+        }
+
+        if (migrationActions[migrationId].redeemedWithdrawn) {
+            revert ActionAlreadyExecuted("withdrawRedeemedAssets");
+        }
+        migrationActions[migrationId].redeemedWithdrawn = true;
+
+        Position[] memory redeemed = MigratorUtils.getSliceAOnlyAssets(
+            ISliceToken(migrationInfo.srcAsset).getPositions(), ISliceToken(migrationInfo.dstAsset).getPositions()
+        );
+
+        uint256 redeemedLength = redeemed.length;
+        MigratorCrossChainSignal[] memory ccMsgs = new MigratorCrossChainSignal[](redeemedLength);
+        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, redeemedLength, msg.value);
+
+        for (uint256 i = 0; i < redeemedLength; i++) {
+            uint256 amountRedeemed = TokenAmountUtils.calculateAmountOutMin(
+                migrationInfo.fromAmount, redeemed[i].units, redeemed[i].decimals
+            );
+
+            if (_isPositionLocal(redeemed[i].chainId)) {
+                IERC20(redeemed[i].token).safeTransfer(migrationInfo.creator, amountRedeemed);
+            } else {
+                MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
+                    ccsType: MigratorCrossChainSignalType.WITHDRAW,
+                    underlying: redeemed[i].token,
+                    user: migrationInfo.creator,
+                    amount: amountRedeemed
+                });
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, redeemed[i].chainId, lzMsgInfo);
+            }
+        }
+
+        if (lzMsgInfo.currentCount != 0) {
+            _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, migrationInfo.creator);
+        }
     }
 
-    function refund(bytes32 migrationId, uint128[] calldata fees) external payable {
+    function refund(bytes32 migrationId, uint128[] calldata fees) external payable nonReentrant {
         MigrationInfo memory migrationInfo = migrationInfos[migrationId];
         if (migrationInfo.creator != msg.sender) {
             revert Unauthorized();
@@ -246,11 +286,17 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
             revert InvalidTransactionState();
         }
 
+        if (migrationActions[migrationId].failedMintRefunded) {
+            revert ActionAlreadyExecuted("refund");
+        }
+
+        migrationActions[migrationId].failedMintRefunded = true;
+
         ISliceToken(migrationInfo.dstAsset).refund{value: msg.value}(migrationInfo.mintId, fees);
     }
 
     // TODO: Once the refund has completed, the user needs to withdraw the refunded assets, for that we need to send cross-chain msgs and transfer out the assets
-    function withdrawRefund(bytes32 migrationId) external payable {
+    function withdrawRefund(bytes32 migrationId) external payable nonReentrant {
         MigrationInfo memory migrationInfo = migrationInfos[migrationId];
         if (migrationInfo.creator != msg.sender) {
             revert Unauthorized();
@@ -260,12 +306,18 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
             revert InvalidTransactionState();
         }
 
+        if (migrationActions[migrationId].refundWithdrawn) {
+            revert ActionAlreadyExecuted("withdrawRefund");
+        }
+
+        migrationActions[migrationId].refundWithdrawn = true;
+
         // TODO:
         // here we need to call SliceCore.transactionCompleteSignals[mintID] and get the list of assets that have been refunded to this contract for this mint ID
         // then we need to transfer those assets to the user
     }
 
-    function withdrawRefundedFees(address to) external onlyOwner {
+    function withdrawRefundedFees(address to) external nonReentrant onlyOwner {
         (bool success,) = to.call{value: address(this).balance}("");
         if (!success) {
             revert WithdrawFailed();
@@ -279,7 +331,33 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, OApp {
         address, /* _executor */ // the Executor address.
         bytes calldata /* _extraData */ // arbitrary data appended by the Executor
     ) internal override {
-        // TODO
+        if (address(uint160(uint256(_origin.sender))) != address(this)) {
+            revert OriginNotVault();
+        }
+
+        MigratorCrossChainSignal[] memory ccs = abi.decode(payload, (MigratorCrossChainSignal[]));
+
+        MigratorCrossChainSignalType ccsType = ccs[0].ccsType;
+
+        if (ccsType == MigratorCrossChainSignalType.APPROVE_TRANSFER) {
+            handleApproveSignal(ccs);
+        } else if (ccsType == MigratorCrossChainSignalType.WITHDRAW) {
+            handleWithdrawSignal(ccs);
+        }
+    }
+
+    function handleApproveSignal(MigratorCrossChainSignal[] memory ccs) internal {
+        uint256 ccsLength = ccs.length;
+        for (uint256 i = 0; i < ccsLength; i++) {
+            IERC20(ccs[i].underlying).approve(ccs[i].user, ccs[i].amount);
+        }
+    }
+
+    function handleWithdrawSignal(MigratorCrossChainSignal[] memory ccs) internal {
+        uint256 ccsLength = ccs.length;
+        for (uint256 i = 0; i < ccsLength; i++) {
+            IERC20(ccs[i].underlying).safeTransfer(ccs[i].user, ccs[i].amount);
+        }
     }
 
     function isRegisteredSliceToken(address token) internal view returns (bool) {

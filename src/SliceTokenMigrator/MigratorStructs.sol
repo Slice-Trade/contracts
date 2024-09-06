@@ -12,6 +12,15 @@ struct MigrationInfo {
     uint256 mintAmount;
 }
 
+struct MigrationActions {
+    bool step2Executed;
+    bool mintedSliceWithdrawn;
+    bool leftoversWithdrawn;
+    bool redeemedWithdrawn;
+    bool failedMintRefunded;
+    bool refundWithdrawn;
+}
+
 struct MigratePosition {
     uint256 chainId;
     address token;
@@ -30,5 +39,4 @@ struct MigratorCrossChainSignal {
     address underlying;
     address user;
     uint256 amount;
-    // we do not need value param here, since there won't be reply to the src chain
 }
