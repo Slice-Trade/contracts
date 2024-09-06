@@ -498,7 +498,7 @@ contract CrossChainVaultTest is Helper {
 
     function test_commitToStrategy_crossChain() public {
         (bytes32 _stratId, bytes32 expectedCommitId) = commitCrossChain(1 ether, 1);
-        //_verifyCommitment(_stratId, expectedCommitId, 1 ether);
+        _verifyCommitment(_stratId, expectedCommitId, 1 ether);
     }
 
     function test_commitToStrategy_crossChain_Fuzz(uint256 targetAmount, uint8 length) public {
@@ -860,7 +860,7 @@ contract CrossChainVaultTest is Helper {
         deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
         vm.prank(getAddress("mainnet.layerZeroEndpoint"));
 
-        /*         vm.expectEmit(true, true, false, false);
+        vm.expectEmit(true, true, false, false);
         emit ICrossChainVault.RemovedCommitmentFromStrategy(commitmentId, wmaticUnits);
         IOAppReceiver(address(vault)).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
 
@@ -868,7 +868,7 @@ contract CrossChainVaultTest is Helper {
 
         bytes32 strategyIdTokenHash = keccak256(abi.encode(strategyId, address(wmaticPolygon)));
         uint256 committedAmountForStrat = vault.committedAmountsPerStrategy(strategyIdTokenHash);
-        assertEq(committedAmountForStrat, 0); */
+        assertEq(committedAmountForStrat, 0);
     }
 
     function test_cannot_removeCommitmentFromStrategy_InvalidCommitmentId() public {
