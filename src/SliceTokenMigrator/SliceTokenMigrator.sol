@@ -8,13 +8,14 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
 import {MessagingParams, MessagingReceipt} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
-import {ISliceCore} from "../interfaces/ISliceCore.sol";
 import {ISliceToken} from "../interfaces/ISliceToken.sol";
 import {IChainInfo} from "../interfaces/IChainInfo.sol";
 
-import {SliceTransactionInfo, TransactionState, LzMsgGroupInfo, Chain} from "../Structs.sol";
+import {
+    SliceTransactionInfo, TransactionState, TransactionCompleteSignals, LzMsgGroupInfo, Chain
+} from "../Structs.sol";
 
-import {ISliceTokenMigrator} from "./ISliceTokenMigrator.sol";
+import {ISliceTokenMigrator, ISliceCore2} from "./ISliceTokenMigrator.sol";
 import {TokenAmountUtils} from "../libs/TokenAmountUtils.sol";
 import {LayerZeroUtils} from "../libs/LayerZeroUtils.sol";
 
@@ -25,7 +26,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
     using SafeERC20 for ISliceToken;
     using SafeERC20 for IERC20;
 
-    ISliceCore immutable SLICE_CORE;
+    ISliceCore2 immutable SLICE_CORE;
     IChainInfo immutable CHAIN_INFO;
 
     mapping(bytes32 migrationId => MigrationInfo) public migrationInfos;
@@ -41,7 +42,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
      */
     mapping(MigratorCrossChainSignalType ccsType => uint128 gas) public lzGasLookup;
 
-    constructor(ISliceCore sliceCore, IChainInfo chainInfo, address _lzEndpoint, address _owner)
+    constructor(ISliceCore2 sliceCore, IChainInfo chainInfo, address _lzEndpoint, address _owner)
         Ownable(_owner)
         OApp(_lzEndpoint, _owner)
     {
@@ -73,6 +74,8 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
             )
         );
 
+        uint256 mintAmount = calculateMintAmount(srcAsset, dstAsset, fromAmount);
+
         migrationInfos[migrationId] = MigrationInfo({
             id: migrationId,
             redeemId: redeemId,
@@ -81,8 +84,10 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
             srcAsset: srcAsset,
             dstAsset: dstAsset,
             fromAmount: fromAmount,
-            mintAmount: 0
+            mintAmount: mintAmount
         });
+
+        handleMintApprovals(dstAsset, mintAmount);
 
         emit MigrateStep1(migrationId);
     }
@@ -103,54 +108,8 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
 
         migrationActions[migrationId].step2Executed = true;
 
-        Position[] memory dstAssetPositions = ISliceToken(migrationInfo.dstAsset).getPositions();
-        MigratePosition[] memory common =
-            MigratorUtils.getCommonAssets(ISliceToken(migrationInfo.srcAsset).getPositions(), dstAssetPositions);
-
-        uint256 mintAmount = type(uint256).max;
-        // calculate how much we can mint from SliceB
-        for (uint256 i = 0; i < common.length; i++) {
-            // this is the amount that was received during the refund
-            uint256 assetIn =
-                TokenAmountUtils.calculateAmountOutMin(migrationInfo.fromAmount, common[i].unitsA, common[i].decimals);
-            // this is the slice token amount we can get for this amount of assetIn
-            uint256 minMintable = TokenAmountUtils.calculateAmountInMin(assetIn, common[i].unitsB, common[i].decimals);
-            // we get the smallest one
-            if (minMintable < mintAmount) {
-                mintAmount = minMintable;
-            }
-        }
-
-        uint256 dstAssetPositionsLength = dstAssetPositions.length;
-        MigratorCrossChainSignal[] memory ccMsgs = new MigratorCrossChainSignal[](dstAssetPositionsLength);
-        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, dstAssetPositionsLength, msg.value);
-
-        // TODO: We need to do the approvals in migrateStep1 -> because if we execute the mint() right away, that might get there sooner than the approve
-        for (uint256 i = 0; i < dstAssetPositionsLength; i++) {
-            uint256 approveAmount = TokenAmountUtils.calculateAmountOutMin(
-                mintAmount, dstAssetPositions[i].units, dstAssetPositions[i].decimals
-            );
-            if (_isPositionLocal(dstAssetPositions[i].chainId)) {
-                IERC20(dstAssetPositions[i].token).approve(address(SLICE_CORE), approveAmount);
-            } else {
-                MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
-                    ccsType: MigratorCrossChainSignalType.APPROVE_TRANSFER,
-                    underlying: dstAssetPositions[i].token,
-                    user: address(SLICE_CORE),
-                    amount: approveAmount
-                });
-
-                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, dstAssetPositions[i].chainId, lzMsgInfo);
-            }
-        }
-
-        if (lzMsgInfo.currentCount != 0) {
-            _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, msg.sender);
-        }
-
-        bytes32 mintId = ISliceToken(migrationInfo.dstAsset).mint{value: msg.value}(mintAmount, fees);
+        bytes32 mintId = ISliceToken(migrationInfo.dstAsset).mint{value: msg.value}(migrationInfo.mintAmount, fees);
         migrationInfos[migrationId].mintId = mintId;
-        migrationInfos[migrationId].mintAmount = mintAmount;
 
         emit MigrateStep2(migrationId);
     }
@@ -282,7 +241,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
             revert Unauthorized();
         }
 
-        if (ISliceToken(migrationInfo.srcAsset).getMint(migrationInfo.mintId).state != TransactionState.FAILED) {
+        if (ISliceToken(migrationInfo.dstAsset).getMint(migrationInfo.mintId).state != TransactionState.FAILED) {
             revert InvalidTransactionState();
         }
 
@@ -295,14 +254,13 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         ISliceToken(migrationInfo.dstAsset).refund{value: msg.value}(migrationInfo.mintId, fees);
     }
 
-    // TODO: Once the refund has completed, the user needs to withdraw the refunded assets, for that we need to send cross-chain msgs and transfer out the assets
     function withdrawRefund(bytes32 migrationId) external payable nonReentrant {
         MigrationInfo memory migrationInfo = migrationInfos[migrationId];
         if (migrationInfo.creator != msg.sender) {
             revert Unauthorized();
         }
 
-        if (ISliceToken(migrationInfo.srcAsset).getMint(migrationInfo.mintId).state != TransactionState.REFUNDED) {
+        if (ISliceToken(migrationInfo.dstAsset).getMint(migrationInfo.mintId).state != TransactionState.REFUNDED) {
             revert InvalidTransactionState();
         }
 
@@ -312,9 +270,37 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
 
         migrationActions[migrationId].refundWithdrawn = true;
 
-        // TODO:
-        // here we need to call SliceCore.transactionCompleteSignals[mintID] and get the list of assets that have been refunded to this contract for this mint ID
-        // then we need to transfer those assets to the user
+        TransactionCompleteSignals memory _txCompleteSignal =
+            SLICE_CORE.transactionCompleteSignals(migrationInfo.mintId);
+
+        Position[] memory dstPositions = ISliceToken(migrationInfo.dstAsset).getPositions();
+
+        MigratorCrossChainSignal[] memory ccMsgs =
+            new MigratorCrossChainSignal[](_txCompleteSignal.positionsOkIdxs.length);
+        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, _txCompleteSignal.positionsOkIdxs.length, msg.value);
+
+        for (uint256 i = 0; i < _txCompleteSignal.positionsOkIdxs.length; i++) {
+            uint256 _posIdx = _txCompleteSignal.positionsOkIdxs[i];
+            uint256 _amountOut = TokenAmountUtils.calculateAmountOutMin(
+                migrationInfo.mintAmount, dstPositions[_posIdx].units, dstPositions[_posIdx].decimals
+            );
+
+            if (_isPositionLocal(dstPositions[_posIdx].chainId)) {
+                IERC20(dstPositions[_posIdx].token).safeTransfer(migrationInfo.creator, _amountOut);
+            } else {
+                MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
+                    ccsType: MigratorCrossChainSignalType.WITHDRAW,
+                    underlying: dstPositions[_posIdx].token,
+                    user: migrationInfo.creator,
+                    amount: _amountOut
+                });
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, dstPositions[_posIdx].chainId, lzMsgInfo);
+            }
+        }
+
+        if (lzMsgInfo.currentCount != 0) {
+            _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, migrationInfo.creator);
+        }
     }
 
     function withdrawRefundedFees(address to) external nonReentrant onlyOwner {
@@ -415,6 +401,63 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         lzMsgInfo.providedFee -= receipt.fee.nativeFee;
 
         return (ccMsgs, lzMsgInfo);
+    }
+
+    function calculateMintAmount(address srcAsset, address dstAsset, uint256 fromAmount)
+        internal
+        view
+        returns (uint256 mintAmount)
+    {
+        Position[] memory dstAssetPositions = ISliceToken(dstAsset).getPositions();
+        MigratePosition[] memory common =
+            MigratorUtils.getCommonAssets(ISliceToken(srcAsset).getPositions(), dstAssetPositions);
+
+        mintAmount = type(uint256).max;
+        // calculate how much we can mint from SliceB
+        for (uint256 i = 0; i < common.length; i++) {
+            // this is the amount that was received during the refund
+            uint256 assetIn = TokenAmountUtils.calculateAmountOutMin(fromAmount, common[i].unitsA, common[i].decimals);
+            // this is the slice token amount we can get for this amount of assetIn
+            uint256 minMintable = TokenAmountUtils.calculateAmountInMin(assetIn, common[i].unitsB, common[i].decimals);
+            // we get the smallest one
+            if (minMintable < mintAmount) {
+                mintAmount = minMintable;
+            }
+        }
+
+        if (mintAmount == type(uint256).max) {
+            revert InvalidMintAmount();
+        }
+    }
+
+    function handleMintApprovals(address dstAsset, uint256 mintAmount) internal {
+        Position[] memory dstAssetPositions = ISliceToken(dstAsset).getPositions();
+
+        uint256 dstAssetPositionsLength = dstAssetPositions.length;
+        MigratorCrossChainSignal[] memory ccMsgs = new MigratorCrossChainSignal[](dstAssetPositionsLength);
+        LzMsgGroupInfo memory lzMsgInfo = LzMsgGroupInfo(0, 0, 0, dstAssetPositionsLength, msg.value);
+
+        for (uint256 i = 0; i < dstAssetPositionsLength; i++) {
+            uint256 approveAmount = TokenAmountUtils.calculateAmountOutMin(
+                mintAmount, dstAssetPositions[i].units, dstAssetPositions[i].decimals
+            );
+            if (_isPositionLocal(dstAssetPositions[i].chainId)) {
+                IERC20(dstAssetPositions[i].token).approve(address(SLICE_CORE), approveAmount);
+            } else {
+                MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
+                    ccsType: MigratorCrossChainSignalType.APPROVE_TRANSFER,
+                    underlying: dstAssetPositions[i].token,
+                    user: address(SLICE_CORE),
+                    amount: approveAmount
+                });
+
+                (ccMsgs, lzMsgInfo) = groupAndSendLzMsg(ccMsgs, ccs, dstAssetPositions[i].chainId, lzMsgInfo);
+            }
+        }
+
+        if (lzMsgInfo.currentCount != 0) {
+            _sendGroupedLzMsg(ccMsgs, ccMsgs[0], lzMsgInfo, msg.sender);
+        }
     }
 
     // TODO: Can we just use _quote here instead of relying on the provided fee?
