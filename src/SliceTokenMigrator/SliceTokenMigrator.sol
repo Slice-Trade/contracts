@@ -29,9 +29,16 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
     ISliceCore2 immutable SLICE_CORE;
     IChainInfo immutable CHAIN_INFO;
 
+    /**
+     * @dev Stores info about each migration
+     */
     mapping(bytes32 migrationId => MigrationInfo) public migrationInfos;
-    mapping(bytes32 migrationId => MigrationActions) public migrationActions;
 
+    /**
+     * @dev Keeps track of what actions have been executed already for a migration
+     */
+    mapping(bytes32 migrationId => MigrationActions) public migrationActions;
+    
     /**
      * @dev Nonce for each user to guranatee unique hashes for IDs
      */
@@ -54,6 +61,12 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         lzGasLookup[MigratorCrossChainSignalType.WITHDRAW] = 250_000;
     }
 
+    /* =========================================================== */
+    /*    ===================    EXTERNAL   ====================   */
+    /* =========================================================== */
+    /**
+     * @dev See ISliceTokenMigrator - migrateStep1
+     */
     function migrateStep1(address srcAsset, address dstAsset, uint256 fromAmount, uint128[] calldata fees)
         external
         payable
@@ -92,6 +105,9 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         emit MigrateStep1(migrationId);
     }
 
+    /**
+     * @dev See ISliceTokenMigrator - migrateStep2
+     */
     function migrateStep2(bytes32 migrationId, uint128[] calldata fees) external payable nonReentrant {
         MigrationInfo memory migrationInfo = migrationInfos[migrationId];
         if (migrationInfo.creator != msg.sender) {
@@ -114,6 +130,9 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         emit MigrateStep2(migrationId);
     }
 
+    /**
+     * @dev See ISliceTokenMigrator - withdrawMintedSlice
+     */
     function withdrawMintedSlice(bytes32 migrationId) external nonReentrant {
         MigrationInfo memory migrationInfo = migrationInfos[migrationId];
         if (migrationInfo.creator != msg.sender) {
@@ -135,6 +154,9 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         emit Withdraw(migrationId);
     }
 
+    /**
+     * @dev See ISliceTokenMigrator - withdrawLeftoverAssets
+     */
     function withdrawLeftoverAssets(bytes32 migrationId) external payable nonReentrant {
         MigrationInfo memory migrationInfo = migrationInfos[migrationId];
         if (migrationInfo.creator != msg.sender) {
@@ -172,7 +194,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
             }
             // we need to transfer the difference
             transferAmount = amountRedeemed - amountUsedForMint;
-            if (_isPositionLocal(common[i].chainId)) {
+            if (isPositionLocal(common[i].chainId)) {
                 IERC20(common[i].token).safeTransfer(migrationInfo.creator, transferAmount);
             } else {
                 MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
@@ -189,6 +211,9 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         }
     }
 
+    /**
+     * @dev See ISliceTokenMigrator - withdrawRedeemedAssets
+     */
     function withdrawRedeemedAssets(bytes32 migrationId) external payable nonReentrant {
         MigrationInfo memory migrationInfo = migrationInfos[migrationId];
         if (migrationInfo.creator != msg.sender) {
@@ -217,7 +242,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
                 migrationInfo.fromAmount, redeemed[i].units, redeemed[i].decimals
             );
 
-            if (_isPositionLocal(redeemed[i].chainId)) {
+            if (isPositionLocal(redeemed[i].chainId)) {
                 IERC20(redeemed[i].token).safeTransfer(migrationInfo.creator, amountRedeemed);
             } else {
                 MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
@@ -235,6 +260,9 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         }
     }
 
+    /**
+     * @dev See ISliceTokenMigrator - refund
+     */
     function refund(bytes32 migrationId, uint128[] calldata fees) external payable nonReentrant {
         MigrationInfo memory migrationInfo = migrationInfos[migrationId];
         if (migrationInfo.creator != msg.sender) {
@@ -254,6 +282,9 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         ISliceToken(migrationInfo.dstAsset).refund{value: msg.value}(migrationInfo.mintId, fees);
     }
 
+    /**
+     * @dev See ISliceTokenMigrator - withdrawRefund
+     */
     function withdrawRefund(bytes32 migrationId) external payable nonReentrant {
         MigrationInfo memory migrationInfo = migrationInfos[migrationId];
         if (migrationInfo.creator != msg.sender) {
@@ -285,7 +316,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
                 migrationInfo.mintAmount, dstPositions[_posIdx].units, dstPositions[_posIdx].decimals
             );
 
-            if (_isPositionLocal(dstPositions[_posIdx].chainId)) {
+            if (isPositionLocal(dstPositions[_posIdx].chainId)) {
                 IERC20(dstPositions[_posIdx].token).safeTransfer(migrationInfo.creator, _amountOut);
             } else {
                 MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
@@ -303,13 +334,16 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         }
     }
 
-    function withdrawRefundedFees(address to) external nonReentrant onlyOwner {
+    function withdrawDust(address to) external nonReentrant onlyOwner {
         (bool success,) = to.call{value: address(this).balance}("");
         if (!success) {
             revert WithdrawFailed();
         }
     }
 
+    /* =========================================================== */
+    /*    ===================    INTERNAL   ====================   */
+    /* =========================================================== */
     function _lzReceive(
         Origin calldata _origin, // struct containing info about the message sender
         bytes32, /* _guid */ // global packet identifier
@@ -441,7 +475,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
             uint256 approveAmount = TokenAmountUtils.calculateAmountOutMin(
                 mintAmount, dstAssetPositions[i].units, dstAssetPositions[i].decimals
             );
-            if (_isPositionLocal(dstAssetPositions[i].chainId)) {
+            if (isPositionLocal(dstAssetPositions[i].chainId)) {
                 IERC20(dstAssetPositions[i].token).approve(address(SLICE_CORE), approveAmount);
             } else {
                 MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
@@ -460,10 +494,6 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         }
     }
 
-    // TODO: Can we just use _quote here instead of relying on the provided fee?
-    // Since we don't need any value to be sent cross-chain
-    // ---> Can we have an estimateLzMsgValue view function to preview the lz msg send?
-
     function requiredGas(MigratorCrossChainSignalType ccsType, uint128 msgsLength) internal view returns (uint128) {
         uint128 _baseGas = lzGasLookup[ccsType];
         uint128 _gasStep = gasStep(ccsType);
@@ -481,7 +511,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         return 25_000;
     }
 
-    function _isPositionLocal(uint256 positionChainId) private view returns (bool) {
+    function isPositionLocal(uint256 positionChainId) internal view returns (bool) {
         return positionChainId == block.chainid;
     }
 
