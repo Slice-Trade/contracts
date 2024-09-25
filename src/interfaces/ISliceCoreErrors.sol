@@ -14,10 +14,6 @@ interface ISliceCoreErrors {
 
     error OriginNotSliceCore();
 
-    error CrossChainSwapFailed();
-
-    error LocalAssetTransferFailed();
-
     error InvalidTransactionState();
 
     error NotAllCrossChainSignalsReceived();

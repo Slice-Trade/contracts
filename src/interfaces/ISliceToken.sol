@@ -28,8 +28,7 @@ interface ISliceToken is IERC20 {
     error InvalidTransactionState();
     error InsufficientBalance();
     error AlreadySet();
-    error MintFailed();
-
+    
     /**
      * @dev Mints a new Slice token using the manual mint flow - assuming the underlying assets are in the user wallet and approved to spend
      *

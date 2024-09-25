@@ -4,19 +4,23 @@ pragma solidity 0.8.26;
 import "forge-std/src/console.sol";
 import "forge-std/src/Script.sol";
 import "../src/SliceCore.sol";
-import {Constants} from  "./Constants.sol";
+import {Constants} from "./Constants.sol";
 import {IDeployer} from "./IDeployer.sol";
+import {DeployUtils} from "./DeployUtils.sol";
 import "../src/Structs.sol";
 
-contract SliceCoreDeployer is Script, Constants {
-    uint immutable ETH_SEPOLIA_CHAIN_ID = 11155111;
-    uint immutable OP_SEPOLIA_CHAIN_ID = 11155420;
-    uint immutable BASE_SEPOLIA_CHAIN_ID = 84532;
-    uint immutable ARB_SEPOLIA_CHAIN_ID = 421614;
-    uint immutable SCROLL_SEPOLIA_CHAIN_ID = 534351;
+contract SliceCoreDeployer is Script, Constants, DeployUtils {
+    uint256 immutable ETH_SEPOLIA_CHAIN_ID = 11155111;
+    uint256 immutable OP_SEPOLIA_CHAIN_ID = 11155420;
+    uint256 immutable BASE_SEPOLIA_CHAIN_ID = 84532;
+    uint256 immutable ARB_SEPOLIA_CHAIN_ID = 421614;
+    uint256 immutable SCROLL_SEPOLIA_CHAIN_ID = 534351;
+
+    uint256[] public deploymentChainIds;
+    uint256[] public lzEndpointIds;
 
     bytes32 public salt;
-    
+
     struct ConstructorArgs {
         address endpoint;
         address chainInfo;
@@ -27,6 +31,22 @@ contract SliceCoreDeployer is Script, Constants {
     Position[] public positions;
 
     function run() external {
+        string memory mode = vm.envString("MODE");
+
+        if (compareStrings(mode, "mainnet")) {
+            deploymentChainIds.push(getUint("ARB_CHAIN_ID"));
+            deploymentChainIds.push(getUint("OP_CHAIN_ID"));
+            deploymentChainIds.push(getUint("BASE_CHAIN_ID"));
+        } else {
+            deploymentChainIds.push(getUint("ETH_SEPOLIA_CHAIN_ID"));
+            deploymentChainIds.push(getUint("OP_SEPOLIA_CHAIN_ID"));
+            deploymentChainIds.push(getUint("BASE_SEPOLIA_CHAIN_ID"));
+            deploymentChainIds.push(getUint("ARB_SEPOLIA_CHAIN_ID"));
+            deploymentChainIds.push(getUint("SCROLL_SEPOLIA_CHAIN_ID"));
+        }
+
+        setLzEids();
+
         string memory _saltString = vm.envString("SALT");
         setSalt(_saltString);
         IDeployer create3Deployer = IDeployer(getAddress("deployer.create3"));
@@ -34,43 +54,41 @@ contract SliceCoreDeployer is Script, Constants {
         ConstructorArgs memory c = getConstructorArgs();
 
         bytes memory byteCode = abi.encodePacked(
-            type(SliceCore).creationCode,
-            abi.encode(
-                c.endpoint,
-                c.chainInfo,
-                c.sliceTokenDeployer,
-                c.owner
-            )
+            type(SliceCore).creationCode, abi.encode(c.endpoint, c.chainInfo, c.sliceTokenDeployer, c.owner)
         );
 
         uint256 deployerPrivKey = vm.envUint("KEY");
 
         vm.startBroadcast(deployerPrivKey);
 
-        address sliceCoreAddress = create3Deployer.deploy(
-            byteCode,
-            salt
-        );
+        address sliceCoreAddress = create3Deployer.deploy(byteCode, salt);
 
         SliceCore(payable(sliceCoreAddress)).changeSliceTokenCreationEnabled(true);
         SliceCore(payable(sliceCoreAddress)).changeApprovedSliceTokenCreator(c.owner, true);
         SliceCore(payable(sliceCoreAddress)).changeApprovedSliceTokenCreator(address(this), true);
-        
-        // TODO: Mainnet deployment script
-        /// @dev WARNING: only on testnets for now
-        if (block.chainid == 11155111) {
-            SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
-        } else if (block.chainid == 11155420) {
-            SliceCore(payable(sliceCoreAddress)).setPeer(40161, bytes32(uint256(uint160(sliceCoreAddress))));
-            SliceCore(payable(sliceCoreAddress)).setPeer(40245, bytes32(uint256(uint160(sliceCoreAddress))));
-            SliceCore(payable(sliceCoreAddress)).setPeer(40170, bytes32(uint256(uint160(sliceCoreAddress))));
-            SliceCore(payable(sliceCoreAddress)).setPeer(40231, bytes32(uint256(uint160(sliceCoreAddress))));
-        } else if (block.chainid == 84532) {
-            SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
-        } else if(block.chainid == ARB_SEPOLIA_CHAIN_ID) {
-            SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
-        } else if(block.chainid == SCROLL_SEPOLIA_CHAIN_ID) {
-            SliceCore(payable(sliceCoreAddress)).setPeer(40232, bytes32(uint256(uint160(sliceCoreAddress))));
+
+        uint256 masterChainId;
+
+        if (compareStrings(mode, "mainnet")) {
+            masterChainId = vm.envUint("MASTER_CHAIN_ID");
+        } else {
+            masterChainId = vm.envUint("MASTER_CHAIN_ID_TESTNET");
+        }
+
+        if (masterChainId == block.chainid) {
+            for (uint256 i = 0; i < lzEndpointIds.length; i++) {
+                uint256 masterLzEid = getUint(block.chainid);
+                if (masterLzEid == lzEndpointIds[i]) {
+                    continue;
+                }
+                console.log("Setting lz eid: ", lzEndpointIds[i]);
+
+                SliceCore(payable(sliceCoreAddress)).setPeer(uint32(lzEndpointIds[i]), bytes32(uint256(uint160(sliceCoreAddress))));
+            }
+        } else {
+            uint32 lzEid = uint32(getUint(masterChainId));
+                console.log("Setting lz eid 2: ", lzEid);
+            SliceCore(payable(sliceCoreAddress)).setPeer(lzEid, bytes32(uint256(uint160(sliceCoreAddress))));
         }
 
         vm.stopBroadcast();
@@ -88,7 +106,28 @@ contract SliceCoreDeployer is Script, Constants {
     }
 
     function getConstructorArgs() internal view returns (ConstructorArgs memory) {
-        if (block.chainid == ETH_SEPOLIA_CHAIN_ID) {
+        if (block.chainid == getUint("ARB_CHAIN_ID")) {
+            return ConstructorArgs(
+                getAddress("arb.lzEndpoint"),
+                getAddress("arb.chainInfo"),
+                getAddress("arb.tokenDeployer"),
+                getAddress("owner.mainnet")
+            );
+        } else if (block.chainid == getUint("OP_CHAIN_ID")) {
+            return ConstructorArgs(
+                getAddress("op.lzEndpoint"),
+                getAddress("op.chainInfo"),
+                getAddress("op.tokenDeployer"),
+                getAddress("owner.mainnet")
+            );
+        } else if (block.chainid == getUint("BASE_CHAIN_ID")) {
+            return ConstructorArgs(
+                getAddress("base.lzEndpoint"),
+                getAddress("base.chainInfo"),
+                getAddress("base.tokenDeployer"),
+                getAddress("owner.mainnet")
+            );
+        } else if (block.chainid == ETH_SEPOLIA_CHAIN_ID) {
             return ConstructorArgs(
                 getAddress("eth_sepolia.lzEndpoint"),
                 getAddress("eth_sepolia.chainInfo"),
@@ -127,17 +166,9 @@ contract SliceCoreDeployer is Script, Constants {
         revert("Unimplemented chain ID");
     }
 
-    function iToHex(bytes memory buffer) public pure returns (string memory) {
-        // Fixed buffer size for hexadecimal convertion
-        bytes memory converted = new bytes(buffer.length * 2);
-
-        bytes memory _base = "0123456789abcdef";
-
-        for (uint256 i = 0; i < buffer.length; i++) {
-            converted[i * 2] = _base[uint8(buffer[i]) / _base.length];
-            converted[i * 2 + 1] = _base[uint8(buffer[i]) % _base.length];
+    function setLzEids() internal {
+        for (uint256 i = 0; i < deploymentChainIds.length; i++) {
+            lzEndpointIds.push(getUint(deploymentChainIds[i]));
         }
-
-        return string(abi.encodePacked("0x", converted));
     }
 }
