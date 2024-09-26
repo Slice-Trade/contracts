@@ -23,6 +23,8 @@ interface ISliceTokenMigrator {
 
     error InvalidMintAmount();
 
+    error NoAssetsInCommon();
+
     /**
      * @dev Starts the migration procedure from one slice token to another
      *

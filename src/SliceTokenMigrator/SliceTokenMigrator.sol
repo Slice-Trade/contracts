@@ -446,6 +446,10 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         MigratePosition[] memory common =
             MigratorUtils.getCommonAssets(ISliceToken(srcAsset).getPositions(), dstAssetPositions);
 
+        if (common.length == 0) {
+            revert NoAssetsInCommon();
+        }
+        
         mintAmount = type(uint256).max;
         // calculate how much we can mint from SliceB
         for (uint256 i = 0; i < common.length; i++) {

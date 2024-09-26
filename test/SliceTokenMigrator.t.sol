@@ -147,7 +147,6 @@ contract SliceTokenMigratorTest is CommonUtils {
 
     function test_migrateStep1_crossChain() public {
         // TODO
-
     }
 
     function test_cannot_migrateStep1_notRegisteredSliceToken_srcAsset() public {
@@ -184,6 +183,19 @@ contract SliceTokenMigratorTest is CommonUtils {
         migrator.migrateStep1(address(sliceToken), address(sliceToken2), migrateUnits, fees);
     }
 
+    function test_cannot_migrateStep1_noAssetsInCommon() public {
+        vm.startPrank(dev);
+        deal(address(ccToken), address(dev), wethUnits);
+        deal(dev, 10 ether);
+
+        ccToken.approve(address(migrator), migrateUnits);
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 1 ether;
+        vm.expectRevert(bytes4(keccak256("NoAssetsInCommon()")));
+        migrator.migrateStep1{value: 1.5 ether}(address(ccToken), address(sliceToken2), migrateUnits, fees);
+    }
+
     function test_cannot_migrateStep1_crossChain_srcAssetRedeemFailed() public {
         // TODO
     }
@@ -191,15 +203,128 @@ contract SliceTokenMigratorTest is CommonUtils {
     /* =========================================================== */
     /*   ====================  migrateStep2  ===================   */
     /* =========================================================== */
-    function test_migrateStep2() public {}
+    function test_migrateStep2() public {
+        vm.startPrank(dev);
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
 
-    function test_cannot_migrateStep2_unauthorized() public {}
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
 
-    function test_cannot_migrateStep2_InvalidTransactionState() public {}
+        uint128[] memory fees;
+        sliceToken.mint(migrateUnits, fees);
 
-    function test_cannot_migrateStep2_AlreadyExecuted() public {}
+        sliceToken.approve(address(migrator), migrateUnits);
 
-    function test_cannot_migrateStep2_sliceMintFailed() public {}
+        migrator.migrateStep1(address(sliceToken), address(sliceToken2), migrateUnits, fees);
+
+        bytes32 expectedMigrationId = 0x7fce1824a9987df9a13ce937a393bf080f0296c22f44e57f8e5623951a4be9f9;
+
+        deal(address(uniswap), address(dev), uniUnits);
+        uniswap.transfer(address(migrator), uniUnits);
+        migrator.migrateStep2(expectedMigrationId, fees);
+
+        (bytes32 id,, bytes32 mintId, address creator,,, uint256 fromAmount, uint256 mintAmount) =
+            migrator.migrationInfos(expectedMigrationId);
+
+        assertEq(id, expectedMigrationId);
+        assertEq(creator, dev);
+        assertEq(fromAmount, migrateUnits);
+        assertEq(mintAmount, migrateUnits);
+
+        SliceTransactionInfo memory mintInfo = sliceToken2.getMint(mintId);
+        assertEq(uint256(mintInfo.state), 2);
+
+        uint256 migratorBalance = sliceToken2.balanceOf(address(migrator));
+        assertEq(migratorBalance, migrateUnits);
+        vm.stopPrank();
+    }
+
+    function test_cannot_migrateStep2_unauthorized() public {
+        vm.startPrank(dev);
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
+        deal(address(link), address(dev), linkUnits);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
+
+        uint128[] memory fees;
+        sliceToken.mint(migrateUnits, fees);
+
+        sliceToken.approve(address(migrator), migrateUnits);
+
+        migrator.migrateStep1(address(sliceToken), address(sliceToken2), migrateUnits, fees);
+
+        bytes32 expectedMigrationId = 0x7fce1824a9987df9a13ce937a393bf080f0296c22f44e57f8e5623951a4be9f9;
+        vm.stopPrank();
+
+        vm.expectRevert(bytes4(keccak256("Unauthorized()")));
+        migrator.migrateStep2(expectedMigrationId, fees);
+        vm.stopPrank();
+    }
+
+    function test_cannot_migrateStep2_InvalidTransactionState() public {
+        vm.startPrank(dev);
+        deal(dev, 10 ether);
+        deal(address(weth), address(core), wethUnits);
+
+        Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
+        ccPositions[0] = Position(1, address(weth), 18, wethUnits);
+        ccPositions.push(ccPos);
+
+        address newSliceToken = core.createSlice("new cc token", "ncc", ccPositions);
+        ccToken = SliceToken(newSliceToken);
+        deal(address(ccToken), address(dev), wethUnits);
+
+        ccToken.approve(address(migrator), migrateUnits);
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 1 ether;
+        migrator.migrateStep1{value: 1.5 ether}(address(ccToken), address(sliceToken2), migrateUnits, fees);
+
+        bytes32 migrationId = 0xbbd55424d1496b80b611ab139f3f8f76ac8e05abf8afe83cc99178033a18156d;
+        vm.expectRevert(bytes4(keccak256("InvalidTransactionState()")));
+        migrator.migrateStep2(migrationId, fees);
+        vm.stopPrank();
+    }
+
+    function test_cannot_migrateStep2_AlreadyExecuted() public {
+        vm.startPrank(dev);
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
+
+        uint128[] memory fees;
+        sliceToken.mint(migrateUnits, fees);
+
+        sliceToken.approve(address(migrator), migrateUnits);
+
+        migrator.migrateStep1(address(sliceToken), address(sliceToken2), migrateUnits, fees);
+
+        bytes32 expectedMigrationId = 0x7fce1824a9987df9a13ce937a393bf080f0296c22f44e57f8e5623951a4be9f9;
+
+        deal(address(uniswap), address(dev), uniUnits);
+        uniswap.transfer(address(migrator), uniUnits);
+        migrator.migrateStep2(expectedMigrationId, fees);
+
+        vm.expectRevert(abi.encodeWithSelector(ISliceTokenMigrator.ActionAlreadyExecuted.selector, "migrateStep2"));
+
+        migrator.migrateStep2(expectedMigrationId, fees);
+        vm.stopPrank();
+    }
+
+    function test_cannot_migrateStep2_sliceMintFailed() public {
+        // TODO
+        // cross-chain migrate, should fail when no msg.value sent to migrateStep2
+    }
 
     /* =========================================================== */
     /*   ================  withdrawMintedSlice  ================   */
