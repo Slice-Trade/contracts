@@ -239,6 +239,9 @@ contract SliceTokenMigratorTest is CommonUtils {
 
         uint256 migratorBalance = sliceToken2.balanceOf(address(migrator));
         assertEq(migratorBalance, migrateUnits);
+
+        (bool step2Executed,,,,,) = migrator.migrationActions(expectedMigrationId);
+        assertTrue(step2Executed);
         vm.stopPrank();
     }
 
@@ -329,26 +332,166 @@ contract SliceTokenMigratorTest is CommonUtils {
     /* =========================================================== */
     /*   ================  withdrawMintedSlice  ================   */
     /* =========================================================== */
-    function test_withdrawMintedSlice() public {}
+    function test_withdrawMintedSlice() public {
+        // do step 1 
+        vm.startPrank(dev);
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
 
-    function test_cannot_withrawMintedSlice_Unauthorized() public {}
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
 
-    function test_cannot_withdrawMintedSlice_InvalidTransactionState() public {}
+        uint128[] memory fees;
+        sliceToken.mint(migrateUnits, fees);
 
-    function test_cannot_withrawMintedSlice_ActionAlreadyExecuted() public {}
+        sliceToken.approve(address(migrator), migrateUnits);
+
+        migrator.migrateStep1(address(sliceToken), address(sliceToken2), migrateUnits, fees);
+
+        // do step 2
+        bytes32 expectedMigrationId = 0x7fce1824a9987df9a13ce937a393bf080f0296c22f44e57f8e5623951a4be9f9;
+
+        deal(address(uniswap), address(dev), uniUnits);
+        uniswap.transfer(address(migrator), uniUnits);
+        migrator.migrateStep2(expectedMigrationId, fees);
+
+        uint256 migratorSliceTokenBalanceBefore = sliceToken2.balanceOf(address(migrator));
+        uint256 devSliceTokenBalanceBefore = sliceToken2.balanceOf(address(dev));
+
+        assertEq(migratorSliceTokenBalanceBefore, migrateUnits);
+        assertEq(devSliceTokenBalanceBefore, 0);
+        // withdraw the minted slices
+        migrator.withdrawMintedSlice(expectedMigrationId);
+
+        uint256 migratorSliceTokenBalanceAfter = sliceToken2.balanceOf(address(migrator));
+        uint256 devSliceTokenBalanceAfter = sliceToken2.balanceOf(address(dev));
+        assertEq(migratorSliceTokenBalanceAfter, 0);
+        assertEq(devSliceTokenBalanceAfter, migrateUnits);
+
+        (,bool mintedSliceWithdrawn,,,,) = migrator.migrationActions(expectedMigrationId);
+        assertTrue(mintedSliceWithdrawn);
+    }
+
+    function test_cannot_withrawMintedSlice_Unauthorized() public {
+        // do step 1 
+        vm.startPrank(dev);
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
+
+        uint128[] memory fees;
+        sliceToken.mint(migrateUnits, fees);
+
+        sliceToken.approve(address(migrator), migrateUnits);
+
+        migrator.migrateStep1(address(sliceToken), address(sliceToken2), migrateUnits, fees);
+
+        // do step 2
+        bytes32 expectedMigrationId = 0x7fce1824a9987df9a13ce937a393bf080f0296c22f44e57f8e5623951a4be9f9;
+
+        deal(address(uniswap), address(dev), uniUnits);
+        uniswap.transfer(address(migrator), uniUnits);
+        migrator.migrateStep2(expectedMigrationId, fees);
+
+        uint256 migratorSliceTokenBalanceBefore = sliceToken2.balanceOf(address(migrator));
+        uint256 devSliceTokenBalanceBefore = sliceToken2.balanceOf(address(dev));
+
+        assertEq(migratorSliceTokenBalanceBefore, migrateUnits);
+        assertEq(devSliceTokenBalanceBefore, 0);
+        vm.stopPrank();
+        // withdraw the minted slices
+        vm.expectRevert(ISliceTokenMigrator.Unauthorized.selector);
+        migrator.withdrawMintedSlice(expectedMigrationId);
+    }
+
+    function test_cannot_withdrawMintedSlice_InvalidTransactionState() public {
+        // do step 1 
+        vm.startPrank(dev);
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
+
+        uint128[] memory fees;
+        sliceToken.mint(migrateUnits, fees);
+
+        sliceToken.approve(address(migrator), migrateUnits);
+
+        migrator.migrateStep1(address(sliceToken), address(sliceToken2), migrateUnits, fees);
+
+        bytes32 expectedMigrationId = 0x7fce1824a9987df9a13ce937a393bf080f0296c22f44e57f8e5623951a4be9f9;
+        vm.expectRevert(ISliceTokenMigrator.InvalidTransactionState.selector);
+        migrator.withdrawMintedSlice(expectedMigrationId);
+    }
+
+    function test_cannot_withrawMintedSlice_ActionAlreadyExecuted() public {
+        // do step 1 
+        vm.startPrank(dev);
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
+
+        uint128[] memory fees;
+        sliceToken.mint(migrateUnits, fees);
+
+        sliceToken.approve(address(migrator), migrateUnits);
+
+        migrator.migrateStep1(address(sliceToken), address(sliceToken2), migrateUnits, fees);
+
+        // do step 2
+        bytes32 expectedMigrationId = 0x7fce1824a9987df9a13ce937a393bf080f0296c22f44e57f8e5623951a4be9f9;
+
+        deal(address(uniswap), address(dev), uniUnits);
+        uniswap.transfer(address(migrator), uniUnits);
+        migrator.migrateStep2(expectedMigrationId, fees);
+
+        uint256 migratorSliceTokenBalanceBefore = sliceToken2.balanceOf(address(migrator));
+        uint256 devSliceTokenBalanceBefore = sliceToken2.balanceOf(address(dev));
+
+        assertEq(migratorSliceTokenBalanceBefore, migrateUnits);
+        assertEq(devSliceTokenBalanceBefore, 0);
+        // withdraw the minted slices
+        migrator.withdrawMintedSlice(expectedMigrationId);
+
+        vm.expectRevert(abi.encodeWithSelector(ISliceTokenMigrator.ActionAlreadyExecuted.selector, "withdrawMintedSlice"));
+        migrator.withdrawMintedSlice(expectedMigrationId);
+    }
 
     /* =========================================================== */
     /*   ===============  withdrawLeftoverAssets  ==============   */
     /* =========================================================== */
-    function test_withdrawLeftoverAssets() public {}
+    function test_withdrawLeftoverAssets() public {
 
-    function test_withdrawLeftoverAssets_crossChain() public {}
+    }
 
-    function test_cannot_withdrawLeftoverAssets_Unauthorized() public {}
+    function test_withdrawLeftoverAssets_crossChain() public {
+        // TODO
+    }
 
-    function test_cannot_withdrawLeftoverAssets_InvalidTransactionState() public {}
+    function test_cannot_withdrawLeftoverAssets_Unauthorized() public {
 
-    function test_cannot_withdrawLeftoverAssets_ActionAlreadyExecuted() public {}
+    }
+
+    function test_cannot_withdrawLeftoverAssets_InvalidTransactionState() public {
+
+    }
+
+    function test_cannot_withdrawLeftoverAssets_ActionAlreadyExecuted() public {
+
+    }
 
     /* =========================================================== */
     /*   ===============  withrawRedeemedAssets  ===============   */
