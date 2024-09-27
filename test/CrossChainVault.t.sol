@@ -76,7 +76,7 @@ contract CrossChainVaultTest is CommonUtils {
 
         fillPositions(positions);
 
-        (address sCore, address sToken, address sVault) = deployTestContracts(ChainSelect.MAINNET, "", positions);
+        (address sCore, address sToken, address sVault,) = deployTestContracts(ChainSelect.MAINNET, "", positions);
         core = SliceCore(payable(sCore));
         sliceToken = SliceToken(payable(sToken));
 
@@ -667,7 +667,7 @@ contract CrossChainVaultTest is CommonUtils {
 
         selectPolygon();
 
-        (,, address polygonVault) = deployTestContracts(ChainSelect.POLYGON, "", positions);
+        (,, address polygonVault,) = deployTestContracts(ChainSelect.POLYGON, "", positions);
         polyVault = polygonVault;
         assertEq(polyVault, address(vault));
 
@@ -1396,7 +1396,7 @@ contract CrossChainVaultTest is CommonUtils {
 
         selectPolygon();
 
-        (address polygonCore,, address polygonVault) = deployTestContracts(ChainSelect.POLYGON, "", positions);
+        (address polygonCore,, address polygonVault,) = deployTestContracts(ChainSelect.POLYGON, "", positions);
         polyVault = polygonVault;
         assertEq(polyVault, address(vault));
 

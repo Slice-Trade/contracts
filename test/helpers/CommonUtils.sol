@@ -10,6 +10,7 @@ import {IDeployer} from "../../script/IDeployer.sol";
 import {IOAppCore} from "@lz-oapp-v2/interfaces/IOAppCore.sol";
 import {IWETH} from "../../src/external/IWETH.sol";
 import {CrossChainVault} from "../../src/CrossChainVault/CrossChainVault.sol";
+import {SliceTokenMigrator} from "../../src/SliceTokenMigrator/SliceTokenMigrator.sol";
 import {Chain as SliceChain, Position} from "../../src/Structs.sol";
 
 contract CommonUtils is Helper {
@@ -35,7 +36,7 @@ contract CommonUtils is Helper {
 
     function deployTestContracts(ChainSelect chainSelect, string memory salt, Position[] storage positions)
         internal
-        returns (address sliceCore, address tokenAddr, address sVault)
+        returns (address sliceCore, address tokenAddr, address sVault, address sMigrator)
     {
         if (chainSelect == ChainSelect.MAINNET) {
             selectMainnet();
@@ -85,16 +86,33 @@ contract CommonUtils is Helper {
 
         tokenAddr = SliceCore(payable(sliceCore)).createSlice("Slice Token", "SC", positions);
 
-        bytes memory byteCodeVault = abi.encodePacked(
-            type(CrossChainVault).creationCode, abi.encode(sliceCore, address(chainInfo), endpoint, dev)
-        );
+        // VAULT
+        {
+            bytes memory byteCodeVault = abi.encodePacked(
+                type(CrossChainVault).creationCode, abi.encode(sliceCore, address(chainInfo), endpoint, dev)
+            );
 
-        sVault = create3Deployer.deploy(byteCodeVault, stringToBytes32("testvault"));
+            sVault = create3Deployer.deploy(byteCodeVault, stringToBytes32("testvault"));
 
-        IOAppCore(sVault).setPeer(
-            (chainSelect == ChainSelect.MAINNET ? 30109 : (chainSelect == ChainSelect.POLYGON ? 30101 : 30101)),
-            bytes32(uint256(uint160(sVault)))
-        );
+            IOAppCore(sVault).setPeer(
+                (chainSelect == ChainSelect.MAINNET ? 30109 : (chainSelect == ChainSelect.POLYGON ? 30101 : 30101)),
+                bytes32(uint256(uint160(sVault)))
+            );
+        }
+
+        // MIGRATOR
+        {
+            bytes memory byteCodeMigrator = abi.encodePacked(
+                type(SliceTokenMigrator).creationCode, abi.encode(sliceCore, address(chainInfo), endpoint, dev)
+            );
+
+            sMigrator = create3Deployer.deploy(byteCodeMigrator, stringToBytes32("testmigrator"));
+
+            IOAppCore(sMigrator).setPeer(
+                (chainSelect == ChainSelect.MAINNET ? 30109 : (chainSelect == ChainSelect.POLYGON ? 30101 : 30101)),
+                bytes32(uint256(uint160(sMigrator)))
+            );
+        }
     }
 
     function stringToBytes32(string memory _string) internal pure returns (bytes32 result) {

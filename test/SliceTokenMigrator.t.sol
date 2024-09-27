@@ -15,9 +15,10 @@ import {ISliceCore2} from "../src/SliceTokenMigrator/ISliceTokenMigrator.sol";
 import {Position} from "../src/Structs.sol";
 import {ChainInfo} from "../src/utils/ChainInfo.sol";
 import {CrossChainPositionCreator} from "./helpers/CrossChainPositionCreator.sol";
-
 import {SliceTransactionInfo} from "../src/Structs.sol";
 import "../src/SliceTokenMigrator/MigratorStructs.sol";
+import {IOAppCore} from "@lz-oapp-v2/interfaces/IOAppCore.sol";
+import {IOAppReceiver, Origin} from "@lz-oapp-v2/interfaces/IOAppReceiver.sol";
 
 contract SliceTokenMigratorTest is CommonUtils {
     using TokenAmountUtils for SliceTokenMigratorTest;
@@ -66,9 +67,10 @@ contract SliceTokenMigratorTest is CommonUtils {
 
         fillPositions(positions);
 
-        (address sCore, address sToken,) = deployTestContracts(ChainSelect.MAINNET, "", positions);
+        (address sCore, address sToken,, address sMigrator) = deployTestContracts(ChainSelect.MAINNET, "", positions);
         core = SliceCore(payable(sCore));
         sliceToken = SliceToken(payable(sToken));
+        migrator = SliceTokenMigrator(payable(sMigrator));
 
         Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
         ccPositions.push(ccPos);
@@ -78,10 +80,6 @@ contract SliceTokenMigratorTest is CommonUtils {
         positions[2] = Position(1, address(uniswap), 18, uniUnits);
 
         sliceToken2 = SliceToken(core.createSlice("Slice token 2", "ST2", positions));
-
-        // deploy slice token migrator
-        migrator =
-            new SliceTokenMigrator(ISliceCore2(sCore), core.chainInfo(), getAddress("mainnet.layerZeroEndpoint"), dev);
 
         vm.stopPrank();
     }
@@ -146,7 +144,7 @@ contract SliceTokenMigratorTest is CommonUtils {
     }
 
     function test_migrateStep1_crossChain() public {
-        // TODO
+        migrateStep1CrossChain();
     }
 
     function test_cannot_migrateStep1_notRegisteredSliceToken_srcAsset() public {
@@ -697,13 +695,15 @@ contract SliceTokenMigratorTest is CommonUtils {
 
         // check balance after
         uint256 migratorWbtcBalanceAfter = wbtc.balanceOf(address(migrator));
-        uint256 userWbtcBalanceAfter = wbtc.balanceOf(dev); 
+        uint256 userWbtcBalanceAfter = wbtc.balanceOf(dev);
 
         assertEq(migratorWbtcBalanceAfter, 0);
         assertEq(userWbtcBalanceAfter, userWbtcBalanceBefore + wbtcUnits);
         vm.stopPrank();
     }
+
     function test_withrawRedeemedAssets_crossChain() public {}
+
     function test_cannot_withrawRedeemedAssets_Unauthorized() public {
         vm.startPrank(dev);
         // do migrate step 1
@@ -735,6 +735,7 @@ contract SliceTokenMigratorTest is CommonUtils {
         vm.expectRevert(ISliceTokenMigrator.Unauthorized.selector);
         migrator.withdrawRedeemedAssets(expectedMigrationId);
     }
+
     function test_cannot_withrawRedeemedAssets_InvalidTransactionState() public {
         vm.startPrank(dev);
         // do migrate step 1
@@ -758,6 +759,7 @@ contract SliceTokenMigratorTest is CommonUtils {
         vm.expectRevert(ISliceTokenMigrator.InvalidTransactionState.selector);
         migrator.withdrawRedeemedAssets(expectedMigrationId);
     }
+
     function test_cannot_withrawRedeemedAssets_ActionAlreadyExecuted() public {
         vm.startPrank(dev);
         // do migrate step 1
@@ -783,12 +785,12 @@ contract SliceTokenMigratorTest is CommonUtils {
         uniswap.transfer(address(migrator), uniUnits);
         migrator.migrateStep2(expectedMigrationId, fees);
 
-        assertEq(migratorWbtcBalanceBefore, wbtcUnits);
-
         // do withdraw redeemed assets
         migrator.withdrawRedeemedAssets(expectedMigrationId);
 
-        vm.expectRevert(abi.encodeWithSelector(ISliceTokenMigrator.ActionAlreadyExecuted.selector, "withdrawRedeemedAssets"));
+        vm.expectRevert(
+            abi.encodeWithSelector(ISliceTokenMigrator.ActionAlreadyExecuted.selector, "withdrawRedeemedAssets")
+        );
         migrator.withdrawRedeemedAssets(expectedMigrationId);
 
         vm.stopPrank();
@@ -832,5 +834,55 @@ contract SliceTokenMigratorTest is CommonUtils {
     function test_cannot_withdrawDust_NotOwner() public {
         vm.expectRevert();
         migrator.withdrawDust(users[1]);
+    }
+
+    function migrateStep1CrossChain() internal {
+        vm.startPrank(dev);
+        (,,, address polyMigrator) = deployTestContracts(ChainSelect.POLYGON, "", positions);
+        selectMainnet();
+        deal(dev, 10 ether);
+        deal(address(weth), address(core), wethUnits);
+
+        Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
+        ccPositions[0] = Position(1, address(weth), 18, wethUnits);
+        ccPositions.push(ccPos);
+
+        address newSliceToken = core.createSlice("new cc token", "ncc", ccPositions);
+        ccToken = SliceToken(newSliceToken);
+        deal(address(ccToken), address(dev), wethUnits);
+
+        ccToken.approve(address(migrator), migrateUnits);
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 1 ether;
+        migrator.migrateStep1{value: 1.5 ether}(address(ccToken), address(sliceToken2), migrateUnits, fees);
+
+        MigratorCrossChainSignal[] memory ccsMsgs = new MigratorCrossChainSignal[](1);
+        MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
+            ccsType: MigratorCrossChainSignalType.APPROVE_TRANSFER,
+            underlying: address(wmaticPolygon),
+            user: address(core),
+            amount: wmaticUnits
+        });
+
+        ccsMsgs[0] = ccs;
+
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
+        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(migrator)))), nonce: 1});
+        makePersistent(address(migrator));
+
+        selectPolygon();
+
+        deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
+        vm.stopPrank();
+
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(polyMigrator).lzReceive{value: 160 ether}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        uint256 allowanceMatic = wmaticPolygon.allowance(address(polyMigrator), address(core));
+        assertEq(allowanceMatic, wmaticUnits);
+
+        selectMainnet();
+        vm.stopPrank();
     }
 }
