@@ -220,7 +220,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
             revert Unauthorized();
         }
 
-        if (ISliceToken(migrationInfo.dstAsset).getMint(migrationInfo.redeemId).state != TransactionState.FULFILLED) {
+        if (ISliceToken(migrationInfo.dstAsset).getMint(migrationInfo.mintId).state != TransactionState.FULFILLED) {
             revert InvalidTransactionState();
         }
 
