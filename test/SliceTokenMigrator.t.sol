@@ -15,7 +15,7 @@ import {ISliceCore2} from "../src/SliceTokenMigrator/ISliceTokenMigrator.sol";
 import {Position} from "../src/Structs.sol";
 import {ChainInfo} from "../src/utils/ChainInfo.sol";
 import {CrossChainPositionCreator} from "./helpers/CrossChainPositionCreator.sol";
-import {SliceTransactionInfo} from "../src/Structs.sol";
+import "../src/Structs.sol";
 import "../src/SliceTokenMigrator/MigratorStructs.sol";
 import {IOAppCore} from "@lz-oapp-v2/interfaces/IOAppCore.sol";
 import {IOAppReceiver, Origin} from "@lz-oapp-v2/interfaces/IOAppReceiver.sol";
@@ -194,10 +194,6 @@ contract SliceTokenMigratorTest is CommonUtils {
         migrator.migrateStep1{value: 1.5 ether}(address(ccToken), address(sliceToken2), migrateUnits, fees);
     }
 
-    function test_cannot_migrateStep1_crossChain_srcAssetRedeemFailed() public {
-        // TODO
-    }
-
     /* =========================================================== */
     /*   ====================  migrateStep2  ===================   */
     /* =========================================================== */
@@ -323,8 +319,13 @@ contract SliceTokenMigratorTest is CommonUtils {
     }
 
     function test_cannot_migrateStep2_sliceMintFailed() public {
-        // TODO
+        migrateStep1CrossChain();
+        bytes32 expectedMigrationId = 0xbbd55424d1496b80b611ab139f3f8f76ac8e05abf8afe83cc99178033a18156d;
+        uint128[] memory fees;
         // cross-chain migrate, should fail when no msg.value sent to migrateStep2
+        vm.prank(dev);
+        vm.expectRevert();
+        migrator.migrateStep2(expectedMigrationId, fees);
     }
 
     /* =========================================================== */
@@ -532,6 +533,8 @@ contract SliceTokenMigratorTest is CommonUtils {
 
     function test_withdrawLeftoverAssets_crossChain() public {
         // TODO
+        migrateStep1CrossChain();
+        
     }
 
     function test_cannot_withdrawLeftoverAssets_Unauthorized() public {
@@ -702,7 +705,9 @@ contract SliceTokenMigratorTest is CommonUtils {
         vm.stopPrank();
     }
 
-    function test_withrawRedeemedAssets_crossChain() public {}
+    function test_withrawRedeemedAssets_crossChain() public {
+        // TODO
+    }
 
     function test_cannot_withrawRedeemedAssets_Unauthorized() public {
         vm.startPrank(dev);
@@ -883,6 +888,28 @@ contract SliceTokenMigratorTest is CommonUtils {
         assertEq(allowanceMatic, wmaticUnits);
 
         selectMainnet();
+
+        (,bytes32 redeemId,,,,,,) = migrator.migrationInfos(0xbbd55424d1496b80b611ab139f3f8f76ac8e05abf8afe83cc99178033a18156d);
+
+        CrossChainSignal[] memory ccsMsgs2 = new CrossChainSignal[](1);
+        CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
+            id: redeemId,
+            srcChainId: uint32(block.chainid),
+            ccsType: CrossChainSignalType.REDEEM_COMPLETE,
+            success: true,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            units: TokenAmountUtils.calculateAmountOutMin(migrateUnits, wmaticUnits, 18),
+            value: 0
+        });
+        ccsMsgs2[0] = _ccsResponse2;
+        ccsEncoded = abi.encode(ccsMsgs2);
+
+        Origin memory origin2 = Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
+
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+        IOAppReceiver(address(core)).lzReceive(origin2, bytes32(0), ccsEncoded, dev, bytes(""));
+
         vm.stopPrank();
     }
 }
