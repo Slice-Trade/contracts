@@ -532,47 +532,7 @@ contract SliceTokenMigratorTest is CommonUtils {
     }
 
     function test_withdrawLeftoverAssets_crossChain() public {
-
-        migrateStep1CrossChain();
-
-        bytes32 expectedMigrationId = 0xbbd55424d1496b80b611ab139f3f8f76ac8e05abf8afe83cc99178033a18156d;
-        uint128[] memory fees = new uint128[](1);
-        fees[0] = 1 ether;
-
-        vm.startPrank(dev);
-        deal(address(weth), address(migrator), wethUnits);
-        deal(address(link), address(migrator), linkUnits);
-        deal(address(uniswap), address(migrator), uniUnits);
-
-        migrator.migrateStep2{value: 1 ether}(expectedMigrationId, fees);
-
-        migrator.withdrawLeftoverAssets(expectedMigrationId);
-
-        MigratorCrossChainSignal[] memory ccsMsgs = new MigratorCrossChainSignal[](1);
-        MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
-            ccsType: MigratorCrossChainSignalType.WITHDRAW,
-            underlying: address(wmaticPolygon),
-            user: address(dev),
-            amount: wmaticUnits
-        });
-        ccsMsgs[0] = ccs;
-        bytes memory ccsEncoded = abi.encode(ccsMsgs);
-        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(migrator)))), nonce: 1});
-        makePersistent(address(migrator));
-
-        selectPolygon();
-
-        uint256 mBalanceBefore = wmaticPolygon.balanceOf(address(migrator));
-        assertEq(mBalanceBefore, wmaticUnits);
-
-        deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
-        vm.stopPrank();
-
-        vm.prank(getAddress("polygon.layerZeroEndpoint"));
-        IOAppReceiver(address(migrator)).lzReceive{value: 160 ether}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
-
-        uint256 mBalanceAfter = wmaticPolygon.balanceOf(address(migrator));
-        assertEq(mBalanceAfter, 0);
+        // TODO
     }
 
     function test_cannot_withdrawLeftoverAssets_Unauthorized() public {
@@ -744,7 +704,46 @@ contract SliceTokenMigratorTest is CommonUtils {
     }
 
     function test_withrawRedeemedAssets_crossChain() public {
-        // TODO
+        migrateStep1CrossChain();
+
+        bytes32 expectedMigrationId = 0xbbd55424d1496b80b611ab139f3f8f76ac8e05abf8afe83cc99178033a18156d;
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 1 ether;
+
+        vm.startPrank(dev);
+        deal(address(weth), address(migrator), wethUnits);
+        deal(address(link), address(migrator), linkUnits);
+        deal(address(uniswap), address(migrator), uniUnits);
+
+        migrator.migrateStep2{value: 1 ether}(expectedMigrationId, fees);
+
+        migrator.withdrawRedeemedAssets(expectedMigrationId);
+
+        MigratorCrossChainSignal[] memory ccsMsgs = new MigratorCrossChainSignal[](1);
+        MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
+            ccsType: MigratorCrossChainSignalType.WITHDRAW,
+            underlying: address(wmaticPolygon),
+            user: address(dev),
+            amount: wmaticUnits
+        });
+        ccsMsgs[0] = ccs;
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
+        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(migrator)))), nonce: 1});
+        makePersistent(address(migrator));
+
+        selectPolygon();
+
+        uint256 mBalanceBefore = wmaticPolygon.balanceOf(address(migrator));
+        assertEq(mBalanceBefore, wmaticUnits);
+
+        deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
+        vm.stopPrank();
+
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(address(migrator)).lzReceive{value: 160 ether}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        uint256 mBalanceAfter = wmaticPolygon.balanceOf(address(migrator));
+        assertEq(mBalanceAfter, 0);
     }
 
     function test_cannot_withrawRedeemedAssets_Unauthorized() public {
