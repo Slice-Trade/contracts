@@ -333,7 +333,7 @@ contract SliceTokenMigratorTest is CommonUtils {
     /*   ================  withdrawMintedSlice  ================   */
     /* =========================================================== */
     function test_withdrawMintedSlice() public {
-        // do step 1 
+        // do step 1
         vm.startPrank(dev);
         deal(address(weth), address(dev), wethUnits);
         deal(address(link), address(dev), linkUnits);
@@ -370,12 +370,12 @@ contract SliceTokenMigratorTest is CommonUtils {
         assertEq(migratorSliceTokenBalanceAfter, 0);
         assertEq(devSliceTokenBalanceAfter, migrateUnits);
 
-        (,bool mintedSliceWithdrawn,,,,) = migrator.migrationActions(expectedMigrationId);
+        (, bool mintedSliceWithdrawn,,,,) = migrator.migrationActions(expectedMigrationId);
         assertTrue(mintedSliceWithdrawn);
     }
 
     function test_cannot_withrawMintedSlice_Unauthorized() public {
-        // do step 1 
+        // do step 1
         vm.startPrank(dev);
         deal(address(weth), address(dev), wethUnits);
         deal(address(link), address(dev), linkUnits);
@@ -411,7 +411,7 @@ contract SliceTokenMigratorTest is CommonUtils {
     }
 
     function test_cannot_withdrawMintedSlice_InvalidTransactionState() public {
-        // do step 1 
+        // do step 1
         vm.startPrank(dev);
         deal(address(weth), address(dev), wethUnits);
         deal(address(link), address(dev), linkUnits);
@@ -434,7 +434,7 @@ contract SliceTokenMigratorTest is CommonUtils {
     }
 
     function test_cannot_withrawMintedSlice_ActionAlreadyExecuted() public {
-        // do step 1 
+        // do step 1
         vm.startPrank(dev);
         deal(address(weth), address(dev), wethUnits);
         deal(address(link), address(dev), linkUnits);
@@ -466,7 +466,9 @@ contract SliceTokenMigratorTest is CommonUtils {
         // withdraw the minted slices
         migrator.withdrawMintedSlice(expectedMigrationId);
 
-        vm.expectRevert(abi.encodeWithSelector(ISliceTokenMigrator.ActionAlreadyExecuted.selector, "withdrawMintedSlice"));
+        vm.expectRevert(
+            abi.encodeWithSelector(ISliceTokenMigrator.ActionAlreadyExecuted.selector, "withdrawMintedSlice")
+        );
         migrator.withdrawMintedSlice(expectedMigrationId);
     }
 
@@ -474,7 +476,60 @@ contract SliceTokenMigratorTest is CommonUtils {
     /*   ===============  withdrawLeftoverAssets  ==============   */
     /* =========================================================== */
     function test_withdrawLeftoverAssets() public {
+        vm.startPrank(dev);
+        // update slice token so that one of the assets is bigger in quantity than in slice token 2
+        Position memory wethPosition = Position(
+            1, // mainnet
+            address(weth), // wrapped ETH
+            18,
+            wethUnits + 10 ether
+        );
+        positions[0] = wethPosition;
+        positions[2] = Position({chainId: 1, token: address(wbtc), decimals: 8, units: wbtcUnits});
 
+        // create new slice token with these positions
+        address newSlice = core.createSlice("Test", "T", positions);
+        sliceToken = SliceToken(newSlice);
+        wethUnits = wethUnits + 10 ether;
+
+        // mint slice token
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
+
+        uint128[] memory fees;
+        sliceToken.mint(migrateUnits, fees);
+
+        sliceToken.approve(address(migrator), migrateUnits);
+
+        migrator.migrateStep1(address(sliceToken), address(sliceToken2), migrateUnits, fees);
+
+        bytes32 expectedMigrationId = 0xbbd55424d1496b80b611ab139f3f8f76ac8e05abf8afe83cc99178033a18156d;
+        deal(address(uniswap), address(dev), uniUnits);
+        uniswap.transfer(address(migrator), uniUnits);
+
+        // do migrate into slice token 2
+        migrator.migrateStep2(expectedMigrationId, fees);
+
+        uint256 wethBalanceMigratorBefore = weth.balanceOf(address(migrator));
+        assertEq(wethBalanceMigratorBefore, wethUnits - 10 ether);
+
+        uint256 wethBalanceUserBefore = weth.balanceOf(address(dev));
+
+        // withdraw leftover assets
+        migrator.withdrawLeftoverAssets(expectedMigrationId);
+
+        // check that the values are all correct
+        uint256 wethBalanceMigratorAfter = weth.balanceOf(address(migrator));
+        assertEq(wethBalanceMigratorAfter, 0);
+
+        uint256 wethBalanceUserAfter = weth.balanceOf(address(dev));
+        assertEq(wethBalanceUserAfter, wethBalanceUserBefore + 10 ether);
+        vm.stopPrank();
     }
 
     function test_withdrawLeftoverAssets_crossChain() public {
@@ -482,15 +537,125 @@ contract SliceTokenMigratorTest is CommonUtils {
     }
 
     function test_cannot_withdrawLeftoverAssets_Unauthorized() public {
+        vm.startPrank(dev);
+        // update slice token so that one of the assets is bigger in quantity than in slice token 2
+        Position memory wethPosition = Position(
+            1, // mainnet
+            address(weth), // wrapped ETH
+            18,
+            wethUnits + 10 ether
+        );
+        positions[0] = wethPosition;
+        positions[2] = Position({chainId: 1, token: address(wbtc), decimals: 8, units: wbtcUnits});
 
+        // create new slice token with these positions
+        address newSlice = core.createSlice("Test", "T", positions);
+        sliceToken = SliceToken(newSlice);
+        wethUnits = wethUnits + 10 ether;
+
+        // mint slice token
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
+
+        uint128[] memory fees;
+        sliceToken.mint(migrateUnits, fees);
+
+        sliceToken.approve(address(migrator), migrateUnits);
+
+        migrator.migrateStep1(address(sliceToken), address(sliceToken2), migrateUnits, fees);
+
+        bytes32 expectedMigrationId = 0xbbd55424d1496b80b611ab139f3f8f76ac8e05abf8afe83cc99178033a18156d;
+        deal(address(uniswap), address(dev), uniUnits);
+        uniswap.transfer(address(migrator), uniUnits);
+
+        // do migrate into slice token 2
+        migrator.migrateStep2(expectedMigrationId, fees);
+        vm.stopPrank();
+
+        vm.expectRevert(ISliceTokenMigrator.Unauthorized.selector);
+        migrator.withdrawLeftoverAssets(expectedMigrationId);
     }
 
     function test_cannot_withdrawLeftoverAssets_InvalidTransactionState() public {
+        vm.startPrank(dev);
+        deal(dev, 10 ether);
+        deal(address(weth), address(core), wethUnits);
 
+        Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
+        ccPositions[0] = Position(1, address(weth), 18, wethUnits);
+        ccPositions.push(ccPos);
+
+        address newSliceToken = core.createSlice("new cc token", "ncc", ccPositions);
+        ccToken = SliceToken(newSliceToken);
+        deal(address(ccToken), address(dev), wethUnits);
+
+        ccToken.approve(address(migrator), migrateUnits);
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 1 ether;
+        migrator.migrateStep1{value: 1.5 ether}(address(ccToken), address(sliceToken2), migrateUnits, fees);
+
+        bytes32 migrationId = 0xbbd55424d1496b80b611ab139f3f8f76ac8e05abf8afe83cc99178033a18156d;
+        vm.expectRevert(bytes4(keccak256("InvalidTransactionState()")));
+        migrator.withdrawLeftoverAssets(migrationId);
+        vm.stopPrank();
     }
 
     function test_cannot_withdrawLeftoverAssets_ActionAlreadyExecuted() public {
+        vm.startPrank(dev);
+        // update slice token so that one of the assets is bigger in quantity than in slice token 2
+        Position memory wethPosition = Position(
+            1, // mainnet
+            address(weth), // wrapped ETH
+            18,
+            wethUnits + 10 ether
+        );
+        positions[0] = wethPosition;
+        positions[2] = Position({chainId: 1, token: address(wbtc), decimals: 8, units: wbtcUnits});
 
+        // create new slice token with these positions
+        address newSlice = core.createSlice("Test", "T", positions);
+        sliceToken = SliceToken(newSlice);
+        wethUnits = wethUnits + 10 ether;
+
+        // mint slice token
+        deal(address(weth), address(dev), wethUnits);
+        deal(address(link), address(dev), linkUnits);
+        deal(address(wbtc), address(dev), wbtcUnits);
+
+        weth.approve(address(core), wethUnits);
+        link.approve(address(core), linkUnits);
+        wbtc.approve(address(core), wbtcUnits);
+
+        uint128[] memory fees;
+        sliceToken.mint(migrateUnits, fees);
+
+        sliceToken.approve(address(migrator), migrateUnits);
+
+        migrator.migrateStep1(address(sliceToken), address(sliceToken2), migrateUnits, fees);
+
+        bytes32 expectedMigrationId = 0xbbd55424d1496b80b611ab139f3f8f76ac8e05abf8afe83cc99178033a18156d;
+        deal(address(uniswap), address(dev), uniUnits);
+        uniswap.transfer(address(migrator), uniUnits);
+
+        // do migrate into slice token 2
+        migrator.migrateStep2(expectedMigrationId, fees);
+
+        uint256 wethBalanceMigratorBefore = weth.balanceOf(address(migrator));
+        assertEq(wethBalanceMigratorBefore, wethUnits - 10 ether);
+
+        // withdraw leftover assets
+        migrator.withdrawLeftoverAssets(expectedMigrationId);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ISliceTokenMigrator.ActionAlreadyExecuted.selector, "withdrawLeftoverAssets")
+        );
+        migrator.withdrawLeftoverAssets(expectedMigrationId);
     }
 
     /* =========================================================== */
