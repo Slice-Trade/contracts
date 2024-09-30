@@ -81,8 +81,3 @@ interface ISliceTokenMigrator {
      */
     function withdrawRefund(bytes32 migrationId) external payable;
 }
-
-/// @dev ISliceCore interface, but with an extra function to get the value from the public mapping transactionCompleteSignals
-interface ISliceCore2 is ISliceCore {
-    function transactionCompleteSignals(bytes32 id) external view returns (TransactionCompleteSignals memory);
-}

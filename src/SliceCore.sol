@@ -317,6 +317,11 @@ contract SliceCore is ISliceCore, Ownable2Step, ReentrancyGuard, OApp {
     function isSliceTokenRegistered(address token) external view returns (bool) {
         return registeredSliceTokens[token];
     }
+
+    function getTransactionCompleteSignal(bytes32 id) external view returns (TransactionCompleteSignals memory) {
+        return transactionCompleteSignals[id];
+    }
+    
     /* =========================================================== */
     /*   ==================   PUBLIC VIEW   ===================    */
     /* =========================================================== */

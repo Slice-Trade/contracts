@@ -9,9 +9,8 @@ import {CommonUtils} from "./helpers/CommonUtils.sol";
 import {TokenAmountUtils} from "../src/libs/TokenAmountUtils.sol";
 import {SliceTokenMigrator} from "../src/SliceTokenMigrator/SliceTokenMigrator.sol";
 import {ISliceTokenMigrator} from "../src/SliceTokenMigrator/ISliceTokenMigrator.sol";
-import {SliceCore} from "../src/SliceCore.sol";
+import {SliceCore, ISliceCore} from "../src/SliceCore.sol";
 import {SliceToken} from "../src/SliceToken.sol";
-import {ISliceCore2} from "../src/SliceTokenMigrator/ISliceTokenMigrator.sol";
 import {Position} from "../src/Structs.sol";
 import {ChainInfo} from "../src/utils/ChainInfo.sol";
 import {CrossChainPositionCreator} from "./helpers/CrossChainPositionCreator.sol";
@@ -537,7 +536,7 @@ contract SliceTokenMigratorTest is CommonUtils {
 
     function test_withdrawLeftoverAssets_crossChain() public {
         migrateStep2CrossChain();
-        
+
         selectPolygon();
         uint256 leftoverMatic = wmaticPolygon.balanceOf(address(migrator));
         assertEq(leftoverMatic, 100 ether);
@@ -757,7 +756,7 @@ contract SliceTokenMigratorTest is CommonUtils {
 
         migrator.migrateStep2{value: 1 ether}(expectedMigrationId, fees);
 
-        migrator.withdrawRedeemedAssets(expectedMigrationId);
+        migrator.withdrawRedeemedAssets{value: 1 ether}(expectedMigrationId);
 
         MigratorCrossChainSignal[] memory ccsMsgs = new MigratorCrossChainSignal[](1);
         MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
@@ -772,7 +771,7 @@ contract SliceTokenMigratorTest is CommonUtils {
         makePersistent(address(migrator));
 
         selectPolygon();
-
+        deal(address(wmaticPolygon), address(migrator), wmaticUnits);
         uint256 mBalanceBefore = wmaticPolygon.balanceOf(address(migrator));
         assertEq(mBalanceBefore, wmaticUnits);
 
@@ -881,26 +880,132 @@ contract SliceTokenMigratorTest is CommonUtils {
     /* =========================================================== */
     /*   =======================  refund  ======================   */
     /* =========================================================== */
-    function test_refund() public {}
+    function test_refund() public {
+        migrateStep2CrossChain_Fail();
 
-    function test_cannot_refund_Unauthorized() public {}
-    function test_cannot_refund_InvalidTransactionState() public {}
-    function test_cannot_refund_ActionAlreadyExecuted() public {}
+        uint256 wethBalanceBefore = weth.balanceOf(address(migrator));
+        assertEq(wethBalanceBefore, 0);
 
-    function test_cannot_refund_notEnoughMsgValue() public {}
+        bytes32 expectedMigrationId = 0xf9b2b245d7a63560f05170c070a2d82e7ad17ee43d83b9921be81ede27716cda;
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 0;
+        vm.prank(dev);
+        migrator.refund(expectedMigrationId, fees);
+
+        uint256 wethBalanceAfter = weth.balanceOf(address(migrator));
+        assertEq(wethBalanceAfter, 10 ether);
+    }
+
+    function test_cannot_refund_Unauthorized() public {
+        migrateStep2CrossChain_Fail();
+
+        uint256 wethBalanceBefore = weth.balanceOf(address(migrator));
+        assertEq(wethBalanceBefore, 0);
+
+        bytes32 expectedMigrationId = 0xf9b2b245d7a63560f05170c070a2d82e7ad17ee43d83b9921be81ede27716cda;
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 0;
+
+        vm.expectRevert(ISliceTokenMigrator.Unauthorized.selector);
+        migrator.refund(expectedMigrationId, fees);
+    }
+
+    function test_cannot_refund_InvalidTransactionState() public {
+        migrateStep2CrossChain();
+        bytes32 expectedMigrationId = 0xf9b2b245d7a63560f05170c070a2d82e7ad17ee43d83b9921be81ede27716cda;
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 0;
+
+        vm.expectRevert(ISliceTokenMigrator.InvalidTransactionState.selector);
+        vm.prank(dev);
+        migrator.refund(expectedMigrationId, fees);
+    }
 
     /* =========================================================== */
     /*   ===================  withdrawRefund  ==================   */
     /* =========================================================== */
-    function test_withdrawRefund() public {}
+    function test_withdrawRefund() public {
+        migrateStep2CrossChain_Fail();
 
-    function test_withdrawRefund_crossChain() public {}
+        uint256 wethBalanceBefore = weth.balanceOf(address(migrator));
+        assertEq(wethBalanceBefore, 0);
 
-    function test_cannot_withdrawRefund_Unauthorized() public {}
+        bytes32 expectedMigrationId = 0xf9b2b245d7a63560f05170c070a2d82e7ad17ee43d83b9921be81ede27716cda;
 
-    function test_cannot_withdrawRefund_InvalidTransactionState() public {}
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 0;
+        vm.prank(dev);
+        migrator.refund(expectedMigrationId, fees);
 
-    function test_cannot_withdrawRefund_ActionAlreadyExecuted() public {}
+        uint256 wethBalanceAfter = weth.balanceOf(address(migrator));
+        assertEq(wethBalanceAfter, 10 ether);
+
+        vm.prank(dev);
+        migrator.withdrawRefund(expectedMigrationId);
+
+        uint256 wethBalanceAfterRefund = weth.balanceOf(address(migrator));
+        assertEq(wethBalanceAfterRefund, 0);
+
+        uint256 userWethBalanceAfterRefund = weth.balanceOf(dev);
+        assertEq(userWethBalanceAfterRefund, 10 ether);
+    }
+
+    function test_cannot_withdrawRefund_Unauthorized() public {
+        migrateStep2CrossChain_Fail();
+
+        uint256 wethBalanceBefore = weth.balanceOf(address(migrator));
+        assertEq(wethBalanceBefore, 0);
+
+        bytes32 expectedMigrationId = 0xf9b2b245d7a63560f05170c070a2d82e7ad17ee43d83b9921be81ede27716cda;
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 0;
+        vm.prank(dev);
+        migrator.refund(expectedMigrationId, fees);
+
+        vm.expectRevert(ISliceTokenMigrator.Unauthorized.selector);
+        migrator.withdrawRefund(expectedMigrationId);
+    }
+
+    function test_cannot_withdrawRefund_InvalidTransactionState() public {
+        migrateStep2CrossChain_Fail();
+
+        uint256 wethBalanceBefore = weth.balanceOf(address(migrator));
+        assertEq(wethBalanceBefore, 0);
+
+        bytes32 expectedMigrationId = 0xf9b2b245d7a63560f05170c070a2d82e7ad17ee43d83b9921be81ede27716cda;
+
+        vm.prank(dev);
+        vm.expectRevert(ISliceTokenMigrator.InvalidTransactionState.selector);
+        migrator.withdrawRefund(expectedMigrationId);
+    }
+
+    function test_cannot_withdrawRefund_ActionAlreadyExecuted() public {
+        migrateStep2CrossChain_Fail();
+
+        uint256 wethBalanceBefore = weth.balanceOf(address(migrator));
+        assertEq(wethBalanceBefore, 0);
+
+        bytes32 expectedMigrationId = 0xf9b2b245d7a63560f05170c070a2d82e7ad17ee43d83b9921be81ede27716cda;
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 0;
+        vm.prank(dev);
+        migrator.refund(expectedMigrationId, fees);
+
+        uint256 wethBalanceAfter = weth.balanceOf(address(migrator));
+        assertEq(wethBalanceAfter, 10 ether);
+
+        vm.prank(dev);
+        migrator.withdrawRefund(expectedMigrationId);
+
+        vm.prank(dev);
+        vm.expectRevert(abi.encodeWithSelector(ISliceTokenMigrator.ActionAlreadyExecuted.selector, "withdrawRefund"));
+        migrator.withdrawRefund(expectedMigrationId);
+    }
 
     /* =========================================================== */
     /*   ====================  withdrawDust  ===================   */
@@ -1064,7 +1169,7 @@ contract SliceTokenMigratorTest is CommonUtils {
 
         selectMainnet();
 
-        (,,bytes32 mintId,,,,,) = migrator.migrationInfos(expectedMigrationId);
+        (,, bytes32 mintId,,,,,) = migrator.migrationInfos(expectedMigrationId);
 
         CrossChainSignal[] memory ccsMsgs2 = new CrossChainSignal[](1);
         CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
@@ -1088,5 +1193,122 @@ contract SliceTokenMigratorTest is CommonUtils {
         uint256 mintedBalance = ccToken.balanceOf(address(migrator));
 
         assertEq(mintedBalance, 1 ether);
+    }
+
+    function migrateStep2CrossChain_Fail() internal {
+        vm.startPrank(dev);
+        (,,, address polyMigrator) = deployTestContracts(ChainSelect.POLYGON, "", positions);
+        selectMainnet();
+        deal(dev, 10 ether);
+        deal(address(migrator), 10 ether);
+
+        Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
+        ccPositions[0] = Position(1, address(weth), 18, wethUnits);
+        ccPositions.push(ccPos);
+
+        address newSliceToken = core.createSlice("new cc token", "ncc", ccPositions);
+        ccToken = SliceToken(newSliceToken);
+        makePersistent(newSliceToken);
+
+        positions[0] = Position(1, address(weth), 18, wethUnits);
+        positions[2] = Position(137, address(wmaticPolygon), 18, wmaticUnits + 100 ether);
+        address newLocalSlice = core.createSlice("new local", "nl", positions);
+        sliceToken = SliceToken(newLocalSlice);
+        makePersistent(newLocalSlice);
+
+        deal(address(weth), address(core), wethUnits);
+        deal(address(link), address(core), linkUnits);
+        deal(address(wbtc), address(core), wbtcUnits);
+        deal(address(uniswap), address(core), uniUnits);
+
+        deal(address(sliceToken), address(dev), migrateUnits);
+
+        sliceToken.approve(address(migrator), migrateUnits);
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 1 ether;
+        migrator.migrateStep1{value: 1.5 ether}(address(sliceToken), address(ccToken), migrateUnits, fees);
+        vm.stopPrank();
+
+        MigratorCrossChainSignal[] memory ccsMsgs = new MigratorCrossChainSignal[](1);
+        MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
+            ccsType: MigratorCrossChainSignalType.APPROVE_TRANSFER,
+            underlying: address(wmaticPolygon),
+            user: address(core),
+            amount: wmaticUnits
+        });
+
+        ccsMsgs[0] = ccs;
+
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
+        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(migrator)))), nonce: 1});
+        makePersistent(address(migrator));
+
+        selectPolygon();
+
+        deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
+
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(polyMigrator).lzReceive{value: 160 ether}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        uint256 allowanceMatic = wmaticPolygon.allowance(address(polyMigrator), address(core));
+        assertEq(allowanceMatic, wmaticUnits);
+
+        // user has to transfer assets to migrator beforehand
+        // deal(address(wmaticPolygon), address(migrator), wmaticUnits + 100 ether);
+
+        selectMainnet();
+
+        bytes32 expectedMigrationId = 0xf9b2b245d7a63560f05170c070a2d82e7ad17ee43d83b9921be81ede27716cda;
+
+        (, bytes32 redeemId,,,,,,) = migrator.migrationInfos(expectedMigrationId);
+
+        {
+            CrossChainSignal[] memory ccsMsgs3 = new CrossChainSignal[](1);
+            CrossChainSignal memory _ccsResponse3 = CrossChainSignal({
+                id: redeemId,
+                srcChainId: uint32(137),
+                ccsType: CrossChainSignalType.REDEEM_COMPLETE,
+                success: true,
+                user: address(migrator),
+                underlying: address(wmaticPolygon),
+                units: TokenAmountUtils.calculateAmountOutMin(migrateUnits, wmaticUnits, 18),
+                value: 0
+            });
+            ccsMsgs3[0] = _ccsResponse3;
+            ccsEncoded = abi.encode(ccsMsgs3);
+
+            Origin memory origin3 = Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
+
+            vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+            IOAppReceiver(address(core)).lzReceive(origin3, bytes32(0), ccsEncoded, dev, bytes(""));
+        }
+        vm.prank(dev);
+        migrator.migrateStep2{value: 1.5 ether}(expectedMigrationId, fees);
+
+        (,, bytes32 mintId,,,,,) = migrator.migrationInfos(expectedMigrationId);
+
+        CrossChainSignal[] memory ccsMsgs2 = new CrossChainSignal[](1);
+        CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
+            id: mintId,
+            srcChainId: uint32(137),
+            ccsType: CrossChainSignalType.MINT_COMPLETE,
+            success: false,
+            user: address(migrator),
+            underlying: address(wmaticPolygon),
+            units: TokenAmountUtils.calculateAmountOutMin(migrateUnits, wmaticUnits, 18),
+            value: 0
+        });
+        ccsMsgs2[0] = _ccsResponse2;
+        ccsEncoded = abi.encode(ccsMsgs2);
+
+        Origin memory origin2 = Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
+
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+        IOAppReceiver(address(core)).lzReceive(origin2, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        SliceTransactionInfo memory mintInfo = ccToken.getMint(mintId);
+        // mint failed
+        assertEq(uint256(mintInfo.state), 3);
     }
 }

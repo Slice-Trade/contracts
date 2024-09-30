@@ -116,4 +116,13 @@ interface ISliceCore is ILayerZeroReceiver, ISliceCoreErrors {
      * @return bool Whether the address is a registered slice token
      */
     function isSliceTokenRegistered(address token) external view returns (bool);
+
+    /**
+     * @dev Returns the Transaction complete signal for the given ID.
+     *
+     * @param id The ID to check
+     *
+     * @return TransactionCompleteSignals the tx complete signal for the given ID
+     */
+    function getTransactionCompleteSignal(bytes32 id) external view returns (TransactionCompleteSignals memory);
 }

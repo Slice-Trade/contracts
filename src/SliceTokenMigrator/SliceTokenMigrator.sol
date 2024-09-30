@@ -9,13 +9,14 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {OApp, Origin, MessagingFee} from "@lz-oapp-v2/OApp.sol";
 import {MessagingParams, MessagingReceipt} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
 import {ISliceToken} from "../interfaces/ISliceToken.sol";
+import {ISliceCore} from "../interfaces/ISliceCore.sol";
 import {IChainInfo} from "../interfaces/IChainInfo.sol";
 
 import {
     SliceTransactionInfo, TransactionState, TransactionCompleteSignals, LzMsgGroupInfo, Chain
 } from "../Structs.sol";
 
-import {ISliceTokenMigrator, ISliceCore2} from "./ISliceTokenMigrator.sol";
+import {ISliceTokenMigrator} from "./ISliceTokenMigrator.sol";
 import {TokenAmountUtils} from "../libs/TokenAmountUtils.sol";
 import {LayerZeroUtils} from "../libs/LayerZeroUtils.sol";
 
@@ -27,7 +28,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
     using SafeERC20 for ISliceToken;
     using SafeERC20 for IERC20;
 
-    ISliceCore2 immutable SLICE_CORE;
+    ISliceCore immutable SLICE_CORE;
     IChainInfo immutable CHAIN_INFO;
 
     /**
@@ -50,7 +51,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
      */
     mapping(MigratorCrossChainSignalType ccsType => uint128 gas) public lzGasLookup;
 
-    constructor(ISliceCore2 sliceCore, IChainInfo chainInfo, address _lzEndpoint, address _owner)
+    constructor(ISliceCore sliceCore, IChainInfo chainInfo, address _lzEndpoint, address _owner)
         Ownable(_owner)
         OApp(_lzEndpoint, _owner)
     {
@@ -303,7 +304,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         migrationActions[migrationId].refundWithdrawn = true;
 
         TransactionCompleteSignals memory _txCompleteSignal =
-            SLICE_CORE.transactionCompleteSignals(migrationInfo.mintId);
+            SLICE_CORE.getTransactionCompleteSignal(migrationInfo.mintId);
 
         Position[] memory dstPositions = ISliceToken(migrationInfo.dstAsset).getPositions();
 
