@@ -98,6 +98,9 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         lzGasLookup[CrossChainVaultSignalType.REMOVE_COMPLETE] = 2e5;
     }
 
+    /* =========================================================== */
+    /*    ==================    EXTERNAL    ====================   */
+    /* =========================================================== */
     /**
      * @dev See ICrossChainVault - createCommitmentStrategy
      */
@@ -172,6 +175,9 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         emit CommitmentStrategyTargetModified(strategyId, newTarget);
     }
 
+    /**
+     * @dev See ICrossChainVault - executeCommitmentStrategy
+     */
     function executeCommitmentStrategy(bytes32 strategyId, uint128[] calldata fees)
         external
         payable
@@ -227,6 +233,9 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         emit CommitmentStrategyExecuted(strategyId);
     }
 
+    /**
+     * @dev See ICrossChainVault - commitToStrategy
+     */
     function commitToStrategy(
         bytes32 strategyId,
         address[] calldata assets,
@@ -289,6 +298,9 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         }
     }
 
+    /**
+     * @dev See ICrossChainVault - removeCommitmentFromStrategy
+     */
     function removeCommitmentFromStrategy(bytes32 commitmentId, uint256 amount, uint128 fee)
         external
         payable
@@ -352,6 +364,9 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         }
     }
 
+    /**
+     * @dev See ICrossChainVault - pullMintedTokenShares
+     */
     function pullMintedTokenShares(bytes32 strategyId, uint256 nonce) external nonReentrant {
         // get the given strategy
         CommitmentStrategy memory _strategy = commitmentStrategies[strategyId];
@@ -412,13 +427,6 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         emit PulledMintedTokenShares(strategyId, msg.sender, USA);
     }
 
-    function commitmentExists(bytes32 commitmentId) internal view returns (bool) {
-        if (commitmentId == bytes32(0)) {
-            return false;
-        }
-        return commitments[commitmentId].id == commitmentId;
-    }
-
     /**
      * @dev See ICrossChainVault - changeUserApprovalToCommitmentStrategy
      */
@@ -443,12 +451,18 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         emit ChangedUserApprovalToCommitmentStrategy(strategyId, user, isApproved);
     }
 
+    /**
+     * @dev See ICrossChainVault - pullMintedTokenShares
+     */
     function pauseVault() external onlyOwner vaultNotPaused {
         isPaused = true;
 
         emit VaultPaused();
     }
 
+    /**
+     * @dev See ICrossChainVault - pullMintedTokenShares
+     */
     function restartVault() external onlyOwner {
         if (!isPaused) {
             revert VaultNotPaused();
@@ -479,6 +493,16 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
 
     function setMaxTimestampDiff(uint256 newMaxTimestampDiff) external onlyOwner {
         MAX_TIMESTAMP_DIFF = newMaxTimestampDiff;
+    }
+
+    /* =========================================================== */
+    /*    ==================    INTERNAL    ====================   */
+    /* =========================================================== */
+    function commitmentExists(bytes32 commitmentId) internal view returns (bool) {
+        if (commitmentId == bytes32(0)) {
+            return false;
+        }
+        return commitments[commitmentId].id == commitmentId;
     }
 
     function getLatestPriceInfo(address underlyingAsset) internal view returns (uint256) {
@@ -641,6 +665,9 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
         return (ccMsgs, lzMsgInfo);
     }
 
+    /* =========================================================== */
+    /*    ==================    PRIVATE    =====================   */
+    /* =========================================================== */
     function _sendGroupedLzMsg(
         CrossChainVaultSignal[] memory ccMsgs,
         CrossChainVaultSignal memory ccs,
@@ -761,7 +788,7 @@ contract CrossChainVault is ICrossChainVault, Ownable2Step, ReentrancyGuard, OAp
     function gasStep(CrossChainVaultSignalType ccsType) internal pure returns (uint128) {
         if (ccsType == CrossChainVaultSignalType.COMMIT) {
             return 75_000;
-        } else if(ccsType == CrossChainVaultSignalType.COMMIT_COMPLETE) {
+        } else if (ccsType == CrossChainVaultSignalType.COMMIT_COMPLETE) {
             return 163_000;
         }
 

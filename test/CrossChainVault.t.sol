@@ -4,7 +4,6 @@ pragma solidity 0.8.26;
 import "forge-std/src/Test.sol";
 import "forge-std/src/console.sol";
 import "./helpers/Helper.sol";
-
 import {IWETH} from "../src/external/IWETH.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ILayerZeroEndpointV2, MessagingParams} from "@lz-oapp-v2/interfaces/ILayerZeroEndpointV2.sol";
@@ -26,8 +25,9 @@ import {IDeployer} from "../script/IDeployer.sol";
 import {CrossChainPositionCreator} from "./helpers/CrossChainPositionCreator.sol";
 
 import {LZFeeEstimator} from "./helpers/LZFeeEstimator.sol";
+import {CommonUtils} from "./helpers/CommonUtils.sol";
 
-contract CrossChainVaultTest is Helper {
+contract CrossChainVaultTest is CommonUtils {
     using TokenAmountUtils for CrossChainVaultTest;
 
     uint256 immutable MAINNET_BLOCK_NUMBER = 19518913; //TSTAMP: 1711459720
@@ -39,16 +39,9 @@ contract CrossChainVaultTest is Helper {
     SliceToken sliceToken;
     SliceToken ccToken;
 
-    IWETH public weth;
     IERC20 public usdc;
-    IERC20 public link;
-    IERC20 public wbtc;
 
     IERC20 public wmaticPolygon;
-
-    uint256 public wethUnits = 10000000000000000000; // 10 wETH
-    uint256 public linkUnits = 2000000000000000000000; // 2000 LINK
-    uint256 public wbtcUnits = 100000000;
 
     uint256 wmaticUnits = 95000000000000000000; // 95 wmatic
 
@@ -68,12 +61,6 @@ contract CrossChainVaultTest is Helper {
     AggregatorV2V3Interface public wbtcPriceFeed = AggregatorV2V3Interface(0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c);
     AggregatorV2V3Interface public wmaticPriceFeed = AggregatorV2V3Interface(0x7bAC85A8a13A4BcD8abb3eB7d6b4d632c5a57676);
 
-    enum ChainSelect {
-        MAINNET,
-        POLYGON,
-        OPTIMISM
-    }
-
     /* =========================================================== */
     /*   ======================    setup   ====================    */
     /* =========================================================== */
@@ -84,15 +71,12 @@ contract CrossChainVaultTest is Helper {
         selectMainnet();
 
         usdc = IERC20(getAddress("mainnet.usdc"));
-        link = IERC20(getAddress("mainnet.link"));
-        weth = IWETH(getAddress("mainnet.weth"));
-        wbtc = IERC20(getAddress("mainnet.wbtc"));
 
         wmaticPolygon = IERC20(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
 
-        fillPositions();
+        fillPositions(positions);
 
-        (address sCore, address sToken, address sVault) = deployTestContracts(ChainSelect.MAINNET, "");
+        (address sCore, address sToken, address sVault,) = deployTestContracts(ChainSelect.MAINNET, "", positions);
         core = SliceCore(payable(sCore));
         sliceToken = SliceToken(payable(sToken));
 
@@ -498,7 +482,7 @@ contract CrossChainVaultTest is Helper {
 
     function test_commitToStrategy_crossChain() public {
         (bytes32 _stratId, bytes32 expectedCommitId) = commitCrossChain(1 ether, 1);
-        //_verifyCommitment(_stratId, expectedCommitId, 1 ether);
+        _verifyCommitment(_stratId, expectedCommitId, 1 ether);
     }
 
     function test_commitToStrategy_crossChain_Fuzz(uint256 targetAmount, uint8 length) public {
@@ -683,7 +667,7 @@ contract CrossChainVaultTest is Helper {
 
         selectPolygon();
 
-        (,, address polygonVault) = deployTestContracts(ChainSelect.POLYGON, "");
+        (,, address polygonVault,) = deployTestContracts(ChainSelect.POLYGON, "", positions);
         polyVault = polygonVault;
         assertEq(polyVault, address(vault));
 
@@ -860,7 +844,7 @@ contract CrossChainVaultTest is Helper {
         deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
         vm.prank(getAddress("mainnet.layerZeroEndpoint"));
 
-        /*         vm.expectEmit(true, true, false, false);
+        vm.expectEmit(true, true, false, false);
         emit ICrossChainVault.RemovedCommitmentFromStrategy(commitmentId, wmaticUnits);
         IOAppReceiver(address(vault)).lzReceive(origin, bytes32(0), ccsEncoded, dev, bytes(""));
 
@@ -868,7 +852,7 @@ contract CrossChainVaultTest is Helper {
 
         bytes32 strategyIdTokenHash = keccak256(abi.encode(strategyId, address(wmaticPolygon)));
         uint256 committedAmountForStrat = vault.committedAmountsPerStrategy(strategyIdTokenHash);
-        assertEq(committedAmountForStrat, 0); */
+        assertEq(committedAmountForStrat, 0);
     }
 
     function test_cannot_removeCommitmentFromStrategy_InvalidCommitmentId() public {
@@ -1392,100 +1376,6 @@ contract CrossChainVaultTest is Helper {
     /* =========================================================== */
     /*  ======================  helpers  ========================  */
     /* =========================================================== */
-    function deployTestContracts(ChainSelect chainSelect, string memory salt)
-        internal
-        returns (address sliceCore, address tokenAddr, address sVault)
-    {
-        if (chainSelect == ChainSelect.MAINNET) {
-            selectMainnet();
-        } else if (chainSelect == ChainSelect.POLYGON) {
-            selectPolygon();
-        } else if (chainSelect == ChainSelect.OPTIMISM) {
-            selectOptimism();
-        }
-
-        ChainInfo chainInfo = new ChainInfo();
-
-        SliceTokenDeployer deployer = new SliceTokenDeployer();
-
-        address endpoint = getAddress(
-            chainSelect == ChainSelect.MAINNET
-                ? "mainnet.layerZeroEndpoint"
-                : (chainSelect == ChainSelect.POLYGON ? "polygon.layerZeroEndpoint" : "optimism.layerZeroEndpoint")
-        );
-
-        bytes memory byteCode = abi.encodePacked(
-            type(SliceCore).creationCode, abi.encode(endpoint, address(chainInfo), address(deployer), dev)
-        );
-
-        IDeployer create3Deployer = IDeployer(
-            getAddress(
-                chainSelect == ChainSelect.MAINNET
-                    ? "mainnet.deployer.create3"
-                    : (chainSelect == ChainSelect.POLYGON ? "polygon.deployer.create3" : "optimism.deployer.create3")
-            )
-        );
-
-        //address _deployedAddr = create3Deployer.deployedAddress(byteCode, dev, stringToBytes32("TEST"));
-        if (stringToBytes32(salt) == bytes32(0)) {
-            salt = "TEST";
-        }
-        sliceCore = create3Deployer.deploy(byteCode, stringToBytes32(salt));
-
-        // enable slice token creation
-        SliceCore(payable(sliceCore)).changeSliceTokenCreationEnabled(true);
-        // approve address as Slice token creator
-        SliceCore(payable(sliceCore)).changeApprovedSliceTokenCreator(dev, true);
-        // set peer address
-        IOAppCore(sliceCore).setPeer(
-            (chainSelect == ChainSelect.MAINNET ? 30109 : (chainSelect == ChainSelect.POLYGON ? 30101 : 30101)),
-            bytes32(uint256(uint160(sliceCore)))
-        );
-
-        tokenAddr = SliceCore(payable(sliceCore)).createSlice("Slice Token", "SC", positions);
-
-        bytes memory byteCodeVault = abi.encodePacked(
-            type(CrossChainVault).creationCode, abi.encode(sliceCore, address(chainInfo), endpoint, dev)
-        );
-
-        sVault = create3Deployer.deploy(byteCodeVault, stringToBytes32("testvault"));
-
-        IOAppCore(sVault).setPeer(
-            (chainSelect == ChainSelect.MAINNET ? 30109 : (chainSelect == ChainSelect.POLYGON ? 30101 : 30101)),
-            bytes32(uint256(uint160(sVault)))
-        );
-    }
-
-    function stringToBytes32(string memory _string) internal pure returns (bytes32 result) {
-        require(bytes(_string).length <= 32, "String too long"); // Ensure string length is not greater than 32 bytes
-
-        assembly {
-            result := mload(add(_string, 32))
-        }
-    }
-
-    function fillPositions() internal {
-        // create positions
-        Position memory wethPosition = Position(
-            1, // mainnet
-            address(weth), // wrapped ETH
-            18,
-            wethUnits
-        );
-
-        Position memory linkPosition = Position(
-            1, // mainnet
-            address(link), // chainlink
-            18,
-            linkUnits // 20 LINK
-        );
-
-        Position memory wbtcPosition = Position({chainId: 1, token: address(wbtc), decimals: 8, units: wbtcUnits});
-
-        positions.push(wethPosition);
-        positions.push(linkPosition);
-        positions.push(wbtcPosition);
-    }
 
     function commitCrossChain(uint256 targetAmount, uint8 length) private returns (bytes32, bytes32) {
         vm.startPrank(dev);
@@ -1506,7 +1396,7 @@ contract CrossChainVaultTest is Helper {
 
         selectPolygon();
 
-        (address polygonCore,, address polygonVault) = deployTestContracts(ChainSelect.POLYGON, "");
+        (address polygonCore,, address polygonVault,) = deployTestContracts(ChainSelect.POLYGON, "", positions);
         polyVault = polygonVault;
         assertEq(polyVault, address(vault));
 
@@ -1711,16 +1601,6 @@ contract CrossChainVaultTest is Helper {
         IOAppReceiver(core).lzReceive(origin, bytes32(0), ccsEncoded2, address(vault), bytes(""));
     }
 
-    function bytes32ToHexString(bytes32 _bytes32) public pure returns (string memory) {
-        bytes memory hexChars = "0123456789abcdef";
-        bytes memory str = new bytes(64);
-        for (uint256 i = 0; i < 32; i++) {
-            str[i * 2] = hexChars[uint256(uint8(_bytes32[i] >> 4))];
-            str[1 + i * 2] = hexChars[uint256(uint8(_bytes32[i] & 0x0f))];
-        }
-        return string(str);
-    }
-
     function assertTransferredAndAllowances() private view {
         // check that funds arrived to the vault
         uint256 wethBalance = weth.balanceOf(address(vault));
@@ -1845,13 +1725,5 @@ contract CrossChainVaultTest is Helper {
         }
         address ccTokenManyPos = core.createSlice("CCSlice", "CCS", ccPositions);
         ccToken = SliceToken(ccTokenManyPos);
-    }
-
-    function toUint128Array(uint256[] memory arr) internal pure returns (uint128[] memory) {
-        uint128[] memory _arr = new uint128[](arr.length);
-        for (uint256 i = 0; i < arr.length; i++) {
-            _arr[i] = uint128(arr[i]);
-        }
-        return _arr;
     }
 }
