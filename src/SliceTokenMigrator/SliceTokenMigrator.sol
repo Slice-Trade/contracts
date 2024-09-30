@@ -21,6 +21,7 @@ import {LayerZeroUtils} from "../libs/LayerZeroUtils.sol";
 
 import "./MigratorStructs.sol";
 import "./MigratorUtils.sol";
+import "forge-std/src/console.sol";
 
 contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuard, OApp {
     using SafeERC20 for ISliceToken;
@@ -453,7 +454,7 @@ contract SliceTokenMigrator is ISliceTokenMigrator, Ownable2Step, ReentrancyGuar
         mintAmount = type(uint256).max;
         // calculate how much we can mint from SliceB
         for (uint256 i = 0; i < common.length; i++) {
-            // this is the amount that was received during the refund
+            // this is the amount that was received during the redeem
             uint256 assetIn = TokenAmountUtils.calculateAmountOutMin(fromAmount, common[i].unitsA, common[i].decimals);
             // this is the slice token amount we can get for this amount of assetIn
             uint256 minMintable = TokenAmountUtils.calculateAmountInMin(assetIn, common[i].unitsB, common[i].decimals);

@@ -239,6 +239,10 @@ contract SliceTokenMigratorTest is CommonUtils {
         vm.stopPrank();
     }
 
+    function test_migrateStep2_crossChain() public {
+        migrateStep2CrossChain();
+    }
+
     function test_cannot_migrateStep2_unauthorized() public {
         vm.startPrank(dev);
         deal(address(weth), address(dev), wethUnits);
@@ -532,7 +536,43 @@ contract SliceTokenMigratorTest is CommonUtils {
     }
 
     function test_withdrawLeftoverAssets_crossChain() public {
-        // TODO
+        migrateStep2CrossChain();
+        
+        selectPolygon();
+        uint256 leftoverMatic = wmaticPolygon.balanceOf(address(migrator));
+        assertEq(leftoverMatic, 100 ether);
+
+        selectMainnet();
+        bytes32 expectedMigrationId = 0xf9b2b245d7a63560f05170c070a2d82e7ad17ee43d83b9921be81ede27716cda;
+        vm.prank(dev);
+        migrator.withdrawLeftoverAssets{value: 1 ether}(expectedMigrationId);
+
+        MigratorCrossChainSignal[] memory ccsMsgs = new MigratorCrossChainSignal[](1);
+        MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
+            ccsType: MigratorCrossChainSignalType.WITHDRAW,
+            underlying: address(wmaticPolygon),
+            user: address(dev),
+            amount: leftoverMatic
+        });
+
+        ccsMsgs[0] = ccs;
+        bytes memory ccsEncoded = abi.encode(ccsMsgs);
+        Origin memory origin = Origin({srcEid: 30101, sender: bytes32(uint256(uint160(address(migrator)))), nonce: 1});
+        makePersistent(address(migrator));
+
+        selectPolygon();
+
+        deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
+        vm.stopPrank();
+
+        vm.prank(getAddress("polygon.layerZeroEndpoint"));
+        IOAppReceiver(address(migrator)).lzReceive{value: 160 ether}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        uint256 maticBalanceAfter = wmaticPolygon.balanceOf(address(migrator));
+        assertEq(maticBalanceAfter, 0);
+
+        uint256 userMaticBalance = wmaticPolygon.balanceOf(address(dev));
+        assertEq(leftoverMatic, userMaticBalance);
     }
 
     function test_cannot_withdrawLeftoverAssets_Unauthorized() public {
@@ -880,7 +920,7 @@ contract SliceTokenMigratorTest is CommonUtils {
 
     function migrateStep1CrossChain() internal {
         vm.startPrank(dev);
-        (,,, address polyMigrator) = deployTestContracts(ChainSelect.POLYGON, "", positions);
+        deployTestContracts(ChainSelect.POLYGON, "", positions);
         selectMainnet();
         deal(dev, 10 ether);
         deal(address(weth), address(core), wethUnits);
@@ -894,10 +934,72 @@ contract SliceTokenMigratorTest is CommonUtils {
         deal(address(ccToken), address(dev), wethUnits);
 
         ccToken.approve(address(migrator), migrateUnits);
-
         uint128[] memory fees = new uint128[](1);
         fees[0] = 1 ether;
         migrator.migrateStep1{value: 1.5 ether}(address(ccToken), address(sliceToken2), migrateUnits, fees);
+
+        makePersistent(address(migrator));
+        vm.stopPrank();
+
+        (, bytes32 redeemId,,,,,,) =
+            migrator.migrationInfos(0xbbd55424d1496b80b611ab139f3f8f76ac8e05abf8afe83cc99178033a18156d);
+
+        CrossChainSignal[] memory ccsMsgs2 = new CrossChainSignal[](1);
+        CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
+            id: redeemId,
+            srcChainId: uint32(block.chainid),
+            ccsType: CrossChainSignalType.REDEEM_COMPLETE,
+            success: true,
+            user: dev,
+            underlying: address(wmaticPolygon),
+            units: TokenAmountUtils.calculateAmountOutMin(migrateUnits, wmaticUnits, 18),
+            value: 0
+        });
+        ccsMsgs2[0] = _ccsResponse2;
+        bytes memory ccsEncoded = abi.encode(ccsMsgs2);
+
+        Origin memory origin2 = Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
+
+        vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+        IOAppReceiver(address(core)).lzReceive(origin2, bytes32(0), ccsEncoded, dev, bytes(""));
+
+        vm.stopPrank();
+    }
+
+    function migrateStep2CrossChain() internal {
+        vm.startPrank(dev);
+        (,,, address polyMigrator) = deployTestContracts(ChainSelect.POLYGON, "", positions);
+        selectMainnet();
+        deal(dev, 10 ether);
+        deal(address(migrator), 10 ether);
+
+        Position memory ccPos = Position(137, address(wmaticPolygon), 18, wmaticUnits);
+        ccPositions[0] = Position(1, address(weth), 18, wethUnits);
+        ccPositions.push(ccPos);
+
+        address newSliceToken = core.createSlice("new cc token", "ncc", ccPositions);
+        ccToken = SliceToken(newSliceToken);
+        makePersistent(newSliceToken);
+
+        positions[0] = Position(1, address(weth), 18, wethUnits);
+        positions[2] = Position(137, address(wmaticPolygon), 18, wmaticUnits + 100 ether);
+        address newLocalSlice = core.createSlice("new local", "nl", positions);
+        sliceToken = SliceToken(newLocalSlice);
+        makePersistent(newLocalSlice);
+
+        deal(address(weth), address(core), wethUnits);
+        deal(address(link), address(core), linkUnits);
+        deal(address(wbtc), address(core), wbtcUnits);
+        deal(address(uniswap), address(core), uniUnits);
+
+        deal(address(sliceToken), address(dev), migrateUnits);
+
+        sliceToken.approve(address(migrator), migrateUnits);
+
+        uint128[] memory fees = new uint128[](1);
+        fees[0] = 1 ether;
+        migrator.migrateStep1{value: 1.5 ether}(address(sliceToken), address(ccToken), migrateUnits, fees);
+        vm.stopPrank();
 
         MigratorCrossChainSignal[] memory ccsMsgs = new MigratorCrossChainSignal[](1);
         MigratorCrossChainSignal memory ccs = MigratorCrossChainSignal({
@@ -916,7 +1018,6 @@ contract SliceTokenMigratorTest is CommonUtils {
         selectPolygon();
 
         deal(getAddress("polygon.layerZeroEndpoint"), 200 ether);
-        vm.stopPrank();
 
         vm.prank(getAddress("polygon.layerZeroEndpoint"));
         IOAppReceiver(polyMigrator).lzReceive{value: 160 ether}(origin, bytes32(0), ccsEncoded, dev, bytes(""));
@@ -924,20 +1025,54 @@ contract SliceTokenMigratorTest is CommonUtils {
         uint256 allowanceMatic = wmaticPolygon.allowance(address(polyMigrator), address(core));
         assertEq(allowanceMatic, wmaticUnits);
 
-        deal(address(wmaticPolygon), address(migrator), wmaticUnits);
+        // user has to transfer assets to migrator beforehand
+        deal(address(wmaticPolygon), address(migrator), wmaticUnits + 100 ether);
 
         selectMainnet();
 
-        (, bytes32 redeemId,,,,,,) =
-            migrator.migrationInfos(0xbbd55424d1496b80b611ab139f3f8f76ac8e05abf8afe83cc99178033a18156d);
+        bytes32 expectedMigrationId = 0xf9b2b245d7a63560f05170c070a2d82e7ad17ee43d83b9921be81ede27716cda;
+
+        (, bytes32 redeemId,,,,,,) = migrator.migrationInfos(expectedMigrationId);
+
+        {
+            CrossChainSignal[] memory ccsMsgs3 = new CrossChainSignal[](1);
+            CrossChainSignal memory _ccsResponse3 = CrossChainSignal({
+                id: redeemId,
+                srcChainId: uint32(137),
+                ccsType: CrossChainSignalType.REDEEM_COMPLETE,
+                success: true,
+                user: address(migrator),
+                underlying: address(wmaticPolygon),
+                units: TokenAmountUtils.calculateAmountOutMin(migrateUnits, wmaticUnits, 18),
+                value: 0
+            });
+            ccsMsgs3[0] = _ccsResponse3;
+            ccsEncoded = abi.encode(ccsMsgs3);
+
+            Origin memory origin3 = Origin({srcEid: 30109, sender: bytes32(uint256(uint160(address(core)))), nonce: 1});
+
+            vm.prank(getAddress("mainnet.layerZeroEndpoint"));
+            IOAppReceiver(address(core)).lzReceive(origin3, bytes32(0), ccsEncoded, dev, bytes(""));
+        }
+
+        vm.prank(dev);
+        migrator.migrateStep2{value: 1.5 ether}(expectedMigrationId, fees);
+
+        selectPolygon();
+        vm.prank(address(polyMigrator));
+        wmaticPolygon.transfer(address(core), wmaticUnits);
+
+        selectMainnet();
+
+        (,,bytes32 mintId,,,,,) = migrator.migrationInfos(expectedMigrationId);
 
         CrossChainSignal[] memory ccsMsgs2 = new CrossChainSignal[](1);
         CrossChainSignal memory _ccsResponse2 = CrossChainSignal({
-            id: redeemId,
-            srcChainId: uint32(block.chainid),
-            ccsType: CrossChainSignalType.REDEEM_COMPLETE,
+            id: mintId,
+            srcChainId: uint32(137),
+            ccsType: CrossChainSignalType.MINT_COMPLETE,
             success: true,
-            user: dev,
+            user: address(migrator),
             underlying: address(wmaticPolygon),
             units: TokenAmountUtils.calculateAmountOutMin(migrateUnits, wmaticUnits, 18),
             value: 0
@@ -950,6 +1085,8 @@ contract SliceTokenMigratorTest is CommonUtils {
         vm.prank(getAddress("mainnet.layerZeroEndpoint"));
         IOAppReceiver(address(core)).lzReceive(origin2, bytes32(0), ccsEncoded, dev, bytes(""));
 
-        vm.stopPrank();
+        uint256 mintedBalance = ccToken.balanceOf(address(migrator));
+
+        assertEq(mintedBalance, 1 ether);
     }
 }
